@@ -288,6 +288,7 @@ const PRESETS = {
 // ------------------------------------------------------------------ state
 const S = {
   id: null,                 // project id in storage
+  rev: 0,                   // cloud revision this copy is based on
   project: null,            // {name, w, h, palette:[hex], poses:[{name,fps,frames:[Int16Array]}]}
   pose: 0, frame: 0,
   color: 1,                 // palette index; -1 = transparent
@@ -715,69 +716,207 @@ function askConfirm(title, text, ok) {
     $('cOk').onclick = () => { closeModal(); ok(); }; $('cNo').onclick = closeModal; });
 }
 
-// ------------------------------------------------------------------ storage (cloud db, local fallback)
-let db = null, downloads = null, saving = false, saveTimer = null;
-const setSave = (txt, cls) => { const el = $('saveState'); el.textContent = txt; el.className = cls || ''; };
-function scheduleSave() { setSave('Unsaved changes'); clearTimeout(saveTimer); saveTimer = setTimeout(save, 1200); }
-async function save() {
+// ------------------------------------------------------------------ storage (cloud db + instant local copy)
+// Every edit is copied to this device within a moment, so closing the page
+// never loses a stroke. The cloud copy follows after a short pause. Each cloud
+// save carries a revision number and the device that wrote it: if another
+// device saved in between, we stop and ask instead of overwriting. Earlier
+// versions are kept in history, and deleted projects go to the trash.
+let db = null, downloads = null, saving = false, saveTimer = null, localTimer = null, retryTimer = null, retryDelay = 4000;
+const LOCAL = 'spritestudio:';
+const MAX_DOC = 256 * 1024, WARN_DOC = 200 * 1024;
+const HISTORY_KEEP = 20, HISTORY_EVERY_MS = 3 * 60 * 1000, TRASH_DAYS = 30;
+const DEVICE = (() => { try { let d = localStorage.getItem('spritestudio.device'); if (!d) { d = Math.random().toString(36).slice(2, 10); localStorage.setItem('spritestudio.device', d); } return d; } catch { return 'nodevice'; } })();
+let lastHistoryAt = 0, sizeWarned = false;
+const setSave = (txt, cls) => { const el = $('saveState'); el.textContent = txt; el.className = cls || ''; el.title = cls === 'err' ? 'Tap to try again' : ''; };
+$('saveState').addEventListener('click', () => { if ($('saveState').className === 'err') { S.dirty = true; save(); } });
+
+function body() { return { ...serialize(P()), updatedAt: new Date().toISOString() }; }
+/** Instant device copy. `pending` = not yet in the cloud. */
+function writeLocal(pending) {
+  if (!S.id) return false;
+  try { localStorage.setItem(LOCAL + S.id, JSON.stringify({ ...body(), rev: S.rev || 0, pending: !!pending })); return true; } catch { return false; }
+}
+function readLocal(id) { try { return JSON.parse(localStorage.getItem(LOCAL + id) || 'null'); } catch { return null; } }
+
+function scheduleSave() {
+  setSave('Saving…');
+  clearTimeout(localTimer); localTimer = setTimeout(() => { if (S.dirty) writeLocal(true); }, 120);
+  clearTimeout(saveTimer); saveTimer = setTimeout(save, 1200);
+}
+
+async function save(opts = {}) {
   if (!S.dirty || !S.id) return;
   if (saving) { scheduleSave(); return; }
+  clearTimeout(retryTimer);
   saving = true; S.dirty = false;
-  const body = { ...serialize(P()), updatedAt: new Date().toISOString() };
+  const b = body();
+  const localOk = writeLocal(true);
+  const size = JSON.stringify(b).length;
+  if (size > WARN_DOC && !sizeWarned) { sizeWarned = true; toast('This project is getting large. Fewer frames or a smaller canvas keeps it saving to the cloud.'); }
   try {
-    if (db) { await db.doc('projects/' + S.id).set(body); setSave('Saved', 'ok'); }
-    else { localStorage.setItem('spritestudio:' + S.id, JSON.stringify(body)); setSave('Saved on this device', 'ok'); }
+    if (!db) { writeLocal(false); setSave(localOk ? 'Saved on this device' : 'Could not save', localOk ? 'ok' : 'err'); saving = false; return; }
+    if (size > MAX_DOC) { setSave('Too big for the cloud: saved on this device', 'err'); saving = false; return; }
+    const ref = db.doc('projects/' + S.id);
+    const cur = await ref.get();
+    const theirs = cur.exists ? cur.data() : null;
+    const theirRev = theirs ? (theirs.rev || 0) : 0;
+    if (theirs && theirRev > (S.rev || 0) && !opts.force) {
+      // Someone else saved since we loaded: never overwrite silently.
+      saving = false; S.dirty = true; setSave('Changed on another device', 'err');
+      return askConflict(theirs);
+    }
+    if (theirs && Date.now() - lastHistoryAt > HISTORY_EVERY_MS) { await keepHistory(S.id, theirs); lastHistoryAt = Date.now(); }
+    const rev = Math.max(theirRev, S.rev || 0) + 1;
+    await ref.set({ ...b, rev, device: DEVICE });
+    S.rev = rev; writeLocal(false); retryDelay = 4000;
+    setSave(S.dirty ? 'Saving…' : 'Saved', 'ok');
   } catch (err) {
     S.dirty = true;
-    try { localStorage.setItem('spritestudio:' + S.id, JSON.stringify(body)); setSave('Saved on this device only', 'err'); }
-    catch { setSave('Could not save', 'err'); }
+    setSave(localOk ? 'Saved on this device (will sync)' : 'Not saved: tap to retry', 'err');
+    retryTimer = setTimeout(() => save(), retryDelay); retryDelay = Math.min(60000, retryDelay * 2);
   }
   saving = false;
 }
-async function listProjects() {
-  const out = [];
-  if (db) { try { const snap = await db.collection('projects').get(); snap.docs.forEach((d) => { const v = d.data(); out.push({ id: d.id, name: v.name, w: v.w, h: v.h, updatedAt: v.updatedAt }); }); } catch {} }
-  if (!out.length) { try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i);
-      if (k.startsWith('spritestudio:')) { const v = JSON.parse(localStorage.getItem(k)); out.push({ id: k.slice(13), name: v.name, w: v.w, h: v.h, updatedAt: v.updatedAt }); } } } catch {} }
-  out.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-  return out;
+
+function askConflict(theirs) {
+  const when = theirs.updatedAt ? new Date(theirs.updatedAt).toLocaleString() : 'recently';
+  openModal(`<h3>Changed on another device</h3><p>This project was saved somewhere else (${when}) after you opened it. What should happen to your changes?</p>
+    <div class="row"><button id="cfCopy" class="on">Keep mine as a copy</button><button id="cfTheirs">Load the other version</button><button id="cfMine">Overwrite with mine</button></div>
+    <p class="label">Nothing is lost either way: the version that gets replaced is kept in History.</p>`, () => {
+    $('cfCopy').onclick = async () => { closeModal(); const copyP = deserialize(serialize(P())); copyP.name = P().name + ' (my copy)';
+      S.id = 'p' + Date.now().toString(36); S.rev = 0; S.project = copyP; $('projName').value = copyP.name; S.dirty = true; changed(true); toast('Saved your version as a copy'); };
+    $('cfTheirs').onclick = async () => { closeModal(); await keepHistory(S.id, { ...body(), rev: S.rev || 0, device: DEVICE }); S.dirty = false; await loadProject(S.id, { skipRecovery: true }); toast('Loaded the other version. Yours is in History.'); };
+    $('cfMine').onclick = async () => { closeModal(); await keepHistory(S.id, theirs); S.dirty = true; await save({ force: true }); toast('Overwritten. The other version is in History.'); };
+  });
 }
-async function loadProject(id) {
-  let data = null;
-  if (db) { try { const d = await db.doc('projects/' + id).get(); if (d.exists) data = d.data(); } catch {} }
-  if (!data) { try { data = JSON.parse(localStorage.getItem('spritestudio:' + id) || 'null'); } catch {} }
+
+// History: snapshots in the "history" collection, newest HISTORY_KEEP kept per project.
+async function keepHistory(id, data) {
+  if (!db || !data) return;
+  try {
+    await db.doc('history/' + id + '~' + (data.rev || 0) + '~' + Date.now().toString(36)).set({ ...data, projectId: id, keptAt: new Date().toISOString() });
+    const all = await listHistory(id);
+    for (const h of all.slice(HISTORY_KEEP)) await db.doc('history/' + h.key).delete();
+  } catch {}
+}
+async function listHistory(id) {
+  if (!db) return [];
+  try { const snap = await db.collection('history').where('projectId', '==', id).get();
+    return snap.docs.map((d) => ({ key: d.id, ...d.data() })).sort((a, b) => String(b.keptAt).localeCompare(String(a.keptAt)));
+  } catch { return []; }
+}
+
+async function listProjects() {
+  const out = new Map();
+  if (db) { try { const snap = await db.collection('projects').get(); snap.docs.forEach((d) => { const v = d.data(); out.set(d.id, { id: d.id, name: v.name, w: v.w, h: v.h, updatedAt: v.updatedAt }); }); } catch {} }
+  // Device copies that never reached the cloud show up too.
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i);
+      if (k.startsWith(LOCAL) && !k.startsWith(LOCAL + 'last')) { const v = readLocal(k.slice(LOCAL.length)); const id = k.slice(LOCAL.length);
+        if (v && v.w && (!db || v.pending || !out.size) && !out.has(id)) out.set(id, { id, name: v.name, w: v.w, h: v.h, updatedAt: v.updatedAt }); } } } catch {}
+  return [...out.values()].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+}
+
+async function loadProject(id, opts = {}) {
+  let cloud = null;
+  if (db) { try { const d = await db.doc('projects/' + id).get(); if (d.exists) cloud = d.data(); } catch {} }
+  const local = readLocal(id);
+  let data = cloud || local;
   if (!data) return false;
-  S.id = id; S.project = deserialize(data); S.pose = 0; S.frame = 0; S.sel = null; S.float = null; S.undo = []; S.redo = [];
-  S.color = Math.min(1, P().palette.length - 1);
-  $('projName').value = P().name;
-  try { localStorage.setItem('spritestudio:last', id); } catch {}
-  fitZoom(); changed(false); setSave(db ? 'Saved' : 'Saved on this device', 'ok');
+  const apply = (d, dirty) => {
+    S.id = id; S.rev = (cloud && cloud.rev) || 0; S.project = deserialize(d); S.pose = 0; S.frame = 0; S.sel = null; S.float = null; S.undo = []; S.redo = [];
+    S.color = Math.min(1, P().palette.length - 1); $('projName').value = P().name;
+    try { localStorage.setItem(LOCAL + 'last', id); } catch {}
+    fitZoom(); S.dirty = dirty; changed(dirty);
+    if (!dirty) { writeLocal(false); setSave(db ? 'Saved' : 'Saved on this device', 'ok'); }
+  };
+  // Startup recovery: unsaved device changes newer than the cloud copy.
+  if (!opts.skipRecovery && cloud && local && local.pending && String(local.updatedAt) > String(cloud.updatedAt || '')) {
+    apply(cloud, false);
+    openModal(`<h3>Recover unsaved changes?</h3><p>This device has changes to “${(local.name || id).replace(/</g, '&lt;')}” from ${new Date(local.updatedAt).toLocaleString()} that did not reach the cloud.</p>
+      <div class="row"><button id="rcYes" class="on">Recover my changes</button><button id="rcNo">Use the cloud version</button></div>`, () => {
+      $('rcYes').onclick = () => { closeModal(); apply(local, true); toast('Changes recovered'); };
+      $('rcNo').onclick = async () => { closeModal(); await keepHistory(id, { ...local, projectId: id }); writeLocal(false); toast('Using the cloud version. Your device changes are in History.'); };
+    });
+    return true;
+  }
+  apply(data, !cloud && !!db); // a device-only project gets uploaded
   return true;
 }
+
 function startNew(name, w, h) {
-  S.id = 'p' + Date.now().toString(36); S.project = newProject(name, w, h);
+  S.id = 'p' + Date.now().toString(36); S.rev = 0; S.project = newProject(name, w, h);
   S.pose = 0; S.frame = 0; S.sel = null; S.float = null; S.undo = []; S.redo = []; S.color = 1;
   $('projName').value = name; fitZoom(); S.dirty = true; changed(true);
 }
 
+// Trash: deleted projects stay restorable for TRASH_DAYS days.
+async function trashProject(id) {
+  const local = readLocal(id);
+  let data = null;
+  if (db) { try { const d = await db.doc('projects/' + id).get(); if (d.exists) data = d.data(); } catch {} }
+  data = data || local;
+  if (db && data) { await db.doc('trash/' + id).set({ ...data, deletedAt: new Date().toISOString() }); await db.doc('projects/' + id).delete(); }
+  else if (data) { try { localStorage.setItem('spritestudio-trash:' + id, JSON.stringify({ ...data, deletedAt: new Date().toISOString() })); } catch {} }
+  try { localStorage.removeItem(LOCAL + id); } catch {}
+}
+async function listTrash() {
+  const out = []; const cutoff = new Date(Date.now() - TRASH_DAYS * 864e5).toISOString();
+  if (db) { try { const snap = await db.collection('trash').get();
+    for (const d of snap.docs) { const v = d.data(); if (String(v.deletedAt) < cutoff) { db.doc('trash/' + d.id).delete().catch(() => {}); continue; } out.push({ id: d.id, ...v }); } } catch {} }
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('spritestudio-trash:')) { const v = JSON.parse(localStorage.getItem(k)); if (String(v.deletedAt) >= cutoff) out.push({ id: k.slice(19), ...v, localOnly: true }); else localStorage.removeItem(k); } } } catch {}
+  return out.sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
+}
+async function restoreFromTrash(item) {
+  const { deletedAt, localOnly, id, ...data } = item;
+  if (db) { await db.doc('projects/' + id).set({ ...data, rev: (data.rev || 0) + 1, device: DEVICE }); if (!localOnly) await db.doc('trash/' + id).delete(); }
+  else { try { localStorage.setItem(LOCAL + id, JSON.stringify(data)); } catch {} }
+  try { localStorage.removeItem('spritestudio-trash:' + id); } catch {}
+}
+
+const esc = (t) => String(t || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 async function openProjects() {
   openModal('<h3>Projects</h3><p class="label">Loading…</p>');
-  const list = await listProjects();
-  const items = list.map((p) => `<div class="item"><button data-open="${p.id}">${(p.name || p.id).replace(/</g, '&lt;')} <span class="label">${p.w}×${p.h}</span></button><button data-del="${p.id}" title="Delete">Delete</button></div>`).join('');
+  const [list, trash] = await Promise.all([listProjects(), listTrash()]);
+  const items = list.map((p) => `<div class="item"><button data-open="${p.id}">${esc(p.name || p.id)} <span class="label">${p.w}×${p.h}</span></button><button data-del="${p.id}" title="Move to trash">Delete</button></div>`).join('');
+  const trashItems = trash.map((p, i) => `<div class="item"><span style="flex:1">${esc(p.name || p.id)} <span class="label">deleted ${new Date(p.deletedAt).toLocaleDateString()}</span></span><button data-untrash="${i}">Restore</button></div>`).join('');
   openModal(`<h3>Projects</h3><div class="plist">${items || '<p class="label">No saved projects yet.</p>'}</div>
+    <div class="row"><button id="npHist" ${db && S.id ? '' : 'disabled'}>History of this project</button></div>
     <h3>New project</h3>
     <div class="row"><input type="text" id="npName" value="My character" aria-label="Name"><input type="number" id="npW" value="48" min="4" max="128" aria-label="Width" style="width:74px"><span class="label">×</span><input type="number" id="npH" value="24" min="4" max="128" aria-label="Height" style="width:74px"></div>
     <div class="row"><button id="npGo" class="on">Create</button><button id="npDup">Duplicate current</button><button id="npClose">Close</button></div>
-    <p class="label">${db ? 'Projects are saved to the cloud with this page, so Claude can load them into your game.' : 'Cloud saving is not available here, so projects are kept on this device only.'}</p>`, () => {
+    ${trashItems ? `<h3>Recently deleted</h3><p class="label">Kept for ${TRASH_DAYS} days.</p><div class="plist">${trashItems}</div>` : ''}
+    <p class="label">${db ? 'Projects are saved to the cloud with this page, so Claude can load them into your game. Every change is also kept on this device right away.' : 'Cloud saving is not available here, so projects are kept on this device only.'}</p>`, () => {
     document.querySelectorAll('[data-open]').forEach((b) => b.onclick = async () => { closeModal(); await save(); await loadProject(b.dataset.open); });
-    document.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => askConfirm('Delete project?', 'This removes the project and all its poses. It cannot be undone.', async () => {
-      try { if (db) await db.doc('projects/' + b.dataset.del).delete(); } catch {} try { localStorage.removeItem('spritestudio:' + b.dataset.del); } catch {}
-      if (b.dataset.del === S.id) startNew('My character', 48, 24); toast('Project deleted'); }));
+    document.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => askConfirm('Delete project?', `It moves to Recently deleted, where you can restore it for ${TRASH_DAYS} days.`, async () => {
+      try { await trashProject(b.dataset.del); } catch { toast('Could not delete right now'); return; }
+      if (b.dataset.del === S.id) startNew('My character', 48, 24); toast('Moved to Recently deleted'); }));
+    document.querySelectorAll('[data-untrash]').forEach((b) => b.onclick = async () => { const it = trash[+b.dataset.untrash];
+      try { await restoreFromTrash(it); closeModal(); await save(); await loadProject(it.id); toast('Project restored'); } catch { toast('Could not restore right now'); } });
+    $('npHist').onclick = openHistory;
     $('npGo').onclick = async () => { const w = Math.max(4, Math.min(128, +$('npW').value | 0)), h = Math.max(4, Math.min(128, +$('npH').value | 0));
       const n = $('npName').value.trim() || 'My character'; await save(); closeModal(); startNew(n, w, h); };
     $('npDup').onclick = async () => { await save(); const copyP = deserialize(serialize(P())); copyP.name = P().name + ' copy';
-      S.id = 'p' + Date.now().toString(36); S.project = copyP; $('projName').value = copyP.name; S.dirty = true; closeModal(); changed(true); toast('Duplicated'); };
+      S.id = 'p' + Date.now().toString(36); S.rev = 0; S.project = copyP; $('projName').value = copyP.name; S.dirty = true; closeModal(); changed(true); toast('Duplicated'); };
     $('npClose').onclick = closeModal;
+  });
+}
+
+async function openHistory() {
+  openModal('<h3>History</h3><p class="label">Loading…</p>');
+  const hist = await listHistory(S.id);
+  const rows = hist.map((h, i) => `<div class="item"><span style="flex:1">${new Date(h.keptAt).toLocaleString()} <span class="label">${(h.poses || []).length} poses</span></span><button data-restore="${i}">Restore</button></div>`).join('');
+  openModal(`<h3>History of “${esc(P().name)}”</h3><p class="label">Earlier versions are kept automatically (the last ${HISTORY_KEEP}). Restoring keeps the current version in History too.</p>
+    <div class="plist">${rows || '<p class="label">No earlier versions yet. They appear after a few minutes of drawing.</p>'}</div>
+    <div class="row"><button id="hClose">Close</button></div>`, () => {
+    $('hClose').onclick = closeModal;
+    document.querySelectorAll('[data-restore]').forEach((b) => b.onclick = async () => {
+      const h = hist[+b.dataset.restore];
+      await keepHistory(S.id, { ...body(), rev: S.rev || 0, device: DEVICE });
+      const { key, projectId, keptAt, ...data } = h;
+      S.project = deserialize(data); S.pose = 0; S.frame = 0; S.sel = null; S.float = null; S.undo = []; S.redo = [];
+      $('projName').value = P().name; fitZoom(); S.dirty = true; changed(true); closeModal(); toast('Earlier version restored');
+    });
   });
 }
 
@@ -948,7 +1087,10 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => { if (e.key === ' ') spaceHand = false; });
 window.addEventListener('resize', () => render());
-window.addEventListener('beforeunload', () => { if (S.dirty) save(); });
+// Closing or hiding the page: the device copy is written synchronously, the cloud copy is attempted.
+window.addEventListener('pagehide', () => { if (S.dirty) { writeLocal(true); save(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && S.dirty) { writeLocal(true); save(); } });
+window.addEventListener('online', () => { if (S.dirty) save(); });
 
 // ------------------------------------------------------------------ boot
 async function boot() {
