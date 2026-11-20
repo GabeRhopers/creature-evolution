@@ -29,8 +29,10 @@ function playtestLog(): PlaytestLog {
 /** What the player's mouth area currently overlaps (drives the mouth ring). */
 type MouthState = 'idle' | 'canSwallow' | 'canBite' | 'full';
 
-/** Difficulty survives scene restarts (chosen from the HUD). */
+/** Difficulty survives scene restarts (chosen on the home screen). */
 let currentDifficulty: DifficultyName = readDifficultyFromUrl();
+/** Whether the next (re)start shows the home screen's attract mode instead of a run. */
+let nextMenuMode = true;
 
 function readDifficultyFromUrl(): DifficultyName {
   const d = new URLSearchParams(window.location.search).get('difficulty');
@@ -67,6 +69,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   playerHunted = false;
   playerHidden = false;
   dead = false;
+  /** Attract mode behind the home screen: no player, camera drifts over the reef. */
+  menuMode = false;
   /** Fish eaten by AI predators this run (debug/balance). */
   aiMeals = 0;
   /** Running totals for the HUD / future stats screen. */
@@ -105,6 +109,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.mouthState = 'idle';
     this.swallowCooldown = 0;
     this.difficultyName = currentDifficulty;
+    this.runReported = false;
+    this.menuMode = nextMenuMode && !BOT_MODE;
     this.runTime = 0;
     this.sampleTimer = 0;
     this.difficulty = DIFFICULTY[currentDifficulty];
@@ -162,6 +168,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     cam.startFollow(this.player, true, BALANCE.camera.lerp, BALANCE.camera.lerp);
     cam.setZoom(this.targetZoom());
     cam.setBackgroundColor(0x0b2a45);
+    if (this.menuMode) {
+      // No player in attract mode: hide it and let the camera wander the reef.
+      this.player.setVisible(false);
+      this.player.arcadeBody.enable = false;
+      cam.stopFollow();
+      cam.setZoom(0.8);
+      cam.centerOn(W * 0.35, this.seabedTop - 520);
+    }
     cam.preRender();
     this.food.fill(cam.worldView);
 
@@ -171,6 +185,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   update(time: number, deltaMs: number): void {
     // Clamp dt so a background tab or hitch does not launch fish across the map.
     const dt = Math.min(deltaMs / 1000, 1 / 20);
+
+    if (this.menuMode) {
+      this.updateAttract(dt, time);
+      return;
+    }
 
     if (!this.dead) {
       const intent = this.bot ? this.bot.read(dt) : this.controller.read();
@@ -251,7 +270,46 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   }
 
   restartRun(): void {
+    this.reportRun();
+    nextMenuMode = false;
     this.scene.restart();
+  }
+
+  /** Start a run from the home screen. */
+  startPlay(difficulty: DifficultyName): void {
+    currentDifficulty = difficulty;
+    nextMenuMode = false;
+    this.scene.restart();
+  }
+
+  /** Back to the home screen (the run's stats are recorded first). */
+  goHome(): void {
+    this.reportRun();
+    nextMenuMode = true;
+    this.scene.restart();
+    window.dispatchEvent(new CustomEvent('ce:home'));
+  }
+
+  /** Tell the home screen how this run went (for the best-record line). */
+  private reportRun(): void {
+    if (this.menuMode || BOT_MODE || this.runReported) return;
+    this.runReported = true;
+    const level = Math.max(this.stats.maxLevel, this.player?.level ?? 1);
+    window.dispatchEvent(new CustomEvent('ce:run', { detail: { level, kills: this.stats.kills, fish: this.stats.fish } }));
+  }
+  private runReported = false;
+
+  /** Attract mode: AI, food and bubbles run; the camera drifts back and forth. */
+  private attractDir = 1;
+  private updateAttract(dt: number, time: number): void {
+    this.updateBubbles(dt);
+    for (const c of this.creatures) if (c.brain) c.fish.swim(c.brain.think(dt), dt);
+    this.food.update(dt, this.cameras.main.worldView, time);
+    this.updateAiEating();
+    const cam = this.cameras.main;
+    cam.scrollX += 28 * this.attractDir * dt;
+    const maxX = BALANCE.world.width - cam.width / cam.zoom;
+    if (cam.scrollX > maxX - 50 || cam.scrollX < 50) this.attractDir *= -1;
   }
 
   // ---------------------------------------------------------------- eating
@@ -529,6 +587,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   playerDied(by: Creature | null, how: 'swallowed' | 'bitten' | 'starved'): void {
     if (this.dead) return;
     this.sfx.death();
+    this.stats.maxLevel = Math.max(this.stats.maxLevel, this.player.level);
+    this.reportRun();
     if (BOT_MODE) {
       const log = playtestLog();
       log.deaths.push({

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { HudScene } from './scenes/HudScene';
+import { initMenu } from './ui/menu';
 
 // Add ?canvas to the URL to force the Canvas renderer (debug fallback for
 // devices with WebGL driver problems).
@@ -23,6 +24,8 @@ const game = new Phaser.Game({
   input: { activePointers: 3 },
   scene: [BootScene, GameScene, HudScene],
 });
+
+initMenu(game);
 
 // Handy for debugging from the browser console.
 (window as unknown as { game: Phaser.Game }).game = game;

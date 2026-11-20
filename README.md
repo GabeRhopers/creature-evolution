@@ -1,4 +1,4 @@
-# Fish Growth Game (working title)
+# Creature Evolution
 
 A 2D side-view ocean survival game: start small, eat, grow, and become the
 predator.
@@ -27,6 +27,10 @@ npm install
 npm run dev      # open the printed URL (use the Network URL to test on an iPad on the same Wi-Fi)
 npm run build    # production build in dist/ (upload the folder contents to itch.io as a ZIP)
 ```
+
+The game opens on a home screen over the live reef: pick Easy / Normal / Hard and press
+PLAY. MENU (or Esc) pauses with Resume / Restart / Home. Add `?dev=1` to the URL for the
+tuning panel and GROW button.
 
 ## Controls
 

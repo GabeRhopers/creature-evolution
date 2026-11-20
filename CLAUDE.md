@@ -1,6 +1,6 @@
 # CLAUDE.md: rules for AI coding sessions on this repo
 
-2D side-view fish survival and growth game (working title), inspired by the
+Creature Evolution, a 2D side-view underwater survival and growth game, inspired by the
 mechanics of Feed and Grow: Fish. Browser game: **Phaser 4.2 + TypeScript + Vite**.
 Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 
@@ -28,6 +28,10 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
   (`Fish.mouthPoint/mouthRadius`); swallow allowed if `target.size <= devourSize`.
 - `src/systems/Stomach.ts`: pure stomach/digestion logic; GameScene applies releases (heal first, then XP).
 - `src/audio/Sfx.ts`: all sound effects synthesized with Web Audio (no files). Music: `public/assets/audio/`.
+- `src/ui/menu.ts` + overlays in `index.html`: home screen (game runs in attract mode behind it,
+  `GameScene.menuMode`), how to play, options, credits, pause menu, best record (localStorage).
+  Scene API: `startPlay(difficulty)`, `restartRun()`, `goHome()`; events `ce:pause`, `ce:home`, `ce:run`.
+- Developer buttons (TUNE, GROW) only appear with `?dev=1`.
 - `src/ui/tuning.ts`: live slider panel (` key or TUNE button) for feel tuning.
 
 ## Player character

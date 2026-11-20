@@ -1,9 +1,7 @@
 import Phaser from 'phaser';
 import { BALANCE } from '../data';
 import type { GameScene } from './GameScene';
-import type { DifficultyName } from '../data';
 import { toggleTuningPanel } from '../ui/tuning';
-import { BOT_MODE } from './GameScene';
 import { Joystick } from '../ui/Joystick';
 
 const FONT = 'system-ui, sans-serif';
@@ -25,10 +23,11 @@ export class HudScene extends Phaser.Scene {
   private stomachFill!: Phaser.GameObjects.Rectangle;
   private stomachBack!: Phaser.GameObjects.Rectangle;
   private bankFill!: Phaser.GameObjects.Rectangle;
-  private soundBtn!: Phaser.GameObjects.Text;
   private music?: Phaser.Sound.BaseSound;
-  private startLayer?: Phaser.GameObjects.Container;
-  private static started = false;
+  /** Developer buttons (TUNE, GROW) only with ?dev in the URL. */
+  private readonly dev = new URLSearchParams(window.location.search).has('dev');
+  musicOn = true;
+  sfxOn = true;
   private joystick!: Joystick;
   private staminaBack!: Phaser.GameObjects.Rectangle;
   private xpFill!: Phaser.GameObjects.Rectangle;
@@ -43,7 +42,9 @@ export class HudScene extends Phaser.Scene {
   private growBtn!: Phaser.GameObjects.Text;
   private popups: Phaser.GameObjects.Text[] = [];
   private status!: Phaser.GameObjects.Text;
-  private modeBtn!: Phaser.GameObjects.Text;
+  private menuBtn!: Phaser.GameObjects.Text;
+  private deathAgain!: Phaser.GameObjects.Text;
+  private deathHome!: Phaser.GameObjects.Text;
   private deathLayer!: Phaser.GameObjects.Container;
   private deathTitle!: Phaser.GameObjects.Text;
   private deathStats!: Phaser.GameObjects.Text;
@@ -110,12 +111,8 @@ export class HudScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
 
     this.gearBtn = this.makeTapButton('TUNE', () => toggleTuningPanel(this.game$.player.species));
-    this.modeBtn = this.makeTapButton('', () => {
-      const order: DifficultyName[] = ['easy', 'normal', 'hard'];
-      const next = order[(order.indexOf(this.game$.difficultyName) + 1) % order.length];
-      this.hideDeath();
-      this.game$.setDifficulty(next);
-    });
+    this.menuBtn = this.makeTapButton('II  MENU', () => window.dispatchEvent(new CustomEvent('ce:pause')));
+    this.menuBtn.setFontSize(15).setPadding(14, 9, 14, 9);
 
     // "You were eaten" overlay.
     this.deathShade = this.add.rectangle(0, 0, 10, 10, 0x020c16, 0.72).setOrigin(0, 0);
@@ -125,32 +122,35 @@ export class HudScene extends Phaser.Scene {
     this.deathStats = this.add
       .text(0, 0, '', { fontFamily: FONT, fontSize: '18px', color: '#e6f6ff', align: 'center', lineSpacing: 8 })
       .setOrigin(0.5);
-    this.deathLayer = this.add.container(0, 0, [this.deathShade, this.deathTitle, this.deathStats]).setVisible(false).setDepth(100);
-    this.deathShade.on('pointerdown', () => this.respawn());
+    const btnStyle = { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', padding: { x: 22, y: 12 } };
+    this.deathAgain = this.add.text(0, 0, 'SWIM AGAIN', { ...btnStyle, color: '#1b1400', backgroundColor: '#ffd23f' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    this.deathHome = this.add.text(0, 0, 'HOME', { ...btnStyle, color: '#eaf6ff', backgroundColor: '#123a5a' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    this.deathAgain.on('pointerdown', () => this.deathLayer.visible && this.respawn());
+    this.deathHome.on('pointerdown', () => {
+      if (!this.deathLayer.visible) return;
+      this.hideDeath();
+      this.game$.goHome();
+    });
+    this.deathLayer = this.add
+      .container(0, 0, [this.deathShade, this.deathTitle, this.deathStats, this.deathAgain, this.deathHome])
+      .setVisible(false)
+      .setDepth(100);
     this.input.keyboard?.on('keydown-R', () => this.deathLayer.visible && this.respawn());
 
-    // Sound toggle (remembered on this device when storage is available).
-    let muted = false;
+    // Sound options (set from the home screen's Options panel, remembered per device).
     try {
-      muted = window.localStorage.getItem('fishgame.muted') === '1';
+      const o = JSON.parse(window.localStorage.getItem('ce.options') || '{}');
+      this.musicOn = o.music !== false;
+      this.sfxOn = o.sfx !== false;
     } catch {
-      /* storage unavailable: default on */
+      /* storage unavailable: defaults */
     }
-    this.sound.mute = muted;
-    this.game$.sfx.setMuted(muted);
-    this.soundBtn = this.makeTapButton('', () => {
-      this.sound.mute = !this.sound.mute;
-      this.game$.sfx.setMuted(this.sound.mute);
-      try {
-        window.localStorage.setItem('fishgame.muted', this.sound.mute ? '1' : '0');
-      } catch {
-        /* ignore */
-      }
-    });
+    this.game$.sfx.setMuted(!this.sfxOn);
 
     this.music = this.sound.add('music', { loop: true, volume: BALANCE.audio.musicVolume });
-    if (!HudScene.started && !BOT_MODE) this.showStart();
     this.growBtn = this.makeTapButton('DEV: GROW +1', () => this.game$.player.setLevel(this.game$.player.level + 1));
+    this.gearBtn.setVisible(this.dev);
+    this.growBtn.setVisible(this.dev);
 
     this.layout();
     this.scale.on('resize', () => this.layout());
@@ -181,53 +181,22 @@ export class HudScene extends Phaser.Scene {
     });
   }
 
-  /** Title / "tap to start" screen. Pauses the game; the tap also unlocks audio on iOS. */
-  private showStart(): void {
-    const { width, height } = this.scale;
-    this.scene.pause('Game');
-    const shade = this.add.rectangle(0, 0, width, height, 0x020c16, 0.78).setOrigin(0, 0);
-    const title = this.add
-      .text(width / 2, height * 0.3, 'FISH GROW', { fontFamily: FONT, fontSize: '56px', fontStyle: 'bold', color: '#ffd166', stroke: '#0a2236', strokeThickness: 8 })
-      .setOrigin(0.5);
-    const sub = this.add
-      .text(width / 2, height * 0.3 + 52, '(working title)', { fontFamily: FONT, fontSize: '14px', color: '#9fd3ff' })
-      .setOrigin(0.5);
-    const touch = this.sys.game.device.input.touch;
-    const how = this.add
-      .text(
-        width / 2,
-        height * 0.55,
-        [
-          'You are a young crocodile. Eat plankton, then fish smaller than you.',
-          'Green ring = swallow whole. Orange ring = bite.',
-          'Stomach full? Stay still for a moment to digest.',
-          'Hide in kelp when something big hunts you.',
-          'Big predators live in deep water. Grow up in the shallows.',
-          '',
-          touch ? 'Left thumb: joystick to swim. Right thumb: EAT, SPRINT, DASH.' : 'WASD / mouse to swim, Space eat, Shift sprint, E dash.',
-        ].join('\n'),
-        { fontFamily: FONT, fontSize: '17px', color: '#e6f6ff', align: 'center', lineSpacing: 6 },
-      )
-      .setOrigin(0.5);
-    const go = this.add
-      .text(width / 2, height * 0.82, touch ? 'Tap to start' : 'Click or press any key to start', {
-        fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#7cff6b',
-      })
-      .setOrigin(0.5);
-    this.tweens.add({ targets: go, alpha: 0.4, duration: 600, yoyo: true, repeat: -1 });
-    this.startLayer = this.add.container(0, 0, [shade, title, sub, how, go]).setDepth(200);
-    shade.setInteractive();
-    const start = () => {
-      if (HudScene.started) return;
-      HudScene.started = true;
-      this.startLayer?.destroy();
-      this.startLayer = undefined;
-      this.scene.resume('Game');
-      this.music?.play();
-      this.game$.sfx.click();
-    };
-    shade.once('pointerdown', start);
-    this.input.keyboard?.once('keydown', start);
+  /** Start (or resume) the music loop if music is on. Call from a user gesture. */
+  startMusic(): void {
+    if (!this.music || !this.musicOn) return;
+    if (!this.music.isPlaying) this.music.play();
+  }
+
+  setMusicOn(on: boolean): void {
+    this.musicOn = on;
+    if (!this.music) return;
+    if (on) this.startMusic();
+    else this.music.stop();
+  }
+
+  setSfxOn(on: boolean): void {
+    this.sfxOn = on;
+    this.game$.sfx.setMuted(!on);
   }
 
   /** Red edge flash + small shake when the player takes a hit. */
@@ -247,17 +216,18 @@ export class HudScene extends Phaser.Scene {
       how === 'swallowed' ? `Finished off by a ${byName}!` : how === 'bitten' ? `Bitten to death by a ${byName}!` : 'You starved!',
     );
     this.deathStats.setText(
-      `${how === 'starved' ? 'Keep your stomach from emptying.' : `It was level ${byLevel}.`}\nYou reached level ${stats.maxLevel}: swallowed ${stats.fish} fish, killed ${stats.kills}, ate ${stats.plankton} morsels.\n\nTap anywhere (or press R) to swim again`,
+      `${how === 'starved' ? 'Keep your stomach from emptying.' : `It was level ${byLevel}.`}\nYou reached level ${stats.maxLevel}: swallowed ${stats.fish} fish, killed ${stats.kills}, ate ${stats.plankton} morsels.`,
     );
     this.time.delayedCall(900, () => {
       const { width, height } = this.scale;
+      // The shade blocks touches to the joystick / buttons underneath.
       this.deathShade.setInteractive(new Phaser.Geom.Rectangle(0, 0, width, height), Phaser.Geom.Rectangle.Contains);
       this.deathLayer.setVisible(true).setAlpha(0);
       this.tweens.add({ targets: this.deathLayer, alpha: 1, duration: 300 });
     });
   }
 
-  private hideDeath(): void {
+  hideDeath(): void {
     this.deathLayer.setVisible(false);
     this.deathShade.disableInteractive();
   }
@@ -320,14 +290,15 @@ export class HudScene extends Phaser.Scene {
     this.dashBtn.setPosition(width - 122, height - 165);
     this.dashLabel.setPosition(width - 122, height - 165);
     this.hurtFlash.setSize(width, height);
-    this.gearBtn.setPosition(width - 12, 12);
-    this.growBtn.setPosition(width - 12, 46);
-    this.modeBtn.setPosition(width - 12, 80);
-    this.soundBtn.setPosition(width - 12, 114);
+    this.menuBtn.setPosition(width - 12, 12);
+    this.gearBtn.setPosition(width - 12, 58);
+    this.growBtn.setPosition(width - 12, 92);
     this.status.setPosition(width / 2, 14);
     this.deathShade.setSize(width, height);
     this.deathTitle.setPosition(width / 2, height * 0.4);
-    this.deathStats.setPosition(width / 2, height * 0.4 + 90);
+    this.deathStats.setPosition(width / 2, height * 0.4 + 80);
+    this.deathAgain.setPosition(width / 2 - 100, height * 0.4 + 170);
+    this.deathHome.setPosition(width / 2 + 100, height * 0.4 + 170);
     this.banner.setPosition(width / 2, height * 0.28);
     this.hint.setPosition(16, height - 28);
     const touch = this.sys.game.device.input.touch;
@@ -363,11 +334,11 @@ export class HudScene extends Phaser.Scene {
     this.stomachFill.fillColor = st.digesting ? 0x9fe8ff : st.full ? 0xffa53a : st.readyToDigest ? 0xffffff : 0x8bc34a;
     const starving = st.ratio < 0.1;
     this.stomachBack.setStrokeStyle(1, starving ? 0xff2020 : 0xc8e6c9, starving ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 0.6);
-    this.soundBtn.setText(`SOUND: ${this.sound.mute ? 'OFF' : 'ON'}`);
     this.info.setText(
       `Level ${p.level}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
     );
-    this.modeBtn.setText(`MODE: ${g.difficultyName.toUpperCase()}`);
+    // Hidden while the home screen shows the ocean behind it.
+    this.cameras.main.setVisible(!g.menuMode);
     if (!g.dead && this.deathLayer.visible) this.hideDeath(); // run restarted elsewhere (R key, bot)
     if (g.dead) {
       this.status.setText('');
