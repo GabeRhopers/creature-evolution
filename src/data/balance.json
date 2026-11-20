@@ -109,5 +109,26 @@
       "knockback": 420,
       "reboundSizeRatio": 1.5
     }
+  },
+  "stomach": {
+    "enabled": true,
+    "capacityBase": 24,
+    "capacityExponent": 1.25,
+    "immediateXpFraction": 0.34,
+    "fullAt": 0.95,
+    "restReadyAt": 0.75,
+    "restSeconds": 1.8,
+    "restSpeedRatio": 0.12,
+    "digestTo": 0.5,
+    "digestSeconds": 1.2,
+    "metabolismPerSecond": 0.012,
+    "starveDamagePerSecond": 0.01,
+    "hpPerXp": 1.5,
+    "startFill": 0.3
+  },
+  "audio": {
+    "musicVolume": 0.35,
+    "sfxVolume": 0.6,
+    "heartbeatSeconds": 0.85
   }
 }

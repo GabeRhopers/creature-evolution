@@ -26,6 +26,8 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 - `src/entities/Food.ts`: plankton field kept around the camera (pooled images).
 - Eating lives in `GameScene.updateEating()`: mouth = circle ahead of the head
   (`Fish.mouthPoint/mouthRadius`); swallow allowed if `target.size <= devourSize`.
+- `src/systems/Stomach.ts`: pure stomach/digestion logic; GameScene applies releases (heal first, then XP).
+- `src/audio/Sfx.ts`: all sound effects synthesized with Web Audio (no files). Music: `public/assets/audio/`.
 - `src/ui/tuning.ts`: live slider panel (` key or TUNE button) for feel tuning.
 
 ## Rules
@@ -48,5 +50,5 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 - [x] Sprint 2: plankton (auto-eat on mouth contact), swallow smaller fish (Space/E/right-click/EAT), XP, level-ups, mouth ring, HUD growth bar
 - [x] Sprint 3: AI brains (wander+schooling, flee, hunt with stalking vs player, forage plankton, rest, hunger/desperation), kelp hides fish, player can be eaten (death screen, restart), Easy/Normal/Hard
 - [x] Sprint 4: bite (anything too big to swallow) with meat chunks, kills + skeletons, ram stun, rock impact stun, critical wounds, wounded state + distress, HP regen, AI biting/retaliation, death by bite, Dash (E/Q/DASH)
-- [ ] Sprint 5: stomach and digestion, difficulty presets, SFX, music, polish
+- [x] Sprint 5: stomach (1/3 XP now, 2/3 banked; 95% full; rest above 75% to digest; metabolism; starvation), procedural SFX, CC0 music, heartbeat when hunted, start screen, sound toggle
 - [ ] Sprint 6: playtest, balance, itch.io release

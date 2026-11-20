@@ -20,6 +20,13 @@ export class HudScene extends Phaser.Scene {
   private dashLabel!: Phaser.GameObjects.Text;
   private dashCool!: Phaser.GameObjects.Graphics;
   private staminaFill!: Phaser.GameObjects.Rectangle;
+  private stomachFill!: Phaser.GameObjects.Rectangle;
+  private stomachBack!: Phaser.GameObjects.Rectangle;
+  private bankFill!: Phaser.GameObjects.Rectangle;
+  private soundBtn!: Phaser.GameObjects.Text;
+  private music?: Phaser.Sound.BaseSound;
+  private startLayer?: Phaser.GameObjects.Container;
+  private static started = false;
   private staminaBack!: Phaser.GameObjects.Rectangle;
   private xpFill!: Phaser.GameObjects.Rectangle;
   private info!: Phaser.GameObjects.Text;
@@ -59,11 +66,20 @@ export class HudScene extends Phaser.Scene {
     this.staminaBack = this.add.rectangle(16, 60, 220, 12, 0x0a2236, 0.8).setOrigin(0, 0).setStrokeStyle(1, 0x9fd3ff, 0.6);
     this.staminaFill = this.add.rectangle(18, 62, 216, 8, 0x5fe0a8).setOrigin(0, 0);
 
-    this.add.text(16, 78, 'GROWTH', small);
-    this.add.rectangle(16, 94, 220, 12, 0x0a2236, 0.8).setOrigin(0, 0).setStrokeStyle(1, 0xffd166, 0.6);
-    this.xpFill = this.add.rectangle(18, 96, 0, 8, 0xffd166).setOrigin(0, 0);
+    this.add.text(16, 78, 'STOMACH', small);
+    this.stomachBack = this.add.rectangle(16, 94, 220, 12, 0x0a2236, 0.8).setOrigin(0, 0).setStrokeStyle(1, 0xc8e6c9, 0.6);
+    this.stomachFill = this.add.rectangle(18, 96, 0, 8, 0x8bc34a).setOrigin(0, 0);
+    // Markers: 75% (rest to digest) and 95% (full).
+    this.add.rectangle(18 + 216 * 0.75, 93, 2, 14, 0xffffff, 0.8).setOrigin(0.5, 0);
+    this.add.rectangle(18 + 216 * 0.95, 93, 2, 14, 0xff8a80, 0.8).setOrigin(0.5, 0);
 
-    this.info = this.add.text(16, 114, '', style);
+    this.add.text(16, 112, 'GROWTH', small);
+    this.add.rectangle(16, 128, 220, 12, 0x0a2236, 0.8).setOrigin(0, 0).setStrokeStyle(1, 0xffd166, 0.6);
+    // Banked XP (still in the stomach) shows as a pale segment after the real XP.
+    this.bankFill = this.add.rectangle(18, 130, 0, 8, 0xffd166, 0.35).setOrigin(0, 0);
+    this.xpFill = this.add.rectangle(18, 130, 0, 8, 0xffd166).setOrigin(0, 0);
+
+    this.info = this.add.text(16, 148, '', style);
     this.hint = this.add.text(16, 0, '', { ...style, fontSize: '12px', color: '#bfe3ff' }).setAlpha(0.85);
     this.banner = this.add
       .text(0, 0, '', { fontFamily: FONT, fontSize: '42px', fontStyle: 'bold', color: '#ffd166', stroke: '#0a2236', strokeThickness: 6 })
@@ -102,6 +118,28 @@ export class HudScene extends Phaser.Scene {
     this.deathLayer = this.add.container(0, 0, [this.deathShade, this.deathTitle, this.deathStats]).setVisible(false).setDepth(100);
     this.deathShade.on('pointerdown', () => this.respawn());
     this.input.keyboard?.on('keydown-R', () => this.deathLayer.visible && this.respawn());
+
+    // Sound toggle (remembered on this device when storage is available).
+    let muted = false;
+    try {
+      muted = window.localStorage.getItem('fishgame.muted') === '1';
+    } catch {
+      /* storage unavailable: default on */
+    }
+    this.sound.mute = muted;
+    this.game$.sfx.setMuted(muted);
+    this.soundBtn = this.makeTapButton('', () => {
+      this.sound.mute = !this.sound.mute;
+      this.game$.sfx.setMuted(this.sound.mute);
+      try {
+        window.localStorage.setItem('fishgame.muted', this.sound.mute ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+    });
+
+    this.music = this.sound.add('music', { loop: true, volume: BALANCE.audio.musicVolume });
+    if (!HudScene.started) this.showStart();
     this.growBtn = this.makeTapButton('DEV: GROW +1', () => this.game$.player.setLevel(this.game$.player.level + 1));
 
     this.layout();
@@ -133,6 +171,54 @@ export class HudScene extends Phaser.Scene {
     });
   }
 
+  /** Title / "tap to start" screen. Pauses the game; the tap also unlocks audio on iOS. */
+  private showStart(): void {
+    const { width, height } = this.scale;
+    this.scene.pause('Game');
+    const shade = this.add.rectangle(0, 0, width, height, 0x020c16, 0.78).setOrigin(0, 0);
+    const title = this.add
+      .text(width / 2, height * 0.3, 'FISH GROW', { fontFamily: FONT, fontSize: '56px', fontStyle: 'bold', color: '#ffd166', stroke: '#0a2236', strokeThickness: 8 })
+      .setOrigin(0.5);
+    const sub = this.add
+      .text(width / 2, height * 0.3 + 52, '(working title)', { fontFamily: FONT, fontSize: '14px', color: '#9fd3ff' })
+      .setOrigin(0.5);
+    const touch = this.sys.game.device.input.touch;
+    const how = this.add
+      .text(
+        width / 2,
+        height * 0.55,
+        [
+          'Start small. Eat plankton, then fish smaller than you.',
+          'Green ring = swallow whole. Orange ring = bite.',
+          'Stomach full? Stay still for a moment to digest.',
+          'Hide in kelp when something big hunts you.',
+          '',
+          touch ? 'Hold a finger to swim. Buttons: EAT, SPRINT, DASH.' : 'WASD / mouse to swim, Space eat, Shift sprint, E dash.',
+        ].join('\n'),
+        { fontFamily: FONT, fontSize: '17px', color: '#e6f6ff', align: 'center', lineSpacing: 6 },
+      )
+      .setOrigin(0.5);
+    const go = this.add
+      .text(width / 2, height * 0.82, touch ? 'Tap to start' : 'Click or press any key to start', {
+        fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#7cff6b',
+      })
+      .setOrigin(0.5);
+    this.tweens.add({ targets: go, alpha: 0.4, duration: 600, yoyo: true, repeat: -1 });
+    this.startLayer = this.add.container(0, 0, [shade, title, sub, how, go]).setDepth(200);
+    shade.setInteractive();
+    const start = () => {
+      if (HudScene.started) return;
+      HudScene.started = true;
+      this.startLayer?.destroy();
+      this.startLayer = undefined;
+      this.scene.resume('Game');
+      this.music?.play();
+      this.game$.sfx.click();
+    };
+    shade.once('pointerdown', start);
+    this.input.keyboard?.once('keydown', start);
+  }
+
   /** Red edge flash + small shake when the player takes a hit. */
   hurt(): void {
     this.hurtFlash.setAlpha(1);
@@ -143,12 +229,14 @@ export class HudScene extends Phaser.Scene {
   showDeath(
     byName: string,
     byLevel: number,
-    how: 'swallowed' | 'bitten',
+    how: 'swallowed' | 'bitten' | 'starved',
     stats: { plankton: number; fish: number; kills: number; maxLevel: number },
   ): void {
-    this.deathTitle.setText(how === 'swallowed' ? `Swallowed by a ${byName}!` : `Bitten to death by a ${byName}!`);
+    this.deathTitle.setText(
+      how === 'swallowed' ? `Swallowed by a ${byName}!` : how === 'bitten' ? `Bitten to death by a ${byName}!` : 'You starved!',
+    );
     this.deathStats.setText(
-      `It was level ${byLevel}.\nYou reached level ${stats.maxLevel}: swallowed ${stats.fish} fish, killed ${stats.kills}, ate ${stats.plankton} morsels.\n\nTap anywhere (or press R) to swim again`,
+      `${how === 'starved' ? 'Keep your stomach from emptying.' : `It was level ${byLevel}.`}\nYou reached level ${stats.maxLevel}: swallowed ${stats.fish} fish, killed ${stats.kills}, ate ${stats.plankton} morsels.\n\nTap anywhere (or press R) to swim again`,
     );
     this.time.delayedCall(900, () => {
       const { width, height } = this.scale;
@@ -224,6 +312,7 @@ export class HudScene extends Phaser.Scene {
     this.gearBtn.setPosition(width - 12, 12);
     this.growBtn.setPosition(width - 12, 46);
     this.modeBtn.setPosition(width - 12, 80);
+    this.soundBtn.setPosition(width - 12, 114);
     this.status.setPosition(width / 2, 14);
     this.deathShade.setSize(width, height);
     this.deathTitle.setPosition(width / 2, height * 0.4);
@@ -248,7 +337,16 @@ export class HudScene extends Phaser.Scene {
     this.staminaFill.width = 216 * ratio;
     this.staminaFill.fillColor = p.exhausted ? 0xe0675f : p.isSprinting ? 0xffd166 : 0x5fe0a8;
     this.staminaBack.setStrokeStyle(1, p.exhausted ? 0xe0675f : 0x9fd3ff, 0.6);
-    this.xpFill.width = 216 * Phaser.Math.Clamp(p.xp / p.xpNeeded, 0, 1);
+    const xpRatio = Phaser.Math.Clamp(p.xp / p.xpNeeded, 0, 1);
+    this.xpFill.width = 216 * xpRatio;
+    this.bankFill.width = 216 * Phaser.Math.Clamp((p.xp + g.stomach.bank) / p.xpNeeded, 0, 1);
+
+    const st = g.stomach;
+    this.stomachFill.width = 216 * Phaser.Math.Clamp(st.ratio, 0, 1);
+    this.stomachFill.fillColor = st.digesting ? 0x9fe8ff : st.full ? 0xffa53a : st.readyToDigest ? 0xffffff : 0x8bc34a;
+    const starving = st.ratio < 0.1;
+    this.stomachBack.setStrokeStyle(1, starving ? 0xff2020 : 0xc8e6c9, starving ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 0.6);
+    this.soundBtn.setText(`SOUND: ${this.sound.mute ? 'OFF' : 'ON'}`);
     this.info.setText(
       `Level ${p.level}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
     );
@@ -257,12 +355,22 @@ export class HudScene extends Phaser.Scene {
       this.status.setText('');
     } else if (p.stunned) {
       this.status.setText('STUNNED!').setColor('#ffd166').setAlpha(1);
+    } else if (st.digesting) {
+      this.status.setText('Digesting...').setColor('#9fe8ff').setAlpha(1);
     } else if (p.wounded) {
       this.status.setText(g.playerHunted ? 'WOUNDED AND HUNTED! Hide or eat to heal' : 'WOUNDED: eat to heal').setColor('#ff6b6b');
       this.status.setAlpha(0.6 + 0.4 * Math.sin(this.time.now / 120));
     } else if (g.playerHunted) {
       this.status.setText(g.playerHidden ? 'HUNTED (hiding in kelp)' : 'YOU ARE BEING HUNTED!').setColor('#ff6b6b');
       this.status.setAlpha(0.6 + 0.4 * Math.sin(this.time.now / 120));
+    } else if (st.starving) {
+      this.status.setText('STARVING! Eat something').setColor('#ff6b6b').setAlpha(0.6 + 0.4 * Math.sin(this.time.now / 120));
+    } else if (st.readyToDigest) {
+      const pct = Math.round((st.restTime / BALANCE.stomach.restSeconds) * 100);
+      this.status
+        .setText(st.restTime > 0 ? `Digesting in... ${pct}%` : st.full ? 'Stomach full: stay still to digest' : 'Stay still to digest')
+        .setColor('#ffffff')
+        .setAlpha(0.95);
     } else if (g.playerHidden) {
       this.status.setText('Hidden in kelp').setColor('#7cff6b').setAlpha(0.9);
     } else {
@@ -270,9 +378,10 @@ export class HudScene extends Phaser.Scene {
     }
 
     // Pulse the EAT button when something swallowable is in reach.
-    const ready = g.mouthState !== 'idle';
-    this.eatBtn.setStrokeStyle(ready ? 5 : 3, g.mouthState === 'canSwallow' ? 0x7cff6b : 0xffa53a, ready ? 1 : 0.65);
-    this.eatLabel.setText(g.mouthState === 'canBite' ? 'BITE' : 'EAT');
+    const ready = g.mouthState === 'canSwallow' || g.mouthState === 'canBite';
+    const ring = g.mouthState === 'canSwallow' ? 0x7cff6b : g.mouthState === 'full' ? 0x8a9aa8 : 0xffa53a;
+    this.eatBtn.setStrokeStyle(ready ? 5 : 3, ring, ready ? 1 : 0.65);
+    this.eatLabel.setText(g.mouthState === 'canBite' ? 'BITE' : g.mouthState === 'full' ? 'FULL' : 'EAT');
 
     // Dash cooldown pie.
     const cd = p.dashCooldown / BALANCE.combat.dash.cooldownSeconds;

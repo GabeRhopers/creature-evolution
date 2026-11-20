@@ -8,6 +8,11 @@ swallow whole is in reach and **orange** when it is too big: then EAT bites it,
 tearing off meat chunks you can eat. Below 30% health you are **wounded**
 (slow, tilted, and predators notice you from farther away): eat to heal.
 
+**Stomach:** food gives about a third of its XP right away; the rest waits in
+your stomach. Past 75% full, **stay still** for a moment to digest: the stored
+food heals you first, then turns into XP. At 95% you cannot eat. If the stomach
+empties completely you starve.
+
 Bigger fish hunt you if they can swallow you whole. When "YOU ARE BEING HUNTED"
 flashes, swim away or hide in kelp: fish inside kelp are invisible to predators
 unless they get very close. Built with Phaser 4, TypeScript and Vite. All assets are free (CC0).
@@ -35,6 +40,7 @@ npm run build    # production build in dist/ (upload the folder contents to itch
 | Dev: tuning sliders | ` (backtick) | TUNE button |
 | Dev: show hitboxes | P | |
 | Fullscreen | F | |
+| Sound on/off | SOUND button | SOUND button |
 
 Add `?canvas` to the URL to force the Canvas renderer if a device has WebGL issues.
 

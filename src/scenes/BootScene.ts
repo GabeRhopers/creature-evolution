@@ -14,6 +14,8 @@ export class BootScene extends Phaser.Scene {
     this.load.on('progress', (p: number) => (bar.width = 300 * p));
 
     this.load.atlas(ATLAS, 'assets/atlas.png', 'assets/atlas.json');
+    // Music: "Aquaria" by cynicmusic (CC0), see CREDITS.md. MP3 plays everywhere incl. iOS Safari.
+    this.load.audio('music', 'assets/audio/music-aquaria.mp3');
   }
 
   create(): void {
