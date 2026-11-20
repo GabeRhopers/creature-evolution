@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Sprite Studio</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Layout: tool rail | canvas stage | side panel (palette, preview, edit), poses + frames along the bottom. */
+  --bg: #15181d;          /* workshop dark */
+  --panel: #1f242c;       /* panels */
+  --line: #333b47;        /* borders, grid */
+  --ink: #e8edf3;         /* text */
+  --muted: #95a1b2;       /* secondary text */
+  --accent: #ffd23f;      /* croc-eye yellow: active tool, selection */
+  --good: #6fd08c;
+  --bad: #ff6b6b;
+  --font-display: "Pixelify Sans", "Courier New", monospace;
+  --font-body: "Work Sans", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font: 14px/1.4 var(--font-body);
+  display: grid; grid-template-rows: auto 1fr auto; overflow: hidden;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+button, select, input { font: inherit; color: inherit; }
+button {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 10px; cursor: pointer; min-height: 38px; touch-action: manipulation;
+}
+button:hover { border-color: var(--muted); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.on { background: var(--accent); color: #1a1a1a; border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: 0.4; cursor: default; }
+select, input[type=text], input[type=number] {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; min-height: 38px;
+}
+h2 { font: 700 13px/1 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+/* Header */
+header { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.brand { font: 700 20px/1 var(--font-display); color: var(--accent); margin-right: 6px; white-space: nowrap; }
+#projName { width: 170px; }
+.grow { flex: 1; }
+#saveState { font-size: 12px; color: var(--muted); min-width: 110px; text-align: right; }
+#saveState.ok { color: var(--good); } #saveState.err { color: var(--bad); }
+
+/* Main area */
+main { display: grid; grid-template-columns: 64px 1fr 280px; min-height: 0; }
+.rail { display: flex; flex-direction: column; gap: 6px; padding: 10px 8px; border-right: 1px solid var(--line); overflow-y: auto; }
+.rail button { width: 46px; height: 46px; padding: 0; font-size: 20px; display: grid; place-items: center; }
+.rail .sep { height: 1px; background: var(--line); margin: 4px 0; }
+.stage { position: relative; overflow: auto; background:
+  radial-gradient(circle at 50% 40%, #1c222b 0%, #121519 70%); display: grid; place-items: center; min-height: 0; touch-action: none; }
+#cv { image-rendering: pixelated; touch-action: none; box-shadow: 0 0 0 1px var(--line), 0 12px 40px rgba(0,0,0,.45); }
+.stagebar { position: absolute; left: 12px; bottom: 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.stagebar span { font-size: 12px; color: var(--muted); background: rgba(0,0,0,.4); padding: 4px 8px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.side { border-left: 1px solid var(--line); padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.row button { flex: 1 1 auto; }
+
+/* Palette */
+#palette { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.sw { aspect-ratio: 1; border-radius: 6px; border: 2px solid transparent; cursor: pointer; min-height: 26px; }
+.sw.cur { border-color: var(--accent); box-shadow: 0 0 0 2px #000 inset; }
+.sw.clear { background: repeating-conic-gradient(#666 0 25%, #999 0 50%) 0 0 / 10px 10px; }
+.curcolor { display: flex; align-items: center; gap: 8px; }
+#curSwatch { width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--line); }
+input[type=color] { width: 44px; height: 38px; border: 1px solid var(--line); border-radius: 8px; background: none; padding: 2px; }
+
+/* Preview */
+#preview { width: 100%; image-rendering: pixelated; border-radius: 8px; border: 1px solid var(--line); }
+.label { font-size: 12px; color: var(--muted); }
+
+/* Bottom: poses and frames */
+footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: grid; gap: 8px; }
+#poses { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+#poses button { white-space: nowrap; }
+#poses .count { font-size: 11px; opacity: .7; margin-left: 4px; }
+.framesrow { display: flex; gap: 10px; align-items: flex-start; overflow-x: auto; }
+.tight button { flex: 0 0 auto; }
+.slot { width: 112px; min-width: 112px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 6px; display: grid; gap: 4px; cursor: pointer; position: relative; }
+.slot canvas { width: 100%; height: 50px; object-fit: contain; image-rendering: pixelated; background: repeating-conic-gradient(#2a2f37 0 25%, #232830 0 50%) 0 0 / 8px 8px; border-radius: 6px; }
+.slot .n { font-size: 11px; color: var(--muted); }
+.slot.cur { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.slot.empty { display: grid; place-items: center; color: var(--muted); border-style: dashed; font-size: 13px; text-align: center; }
+.frameops { display: flex; flex-direction: column; gap: 6px; }
+.frameops .row { flex-wrap: nowrap; }
+.frameops button { min-width: 120px; }
+
+/* Modal */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; place-items: center; z-index: 10; padding: 16px; }
+.modal.open { display: grid; }
+.dialog { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; width: min(460px, 100%); max-height: 90%; overflow: auto; display: grid; gap: 12px; }
+.dialog h3 { margin: 0; font: 700 18px/1.2 var(--font-display); color: var(--accent); }
+.dialog .row button { flex: 0 1 auto; }
+.plist { display: grid; gap: 6px; }
+.plist .item { display: flex; gap: 6px; align-items: center; }
+.plist .item button:first-child { flex: 1; text-align: left; }
+#toast { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); background: #000c; color: var(--ink); padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }
+#toast.show { opacity: 1; }
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 104px 1fr; grid-template-rows: 1fr auto; }
+  .rail { display: grid; grid-template-columns: repeat(2, 42px); align-content: start; gap: 6px; }
+  .rail .sep { grid-column: 1 / -1; }
+  .side { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); flex-direction: row; overflow-x: auto; overflow-y: hidden; max-height: 230px; }
+  .side > section { min-width: 250px; }
+  .slot { width: 96px; min-width: 96px; }
+  .frameops button { min-width: 96px; }
+  .rail button { width: 42px; height: 42px; font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Sprite Studio</div>
+  <input id="projName" type="text" aria-label="Project name" value="">
+  <button id="btnProjects" title="Open, create or delete projects">Projects</button>
+  <button id="btnSettings" title="Canvas size">Canvas</button>
+  <div class="grow"></div>
+  <button id="btnUndo" title="Undo (Ctrl+Z)">Undo</button>
+  <button id="btnRedo" title="Redo (Ctrl+Shift+Z)">Redo</button>
+  <button id="btnImport" title="Import a picture into this frame">Import picture</button>
+  <button id="btnExport" title="Export sprite sheet and data">Export</button>
+  <span id="saveState">Loading…</span>
+</header>
+
+<main>
+  <nav class="rail" aria-label="Tools">
+    <button data-tool="pencil" title="Pencil (B)">✏️</button>
+    <button data-tool="eraser" title="Eraser (E)">🩹</button>
+    <button data-tool="fill" title="Fill (G)">🪣</button>
+    <button data-tool="picker" title="Pick color (I)">💧</button>
+    <button data-tool="line" title="Line (L)">📏</button>
+    <button data-tool="rect" title="Rectangle (R). Tap again for filled.">▭</button>
+    <button data-tool="replace" title="Replace a color everywhere in the frame (C)">🎨</button>
+    <button data-tool="select" title="Select / move (M)">⬚</button>
+    <button data-tool="hand" title="Pan (H or hold Space)">✋</button>
+    <div class="sep"></div>
+    <button id="mirX" title="Mirror drawing left/right">⇆</button>
+    <button id="mirY" title="Mirror drawing up/down">⇅</button>
+    <button id="btnOnion" title="Show previous frame faintly (onion skin)">🧅</button>
+    <button id="btnGrid" title="Pixel grid">#</button>
+  </nav>
+
+  <div class="stage" id="stage">
+    <canvas id="cv" width="10" height="10" aria-label="Pixel canvas"></canvas>
+    <div class="stagebar">
+      <button id="zoomOut" title="Zoom out">−</button>
+      <button id="zoomIn" title="Zoom in">+</button>
+      <button id="zoomFit" title="Fit to screen">Fit</button>
+      <span id="coords">–</span>
+    </div>
+  </div>
+
+  <aside class="side">
+    <section>
+      <h2>Preview</h2>
+      <canvas id="preview" width="160" height="100"></canvas>
+      <div class="row" style="margin-top:6px">
+        <button id="playBtn">Pause</button>
+        <label class="label" for="fps">Speed</label>
+        <input id="fps" type="range" min="1" max="16" value="6" style="flex:1">
+        <span id="fpsVal" class="label">6 fps</span>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label class="label" for="bgSel">Background</label>
+        <select id="bgSel">
+          <option value="water">Water</option>
+          <option value="checker">Checker</option>
+          <option value="white">White</option>
+          <option value="black">Black</option>
+        </select>
+      </div>
+    </section>
+    <section>
+      <h2>Color</h2>
+      <div class="curcolor">
+        <div id="curSwatch"></div>
+        <input type="color" id="colorEdit" title="Edit the selected palette color" aria-label="Edit selected color">
+        <button id="addColor" title="Add a new color to the palette">+ Color</button>
+      </div>
+      <div style="height:8px"></div>
+      <div id="palette" role="listbox" aria-label="Palette"></div>
+      <div style="height:8px"></div>
+      <div class="row">
+        <select id="presets" aria-label="Add preset colors">
+          <option value="">Add preset colors…</option>
+          <option value="croc">Crocodile greens</option>
+          <option value="ocean">Ocean</option>
+          <option value="pico8">PICO-8 (16)</option>
+          <option value="gameboy">Game Boy (4)</option>
+          <option value="skin">Skin and hair</option>
+        </select>
+        <button id="delColor" title="Remove the selected color if no frame uses it">Remove</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Edit</h2>
+      <div class="row">
+        <button id="copyBtn" title="Copy selection or whole frame (Ctrl+C)">Copy</button>
+        <button id="cutBtn" title="Cut selection (Ctrl+X)">Cut</button>
+        <button id="pasteBtn" title="Paste as a movable piece (Ctrl+V)">Paste</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="applyBtn" title="Drop the moving piece in place (Enter)">Place</button>
+        <button id="deselBtn" title="Clear selection (Esc)">Deselect</button>
+        <button id="selAllBtn" title="Select everything (Ctrl+A)">Select all</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="flipH" title="Flip left/right">Flip ⇆</button>
+        <button id="flipV" title="Flip up/down">Flip ⇅</button>
+        <button id="rot" title="Rotate selection 90° clockwise">Rotate ↻</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="nudL" title="Move 1 pixel left">◀</button>
+        <button id="nudU" title="Move 1 pixel up">▲</button>
+        <button id="nudD" title="Move 1 pixel down">▼</button>
+        <button id="nudR" title="Move 1 pixel right">▶</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="outlineBtn" title="Draw an outline around shapes using the current color">Outline</button>
+        <button id="clearBtn" title="Clear selection or whole frame (Delete)">Clear</button>
+      </div>
+      <p class="label" style="margin:6px 0 0">Flip, rotate, move and clear work on the selection if there is one, otherwise on the whole frame.</p>
+    </section>
+
+  </aside>
+</main>
+
+<footer>
+  <div class="row tight">
+    <div id="poses" role="tablist" aria-label="Poses"></div>
+    <button id="addPose" title="Add a custom pose">+ Pose</button>
+    <button id="renPose" title="Rename this pose">Rename</button>
+    <button id="delPose" title="Delete this pose">Delete pose</button>
+  </div>
+  <div class="framesrow">
+    <div id="frames" class="framesrow"></div>
+    <div class="frameops">
+      <div class="row">
+        <button id="dupFrame" title="Duplicate this frame into the next empty slot">Duplicate</button>
+        <button id="delFrame" title="Delete this frame">Delete</button>
+      </div>
+      <div class="row">
+        <button id="copyFrame" title="Copy the whole frame">Copy frame</button>
+        <button id="pasteFrame" title="Replace this frame with the copied frame">Paste frame</button>
+      </div>
+      <div class="row">
+        <button id="moveL" title="Move frame earlier">◀ Move</button>
+        <button id="moveR" title="Move frame later">Move ▶</button>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<div class="modal" id="modal"><div class="dialog" id="dialog"></div></div>
+<input type="file" id="fileIn" accept="image/*" hidden>
+<div id="toast" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+
+// ------------------------------------------------------------------ constants
+const SLOTS = 5;                                   // frames per pose
+const DEFAULT_POSES = ['idle', 'move', 'attack', 'damage', 'celebrate'];
+const ALPH = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'; // palette index -> char
+const MAX_COLORS = ALPH.length;
+const PRESETS = {
+  croc: ['#0e1a10', '#105e22', '#248e2c', '#68c452', '#aad678', '#ffe23a', '#f7ecc8', '#b2262b', '#e87a7a'],
+  ocean: ['#062038', '#0b4f7a', '#1f8fc7', '#5cc8f0', '#bfe9f7', '#f2e2b0', '#e8a33d', '#c2453b'],
+  pico8: ['#000000', '#1d2b53', '#7e2553', '#008751', '#ab5236', '#5f574f', '#c2c3c7', '#fff1e8', '#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#83769c', '#ff77a8', '#ffccaa'],
+  gameboy: ['#0f380f', '#306230', '#8bac0f', '#9bbc0f'],
+  skin: ['#3b2219', '#6b3e26', '#a0663f', '#d39b6a', '#f1c9a0', '#ffe3cc', '#2b1b0e', '#e8c14a'],
+};
+
+// ------------------------------------------------------------------ state
+const S = {
+  id: null,                 // project id in storage
+  project: null,            // {name, w, h, palette:[hex], poses:[{name,fps,frames:[Int16Array]}]}
+  pose: 0, frame: 0,
+  color: 1,                 // palette index; -1 = transparent
+  tool: 'pencil', rectFill: false,
+  zoom: 12, grid: true, onion: true, mirX: false, mirY: false,
+  sel: null,                // {x,y,w,h}
+  float: null,              // {x,y,w,h,data:Int16Array} movable piece
+  clip: null,               // {w,h,data}
+  frameClip: null,          // Int16Array
+  undo: [], redo: [],
+  dirty: false,
+};
+
+const $ = (id) => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const stage = $('stage');
+
+// ------------------------------------------------------------------ helpers
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+const P = () => S.project;
+const curPose = () => P().poses[S.pose];
+const curFrame = () => curPose().frames[S.frame];
+const blank = () => new Int16Array(P().w * P().h).fill(-1);
+const idx = (x, y) => y * P().w + x;
+const inside = (x, y) => x >= 0 && y >= 0 && x < P().w && y < P().h;
+function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function rgbToHex(r, g, b) { return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join(''); }
+
+// ------------------------------------------------------------------ serialization
+function encodeFrame(f) { let s = ''; for (const v of f) s += v < 0 ? '.' : ALPH[v]; return s; }
+function decodeFrame(s, n) {
+  const f = new Int16Array(n).fill(-1);
+  for (let i = 0; i < Math.min(n, s.length); i++) { const c = s[i]; f[i] = c === '.' ? -1 : ALPH.indexOf(c); }
+  return f;
+}
+function serialize(p) {
+  return { name: p.name, w: p.w, h: p.h, palette: p.palette.slice(),
+    poses: p.poses.map((po) => ({ name: po.name, fps: po.fps, frames: po.frames.map(encodeFrame) })) };
+}
+function deserialize(d) {
+  const w = d.w | 0, h = d.h | 0;
+  return { name: String(d.name || 'Untitled'), w, h, palette: (d.palette || []).slice(0, MAX_COLORS),
+    poses: (d.poses || []).map((po) => ({ name: String(po.name), fps: po.fps || 6,
+      frames: (po.frames || []).slice(0, SLOTS).map((s) => decodeFrame(String(s), w * h)) })) };
+}
+function newProject(name, w, h) {
+  return { name, w, h, palette: PRESETS.croc.slice(),
+    poses: DEFAULT_POSES.map((n) => ({ name: n, fps: 6, frames: n === 'idle' ? [new Int16Array(w * h).fill(-1)] : [] })) };
+}
+
+// ------------------------------------------------------------------ undo
+function snapshot() { return JSON.stringify(serialize(P())); }
+function pushUndo() {
+  S.undo.push({ s: snapshot(), pose: S.pose, frame: S.frame });
+  if (S.undo.length > 80) S.undo.shift();
+  S.redo.length = 0;
+}
+function restore(entry) {
+  S.project = deserialize(JSON.parse(entry.s));
+  S.pose = Math.min(entry.pose, P().poses.length - 1);
+  S.frame = Math.min(entry.frame, Math.max(0, curPose().frames.length - 1));
+  S.float = null;
+}
+function undo() { if (!S.undo.length) return; S.redo.push({ s: snapshot(), pose: S.pose, frame: S.frame }); restore(S.undo.pop()); changed(true); }
+function redo() { if (!S.redo.length) return; S.undo.push({ s: snapshot(), pose: S.pose, frame: S.frame }); restore(S.redo.pop()); changed(true); }
+
+// ------------------------------------------------------------------ drawing primitives
+function mirrorPoints(x, y) {
+  const pts = [[x, y]]; const w = P().w, h = P().h;
+  if (S.mirX) pts.push([w - 1 - x, y]);
+  if (S.mirY) pts.push([x, h - 1 - y]);
+  if (S.mirX && S.mirY) pts.push([w - 1 - x, h - 1 - y]);
+  return pts;
+}
+function plot(f, x, y, v) { for (const [px, py] of mirrorPoints(x, y)) if (inside(px, py)) f[idx(px, py)] = v; }
+function linePts(x0, y0, x1, y1) {
+  const pts = []; const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let err = dx + dy;
+  for (;;) { pts.push([x0, y0]); if (x0 === x1 && y0 === y1) break; const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } }
+  return pts;
+}
+function rectPts(x0, y0, x1, y1, fill) {
+  const pts = []; const ax = Math.min(x0, x1), bx = Math.max(x0, x1), ay = Math.min(y0, y1), by = Math.max(y0, y1);
+  for (let y = ay; y <= by; y++) for (let x = ax; x <= bx; x++)
+    if (fill || x === ax || x === bx || y === ay || y === by) pts.push([x, y]);
+  return pts;
+}
+function flood(f, x, y, v) {
+  const w = P().w, h = P().h, target = f[idx(x, y)];
+  if (target === v) return;
+  const st = [[x, y]];
+  while (st.length) { const [cx, cy] = st.pop();
+    if (cx < 0 || cy < 0 || cx >= w || cy >= h || f[idx(cx, cy)] !== target) continue;
+    f[idx(cx, cy)] = v; st.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]); }
+}
+
+// Region helpers: the moving piece, else the selection, else the whole frame.
+function regionRect() { return S.sel ? { ...S.sel } : { x: 0, y: 0, w: P().w, h: P().h }; }
+function readRegion(f, r) {
+  const d = new Int16Array(r.w * r.h).fill(-1);
+  for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) if (inside(r.x + x, r.y + y)) d[y * r.w + x] = f[idx(r.x + x, r.y + y)];
+  return d;
+}
+function writeRegion(f, r, d, skipClear) {
+  for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) {
+    const v = d[y * r.w + x]; if (skipClear && v < 0) continue;
+    if (inside(r.x + x, r.y + y)) f[idx(r.x + x, r.y + y)] = v;
+  }
+}
+function clearRegion(f, r) { for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) if (inside(r.x + x, r.y + y)) f[idx(r.x + x, r.y + y)] = -1; }
+
+// ------------------------------------------------------------------ frame access
+function ensureFrame() {
+  // Drawing on an empty pose creates its first frame.
+  if (!curPose().frames.length) { curPose().frames.push(blank()); S.frame = 0; }
+  return curFrame();
+}
+
+// ------------------------------------------------------------------ rendering
+let hover = null, preview = null; // preview: {pts, v}
+function fitZoom() {
+  const r = stage.getBoundingClientRect();
+  S.zoom = Math.max(2, Math.floor(Math.min((r.width - 40) / P().w, (r.height - 70) / P().h)));
+  render();
+}
+function render() {
+  const p = P(), z = S.zoom, W = p.w * z, H = p.h * z;
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  // Checkerboard = transparent.
+  for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) {
+    ctx.fillStyle = (x + y) % 2 ? '#2a2f37' : '#232830'; ctx.fillRect(x * z, y * z, z, z);
+  }
+  const pal = p.palette;
+  const f = curPose().frames[S.frame];
+  // Onion skin: previous frame (or last frame when on the first).
+  if (S.onion && curPose().frames.length > 1) {
+    const prevI = S.frame > 0 ? S.frame - 1 : curPose().frames.length - 1;
+    const pf = curPose().frames[prevI];
+    ctx.globalAlpha = 0.25;
+    for (let i = 0; i < pf.length; i++) if (pf[i] >= 0) { ctx.fillStyle = pal[pf[i]] || '#f0f'; ctx.fillRect((i % p.w) * z, ((i / p.w) | 0) * z, z, z); }
+    ctx.globalAlpha = 1;
+  }
+  if (f) for (let i = 0; i < f.length; i++) if (f[i] >= 0) { ctx.fillStyle = pal[f[i]] || '#f0f'; ctx.fillRect((i % p.w) * z, ((i / p.w) | 0) * z, z, z); }
+  // Shape preview (line / rect).
+  if (preview) {
+    for (const [x, y] of preview.pts) for (const [px, py] of mirrorPoints(x, y)) if (inside(px, py)) {
+      if (preview.v < 0) { ctx.clearRect(px * z, py * z, z, z); ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(px * z, py * z, z, z); }
+      else { ctx.fillStyle = pal[preview.v]; ctx.fillRect(px * z, py * z, z, z); }
+    }
+  }
+  // Moving piece.
+  if (S.float) { const fl = S.float;
+    for (let y = 0; y < fl.h; y++) for (let x = 0; x < fl.w; x++) { const v = fl.data[y * fl.w + x];
+      if (v >= 0 && inside(fl.x + x, fl.y + y)) { ctx.fillStyle = pal[v]; ctx.fillRect((fl.x + x) * z, (fl.y + y) * z, z, z); } } }
+  // Grid.
+  if (S.grid && z >= 6) {
+    ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let x = 1; x < p.w; x++) { ctx.moveTo(x * z + 0.5, 0); ctx.lineTo(x * z + 0.5, H); }
+    for (let y = 1; y < p.h; y++) { ctx.moveTo(0, y * z + 0.5); ctx.lineTo(W, y * z + 0.5); }
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.beginPath();
+    for (let x = 8; x < p.w; x += 8) { ctx.moveTo(x * z + 0.5, 0); ctx.lineTo(x * z + 0.5, H); }
+    for (let y = 8; y < p.h; y += 8) { ctx.moveTo(0, y * z + 0.5); ctx.lineTo(W, y * z + 0.5); }
+    ctx.stroke();
+  }
+  // Mirror axes.
+  ctx.strokeStyle = 'rgba(255,210,63,.7)'; ctx.setLineDash([6, 4]); ctx.lineWidth = 2;
+  if (S.mirX) { ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke(); }
+  if (S.mirY) { ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke(); }
+  // Selection / moving piece outline.
+  const box = S.float || S.sel;
+  if (box) { ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.strokeRect(box.x * z + 1, box.y * z + 1, box.w * z - 2, box.h * z - 2); }
+  ctx.setLineDash([]);
+  // Hover cursor.
+  if (hover && inside(hover.x, hover.y) && S.tool !== 'hand' && S.tool !== 'select') {
+    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1; ctx.strokeRect(hover.x * z + 0.5, hover.y * z + 0.5, z - 1, z - 1);
+  }
+  $('coords').textContent = `${p.w}×${p.h}` + (hover && inside(hover.x, hover.y) ? `  x ${hover.x}  y ${hover.y}` : '') + `  ·  ${S.zoom}×`;
+}
+
+function drawThumb(c, f) {
+  const p = P(); c.width = p.w; c.height = p.h; const g = c.getContext('2d');
+  const img = g.createImageData(p.w, p.h);
+  const rgb = p.palette.map(hexToRgb);
+  for (let i = 0; i < f.length; i++) if (f[i] >= 0 && rgb[f[i]]) { const [r, gg, b] = rgb[f[i]]; img.data.set([r, gg, b, 255], i * 4); }
+  g.putImageData(img, 0, 0);
+}
+
+function renderPalette() {
+  const el = $('palette'); el.innerHTML = '';
+  const add = (i, hex) => { const d = document.createElement('div');
+    d.className = 'sw' + (i === S.color ? ' cur' : '') + (i < 0 ? ' clear' : '');
+    if (i >= 0) d.style.background = hex; d.title = i < 0 ? 'Transparent' : hex;
+    d.setAttribute('role', 'option'); d.setAttribute('aria-selected', String(i === S.color));
+    d.onclick = () => { S.color = i; if (S.tool === 'eraser' || S.tool === 'picker') setTool('pencil'); renderPalette(); };
+    el.appendChild(d); };
+  add(-1);
+  P().palette.forEach((h, i) => add(i, h));
+  const cur = S.color >= 0 ? P().palette[S.color] : null;
+  $('curSwatch').style.background = cur || 'repeating-conic-gradient(#666 0 25%, #999 0 50%) 0 0 / 10px 10px';
+  $('colorEdit').value = cur || '#000000'; $('colorEdit').disabled = S.color < 0;
+}
+
+function renderPoses() {
+  const el = $('poses'); el.innerHTML = '';
+  P().poses.forEach((po, i) => { const b = document.createElement('button');
+    b.className = i === S.pose ? 'on' : ''; b.setAttribute('role', 'tab');
+    b.innerHTML = `${po.name}<span class="count">${po.frames.length}/${SLOTS}</span>`;
+    b.onclick = () => { commitFloat(); S.pose = i; S.frame = 0; S.sel = null; changed(false); };
+    el.appendChild(b); });
+}
+
+function renderFrames() {
+  const el = $('frames'); el.innerHTML = '';
+  const frames = curPose().frames;
+  for (let i = 0; i < SLOTS; i++) {
+    const d = document.createElement('div');
+    if (i < frames.length) {
+      d.className = 'slot' + (i === S.frame ? ' cur' : '');
+      const c = document.createElement('canvas'); drawThumb(c, frames[i]);
+      const n = document.createElement('div'); n.className = 'n'; n.textContent = `${curPose().name} ${i + 1}`;
+      d.append(c, n); d.onclick = () => { commitFloat(); S.frame = i; changed(false); };
+    } else if (i === frames.length) {
+      d.className = 'slot empty'; d.innerHTML = '+ New frame<br><span class="label">copy of the last</span>';
+      d.onclick = () => { commitFloat(); pushUndo(); const last = frames[frames.length - 1];
+        frames.push(last ? last.slice() : blank()); S.frame = frames.length - 1; changed(true); };
+    } else { d.className = 'slot empty'; d.textContent = 'Empty'; d.style.opacity = 0.4; d.style.cursor = 'default'; }
+    el.appendChild(d);
+  }
+  $('delPose').disabled = P().poses.length <= 1;
+  $('dupFrame').disabled = !frames.length || frames.length >= SLOTS;
+  $('delFrame').disabled = !frames.length;
+  $('moveL').disabled = S.frame <= 0; $('moveR').disabled = S.frame >= frames.length - 1;
+  $('pasteFrame').disabled = !S.frameClip;
+}
+
+function renderButtons() {
+  document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === S.tool));
+  const rb = document.querySelector('[data-tool=rect]'); rb.textContent = S.rectFill ? '■' : '▭';
+  $('mirX').classList.toggle('on', S.mirX); $('mirY').classList.toggle('on', S.mirY);
+  $('btnOnion').classList.toggle('on', S.onion); $('btnGrid').classList.toggle('on', S.grid);
+  $('btnUndo').disabled = !S.undo.length; $('btnRedo').disabled = !S.redo.length;
+  $('applyBtn').disabled = !S.float; $('pasteBtn').disabled = !S.clip;
+  $('rot').disabled = !(S.float || S.sel || P().w === P().h);
+  $('fps').value = curPose().fps; $('fpsVal').textContent = curPose().fps + ' fps';
+}
+
+/** Call after any change. `edit` marks the project as modified (autosave). */
+function changed(edit) {
+  if (edit) { S.dirty = true; scheduleSave(); }
+  render(); renderPalette(); renderPoses(); renderFrames(); renderButtons();
+}
+
+// ------------------------------------------------------------------ preview animation
+let playing = true, animI = 0, animT = 0;
+const pv = $('preview'), pctx = pv.getContext('2d');
+function previewTick(t) {
+  const po = curPose(); const p = P();
+  const frames = po.frames;
+  if (playing && frames.length && t - animT > 1000 / po.fps) { animT = t; animI = (animI + 1) % frames.length; }
+  if (!playing) animI = Math.min(S.frame, frames.length - 1);
+  const scale = Math.max(1, Math.floor(Math.min(pv.clientWidth / p.w, 140 / p.h)) || 1);
+  const W = p.w * scale, H = p.h * scale + 16;
+  if (pv.width !== W || pv.height !== H) { pv.width = W; pv.height = H; }
+  const bg = $('bgSel').value;
+  if (bg === 'checker') { for (let y = 0; y < H; y += 8) for (let x = 0; x < W; x += 8) { pctx.fillStyle = ((x + y) / 8) % 2 ? '#2a2f37' : '#232830'; pctx.fillRect(x, y, 8, 8); } }
+  else { pctx.fillStyle = bg === 'water' ? '#2b8fc4' : bg === 'white' ? '#ffffff' : '#000000'; pctx.fillRect(0, 0, W, H); }
+  const f = frames[Math.max(0, animI)];
+  if (f) for (let i = 0; i < f.length; i++) if (f[i] >= 0) { pctx.fillStyle = p.palette[f[i]]; pctx.fillRect((i % p.w) * scale, ((i / p.w) | 0) * scale + 8, scale, scale); }
+  requestAnimationFrame(previewTick);
+}
+
+// ------------------------------------------------------------------ pointer input
+let drag = null; // {tool, x0, y0, last, moved, startFloat}
+let spaceHand = false;
+function cellAt(e) {
+  const r = cv.getBoundingClientRect();
+  return { x: Math.floor((e.clientX - r.left) / (r.width / P().w)), y: Math.floor((e.clientY - r.top) / (r.height / P().h)) };
+}
+function inBox(b, x, y) { return b && x >= b.x && y >= b.y && x < b.x + b.w && y < b.y + b.h; }
+
+cv.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); cv.setPointerCapture(e.pointerId);
+  const { x, y } = cellAt(e);
+  let tool = spaceHand ? 'hand' : S.tool;
+  if (e.button === 2 && (tool === 'pencil' || tool === 'line' || tool === 'rect')) tool = 'eraser';
+  drag = { tool, x0: x, y0: y, last: { x, y }, cx: e.clientX, cy: e.clientY, sx: stage.scrollLeft, sy: stage.scrollTop };
+  const color = tool === 'eraser' ? -1 : S.color;
+  if (tool === 'hand') return;
+  if (tool === 'picker') { if (inside(x, y)) { const f = curFrame(); if (f) { S.color = f[idx(x, y)]; setTool('pencil'); renderPalette(); } } drag = null; return; }
+  if (tool === 'select') {
+    if (S.float && inBox(S.float, x, y)) { drag.mode = 'moveFloat'; drag.fx = S.float.x; drag.fy = S.float.y; return; }
+    if (S.sel && !S.float && inBox(S.sel, x, y)) {
+      // Lift the selection into a movable piece.
+      pushUndo(); const f = ensureFrame(); const r = S.sel; S.float = { ...r, data: readRegion(f, r) }; clearRegion(f, r); S.sel = null;
+      drag.mode = 'moveFloat'; drag.fx = S.float.x; drag.fy = S.float.y; changed(true); return;
+    }
+    commitFloat(); drag.mode = 'select'; S.sel = null; return;
+  }
+  if (!inside(x, y) && tool !== 'line' && tool !== 'rect') { drag = null; return; }
+  commitFloat();
+  pushUndo(); const f = ensureFrame();
+  if (tool === 'pencil' || tool === 'eraser') { plot(f, x, y, color); changed(true); }
+  else if (tool === 'fill') { flood(f, x, y, color); for (const [px, py] of mirrorPoints(x, y).slice(1)) if (inside(px, py)) flood(f, px, py, color); changed(true); drag = null; }
+  else if (tool === 'replace') { const from = f[idx(x, y)]; for (let i = 0; i < f.length; i++) if (f[i] === from) f[i] = color; changed(true); drag = null; toast('Replaced that color in this frame'); }
+  else if (tool === 'line' || tool === 'rect') { drag.color = color; preview = { pts: [[x, y]], v: color }; render(); }
+});
+
+cv.addEventListener('pointermove', (e) => {
+  const { x, y } = cellAt(e);
+  hover = { x, y };
+  if (!drag) { render(); return; }
+  if (drag.tool === 'hand') { stage.scrollLeft = drag.sx - (e.clientX - drag.cx); stage.scrollTop = drag.sy - (e.clientY - drag.cy); return; }
+  const f = curPose().frames[S.frame];
+  if (drag.tool === 'pencil' || drag.tool === 'eraser') {
+    const v = drag.tool === 'eraser' ? -1 : S.color;
+    for (const [px, py] of linePts(drag.last.x, drag.last.y, x, y)) plot(f, px, py, v);
+    drag.last = { x, y }; render(); return;
+  }
+  if (drag.tool === 'line') { preview = { pts: linePts(drag.x0, drag.y0, x, y), v: drag.color }; render(); return; }
+  if (drag.tool === 'rect') { preview = { pts: rectPts(drag.x0, drag.y0, x, y, S.rectFill), v: drag.color }; render(); return; }
+  if (drag.tool === 'select') {
+    if (drag.mode === 'moveFloat') { S.float.x = drag.fx + (x - drag.x0); S.float.y = drag.fy + (y - drag.y0); }
+    else { const ax = Math.max(0, Math.min(drag.x0, x)), ay = Math.max(0, Math.min(drag.y0, y));
+      const bx = Math.min(P().w - 1, Math.max(drag.x0, x)), by = Math.min(P().h - 1, Math.max(drag.y0, y));
+      S.sel = { x: ax, y: ay, w: bx - ax + 1, h: by - ay + 1 }; }
+    render(); renderButtons();
+  }
+});
+
+function endDrag() {
+  if (!drag) return;
+  if ((drag.tool === 'line' || drag.tool === 'rect') && preview) {
+    const f = curPose().frames[S.frame]; for (const [x, y] of preview.pts) plot(f, x, y, preview.v);
+    preview = null; changed(true);
+  } else if (drag.tool === 'pencil' || drag.tool === 'eraser') { changed(true); }
+  else if (drag.tool === 'select') { changed(drag.mode === 'moveFloat'); }
+  drag = null;
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { hover = null; if (!drag) render(); });
+cv.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ------------------------------------------------------------------ edit actions
+function commitFloat() {
+  if (!S.float) return;
+  const f = ensureFrame(); writeRegion(f, S.float, S.float.data, true);
+  S.sel = { x: S.float.x, y: S.float.y, w: S.float.w, h: S.float.h }; S.float = null; changed(true);
+}
+function copy(cut) {
+  const f = curFrame(); if (!f && !S.float) return;
+  if (S.float) S.clip = { w: S.float.w, h: S.float.h, data: S.float.data.slice() };
+  else { const r = regionRect(); S.clip = { w: r.w, h: r.h, data: readRegion(f, r), x: r.x, y: r.y };
+    if (cut) { pushUndo(); clearRegion(f, r); changed(true); } }
+  toast(cut ? 'Cut' : 'Copied' + (S.sel || S.float ? ' selection' : ' whole frame'));
+  renderButtons();
+}
+function paste() {
+  if (!S.clip) return; commitFloat(); pushUndo(); ensureFrame();
+  const x = S.sel ? S.sel.x : (S.clip.x ?? 0), y = S.sel ? S.sel.y : (S.clip.y ?? 0);
+  S.float = { x, y, w: S.clip.w, h: S.clip.h, data: S.clip.data.slice() }; S.sel = null;
+  setTool('select'); changed(true); toast('Drag the piece, then tap Place');
+}
+function transform(kind) {
+  // Applies to: moving piece, else selection, else whole frame.
+  if (!curFrame() && !S.float) return;
+  pushUndo();
+  let target = S.float;
+  if (!target) { const f = curFrame(); const r = regionRect(); target = { ...r, data: readRegion(f, r) }; clearRegion(f, r);
+    target.inFrame = true; }
+  const { w, h, data } = target; let out = new Int16Array(w * h).fill(-1), nw = w, nh = h;
+  if (kind === 'flipH') for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) out[y * w + (w - 1 - x)] = data[y * w + x];
+  if (kind === 'flipV') for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) out[(h - 1 - y) * w + x] = data[y * w + x];
+  if (kind === 'rot') { nw = h; nh = w; out = new Int16Array(w * h).fill(-1);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) out[x * nw + (nw - 1 - y)] = data[y * w + x]; }
+  const moves = { L: [-1, 0], R: [1, 0], U: [0, -1], D: [0, 1] };
+  if (moves[kind]) { out = data; target.x += moves[kind][0]; target.y += moves[kind][1]; }
+  if (kind === 'clear') out.fill(-1);
+  if (kind === 'outline') {
+    out = data.slice(); const c = S.color < 0 ? 0 : S.color;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (data[y * w + x] >= 0) continue;
+      const n = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const xx = x + dx, yy = y + dy;
+        return xx >= 0 && yy >= 0 && xx < w && yy < h && data[yy * w + xx] >= 0 && data[yy * w + xx] !== c; });
+      if (n) out[y * w + x] = c; }
+  }
+  const res = { x: target.x, y: target.y, w: nw, h: nh, data: out };
+  if (target.inFrame) {
+    writeRegion(curFrame(), res, out, false);
+    if (S.sel) S.sel = { x: res.x, y: res.y, w: nw, h: nh };
+  } else S.float = res;
+  changed(true);
+}
+
+// ------------------------------------------------------------------ frames and poses
+function frameOp(op) {
+  commitFloat(); const frames = curPose().frames; const i = S.frame;
+  if (op === 'dup' && frames.length && frames.length < SLOTS) { pushUndo(); frames.splice(i + 1, 0, frames[i].slice()); S.frame = i + 1; }
+  if (op === 'del' && frames.length) { pushUndo(); frames.splice(i, 1); S.frame = Math.max(0, Math.min(i, frames.length - 1)); }
+  if (op === 'copy' && frames[i]) { S.frameClip = frames[i].slice(); toast('Frame copied. Paste it into any pose.'); renderFrames(); return; }
+  if (op === 'paste' && S.frameClip) { pushUndo(); if (!frames.length) { frames.push(S.frameClip.slice()); S.frame = 0; } else frames[i] = S.frameClip.slice(); }
+  if (op === 'L' && i > 0) { pushUndo(); [frames[i - 1], frames[i]] = [frames[i], frames[i - 1]]; S.frame = i - 1; }
+  if (op === 'R' && i < frames.length - 1) { pushUndo(); [frames[i + 1], frames[i]] = [frames[i], frames[i + 1]]; S.frame = i + 1; }
+  changed(true);
+}
+
+// ------------------------------------------------------------------ modal helpers (no browser prompts)
+function openModal(html, bind) { $('dialog').innerHTML = html; $('modal').classList.add('open'); bind && bind(); }
+function closeModal() { $('modal').classList.remove('open'); }
+$('modal').addEventListener('pointerdown', (e) => { if (e.target.id === 'modal') closeModal(); });
+function askText(title, value, ok) {
+  openModal(`<h3>${title}</h3><input type="text" id="askIn" maxlength="24"><div class="row"><button id="askOk" class="on">OK</button><button id="askCancel">Cancel</button></div>`, () => {
+    const i = $('askIn'); i.value = value; i.focus(); i.select();
+    const done = () => { const v = i.value.trim().replace(/[^\w\- ]/g, ''); if (v) { closeModal(); ok(v); } };
+    $('askOk').onclick = done; $('askCancel').onclick = closeModal; i.onkeydown = (e) => { if (e.key === 'Enter') done(); };
+  });
+}
+function askConfirm(title, text, ok) {
+  openModal(`<h3>${title}</h3><p>${text}</p><div class="row"><button id="cOk" class="on">Yes, delete</button><button id="cNo">Cancel</button></div>`, () => {
+    $('cOk').onclick = () => { closeModal(); ok(); }; $('cNo').onclick = closeModal; });
+}
+
+// ------------------------------------------------------------------ storage (cloud db, local fallback)
+let db = null, downloads = null, saving = false, saveTimer = null;
+const setSave = (txt, cls) => { const el = $('saveState'); el.textContent = txt; el.className = cls || ''; };
+function scheduleSave() { setSave('Unsaved changes'); clearTimeout(saveTimer); saveTimer = setTimeout(save, 1200); }
+async function save() {
+  if (!S.dirty || !S.id) return;
+  if (saving) { scheduleSave(); return; }
+  saving = true; S.dirty = false;
+  const body = { ...serialize(P()), updatedAt: new Date().toISOString() };
+  try {
+    if (db) { await db.doc('projects/' + S.id).set(body); setSave('Saved', 'ok'); }
+    else { localStorage.setItem('spritestudio:' + S.id, JSON.stringify(body)); setSave('Saved on this device', 'ok'); }
+  } catch (err) {
+    S.dirty = true;
+    try { localStorage.setItem('spritestudio:' + S.id, JSON.stringify(body)); setSave('Saved on this device only', 'err'); }
+    catch { setSave('Could not save', 'err'); }
+  }
+  saving = false;
+}
+async function listProjects() {
+  const out = [];
+  if (db) { try { const snap = await db.collection('projects').get(); snap.docs.forEach((d) => { const v = d.data(); out.push({ id: d.id, name: v.name, w: v.w, h: v.h, updatedAt: v.updatedAt }); }); } catch {} }
+  if (!out.length) { try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i);
+      if (k.startsWith('spritestudio:')) { const v = JSON.parse(localStorage.getItem(k)); out.push({ id: k.slice(13), name: v.name, w: v.w, h: v.h, updatedAt: v.updatedAt }); } } } catch {} }
+  out.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  return out;
+}
+async function loadProject(id) {
+  let data = null;
+  if (db) { try { const d = await db.doc('projects/' + id).get(); if (d.exists) data = d.data(); } catch {} }
+  if (!data) { try { data = JSON.parse(localStorage.getItem('spritestudio:' + id) || 'null'); } catch {} }
+  if (!data) return false;
+  S.id = id; S.project = deserialize(data); S.pose = 0; S.frame = 0; S.sel = null; S.float = null; S.undo = []; S.redo = [];
+  S.color = Math.min(1, P().palette.length - 1);
+  $('projName').value = P().name;
+  try { localStorage.setItem('spritestudio:last', id); } catch {}
+  fitZoom(); changed(false); setSave(db ? 'Saved' : 'Saved on this device', 'ok');
+  return true;
+}
+function startNew(name, w, h) {
+  S.id = 'p' + Date.now().toString(36); S.project = newProject(name, w, h);
+  S.pose = 0; S.frame = 0; S.sel = null; S.float = null; S.undo = []; S.redo = []; S.color = 1;
+  $('projName').value = name; fitZoom(); S.dirty = true; changed(true);
+}
+
+async function openProjects() {
+  openModal('<h3>Projects</h3><p class="label">Loading…</p>');
+  const list = await listProjects();
+  const items = list.map((p) => `<div class="item"><button data-open="${p.id}">${(p.name || p.id).replace(/</g, '&lt;')} <span class="label">${p.w}×${p.h}</span></button><button data-del="${p.id}" title="Delete">Delete</button></div>`).join('');
+  openModal(`<h3>Projects</h3><div class="plist">${items || '<p class="label">No saved projects yet.</p>'}</div>
+    <h3>New project</h3>
+    <div class="row"><input type="text" id="npName" value="My character" aria-label="Name"><input type="number" id="npW" value="48" min="4" max="128" aria-label="Width" style="width:74px"><span class="label">×</span><input type="number" id="npH" value="24" min="4" max="128" aria-label="Height" style="width:74px"></div>
+    <div class="row"><button id="npGo" class="on">Create</button><button id="npDup">Duplicate current</button><button id="npClose">Close</button></div>
+    <p class="label">${db ? 'Projects are saved to the cloud with this page, so Claude can load them into your game.' : 'Cloud saving is not available here, so projects are kept on this device only.'}</p>`, () => {
+    document.querySelectorAll('[data-open]').forEach((b) => b.onclick = async () => { closeModal(); await save(); await loadProject(b.dataset.open); });
+    document.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => askConfirm('Delete project?', 'This removes the project and all its poses. It cannot be undone.', async () => {
+      try { if (db) await db.doc('projects/' + b.dataset.del).delete(); } catch {} try { localStorage.removeItem('spritestudio:' + b.dataset.del); } catch {}
+      if (b.dataset.del === S.id) startNew('My character', 48, 24); toast('Project deleted'); }));
+    $('npGo').onclick = async () => { const w = Math.max(4, Math.min(128, +$('npW').value | 0)), h = Math.max(4, Math.min(128, +$('npH').value | 0));
+      const n = $('npName').value.trim() || 'My character'; await save(); closeModal(); startNew(n, w, h); };
+    $('npDup').onclick = async () => { await save(); const copyP = deserialize(serialize(P())); copyP.name = P().name + ' copy';
+      S.id = 'p' + Date.now().toString(36); S.project = copyP; $('projName').value = copyP.name; S.dirty = true; closeModal(); changed(true); toast('Duplicated'); };
+    $('npClose').onclick = closeModal;
+  });
+}
+
+function openCanvasSettings() {
+  openModal(`<h3>Canvas size</h3><p class="label">Resizing keeps the art anchored to the chosen spot. Pixels outside the new size are cut.</p>
+    <div class="row"><label class="label" for="csW">Width</label><input type="number" id="csW" value="${P().w}" min="4" max="128" style="width:80px">
+    <label class="label" for="csH">Height</label><input type="number" id="csH" value="${P().h}" min="4" max="128" style="width:80px"></div>
+    <div class="row"><label class="label" for="csA">Anchor</label><select id="csA"><option value="c">Center</option><option value="bl">Bottom left</option><option value="b">Bottom center</option><option value="tl">Top left</option></select></div>
+    <div class="row"><button id="csOk" class="on">Apply</button><button id="csNo">Cancel</button></div>`, () => {
+    $('csNo').onclick = closeModal;
+    $('csOk').onclick = () => {
+      const nw = Math.max(4, Math.min(128, +$('csW').value | 0)), nh = Math.max(4, Math.min(128, +$('csH').value | 0)); const a = $('csA').value;
+      const ow = P().w, oh = P().h; pushUndo();
+      const ox = a === 'c' || a === 'b' ? Math.floor((nw - ow) / 2) : 0;
+      const oy = a === 'c' ? Math.floor((nh - oh) / 2) : (a === 'bl' || a === 'b') ? nh - oh : 0;
+      for (const po of P().poses) po.frames = po.frames.map((f) => { const n = new Int16Array(nw * nh).fill(-1);
+        for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) { const X = x + ox, Y = y + oy; if (X >= 0 && Y >= 0 && X < nw && Y < nh) n[Y * nw + X] = f[y * ow + x]; } return n; });
+      P().w = nw; P().h = nh; S.sel = null; S.float = null; closeModal(); fitZoom(); changed(true);
+    };
+  });
+}
+
+// ------------------------------------------------------------------ import picture
+function nearestIndex(rgb, pal) { let best = -1, bd = 1e9; pal.forEach((h, i) => { const [r, g, b] = hexToRgb(h);
+  const d = (r - rgb[0]) ** 2 + (g - rgb[1]) ** 2 + (b - rgb[2]) ** 2; if (d < bd) { bd = d; best = i; } }); return { i: best, d: bd }; }
+$('btnImport').onclick = () => {
+  openModal(`<h3>Import a picture</h3><p class="label">Turns a drawing or photo into pixels for the current frame, using your palette (new colors are added when needed).</p>
+    <div class="row"><label><input type="checkbox" id="imWhite" checked> White background = transparent</label></div>
+    <div class="row"><label class="label" for="imCols">Max new colors</label><input type="number" id="imCols" value="8" min="0" max="32" style="width:80px"></div>
+    <div class="row"><button id="imPick" class="on">Choose picture…</button><button id="imNo">Cancel</button></div>`, () => {
+    $('imNo').onclick = closeModal;
+    $('imPick').onclick = () => { S.importOpts = { white: $('imWhite').checked, cols: +$('imCols').value | 0 }; closeModal(); $('fileIn').click(); };
+  });
+};
+$('fileIn').onchange = () => {
+  const file = $('fileIn').files[0]; if (!file) return;
+  const img = new Image(); img.onload = () => {
+    const p = P(); const opts = S.importOpts || { white: true, cols: 8 };
+    // Crop to the drawing's non-white bounds, then fit inside the canvas keeping proportions.
+    const big = document.createElement('canvas'); big.width = img.width; big.height = img.height;
+    const bg = big.getContext('2d'); bg.drawImage(img, 0, 0); const src = bg.getImageData(0, 0, img.width, img.height).data;
+    let minX = img.width, minY = img.height, maxX = -1, maxY = -1;
+    for (let y = 0; y < img.height; y += 2) for (let x = 0; x < img.width; x += 2) { const k = (y * img.width + x) * 4;
+      const white = src[k] > 235 && src[k + 1] > 235 && src[k + 2] > 235; if (src[k + 3] > 40 && !white) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); } }
+    if (maxX < 0) { toast('The picture looks empty'); return; }
+    const bw = maxX - minX + 1, bh = maxY - minY + 1; const s = Math.min(p.w / bw, p.h / bh);
+    const tw = Math.max(1, Math.round(bw * s)), th = Math.max(1, Math.round(bh * s));
+    const offX = Math.floor((p.w - tw) / 2), offY = Math.floor((p.h - th) / 2);
+    pushUndo(); const f = ensureFrame(); f.fill(-1); let added = 0;
+    for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+      // Sample the center of each target pixel's area.
+      const sx = Math.min(img.width - 1, Math.floor(minX + (x + 0.5) / s)), sy = Math.min(img.height - 1, Math.floor(minY + (y + 0.5) / s));
+      const k = (sy * img.width + sx) * 4; const rgb = [src[k], src[k + 1], src[k + 2]];
+      if (src[k + 3] < 100) continue;
+      if (opts.white && rgb[0] > 225 && rgb[1] > 225 && rgb[2] > 225) continue;
+      let { i, d } = nearestIndex(rgb, p.palette);
+      if ((i < 0 || d > 1800) && added < opts.cols && p.palette.length < MAX_COLORS) { p.palette.push(rgbToHex(...rgb)); i = p.palette.length - 1; added++; }
+      f[(y + offY) * p.w + (x + offX)] = i;
+    }
+    changed(true); toast(`Imported${added ? `, added ${added} colors` : ''}`);
+  };
+  img.src = URL.createObjectURL(file); $('fileIn').value = '';
+};
+
+// ------------------------------------------------------------------ export
+function buildSheet(scale) {
+  const p = P(); const cols = SLOTS; const rows = p.poses.length;
+  const c = document.createElement('canvas'); c.width = p.w * cols * scale; c.height = p.h * rows * scale;
+  const g = c.getContext('2d'); const frames = {};
+  p.poses.forEach((po, r) => po.frames.forEach((f, i) => {
+    for (let k = 0; k < f.length; k++) if (f[k] >= 0) { g.fillStyle = p.palette[f[k]]; g.fillRect((i * p.w + (k % p.w)) * scale, (r * p.h + ((k / p.w) | 0)) * scale, scale, scale); }
+    frames[`${po.name}_${i + 1}`] = { frame: { x: i * p.w * scale, y: r * p.h * scale, w: p.w * scale, h: p.h * scale }, rotated: false, trimmed: false,
+      spriteSourceSize: { x: 0, y: 0, w: p.w * scale, h: p.h * scale }, sourceSize: { w: p.w * scale, h: p.h * scale } };
+  }));
+  const anims = Object.fromEntries(p.poses.map((po) => [po.name, { frames: po.frames.map((_, i) => `${po.name}_${i + 1}`), fps: po.fps }]));
+  return { canvas: c, json: { frames, meta: { app: 'Sprite Studio', image: `${slug()}.png`, size: { w: c.width, h: c.height }, scale: String(scale), animations: anims } } };
+}
+const slug = () => (P().name || 'sprite').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sprite';
+async function saveFile(filename, data) {
+  if (!downloads) return false;
+  try { await downloads.save({ filename, data }); return true; }
+  catch (e) { if (e && e.code === 'declined') toast('Download cancelled'); else toast('Downloads are not available here'); return null; }
+}
+$('btnExport').onclick = () => {
+  openModal(`<h3>Export</h3><p class="label">Sprite sheet: one row per pose, one column per frame, plus a JSON file with frame positions and animation speeds.</p>
+    <div class="row"><label class="label" for="exScale">Pixel size</label><select id="exScale"><option value="1">1×</option><option value="2">2×</option><option value="3" selected>3× (game)</option><option value="4">4×</option><option value="8">8×</option></select></div>
+    <div class="row"><button id="exPng" class="on">Sprite sheet PNG</button><button id="exJson">Frames JSON</button><button id="exProj">Project file</button></div>
+    <div class="row"><button id="exCopy">Copy JSON</button><button id="exNo">Close</button></div>
+    <div id="exOut"></div>`, () => {
+    $('exNo').onclick = closeModal;
+    $('exPng').onclick = async () => { const { canvas } = buildSheet(+$('exScale').value);
+      canvas.toBlob(async (blob) => { const ok = await saveFile(`${slug()}.png`, blob);
+        if (ok === false) { $('exOut').innerHTML = '<p class="label">Press and hold the picture to save it.</p>'; const im = new Image(); im.src = canvas.toDataURL(); im.style.maxWidth = '100%'; im.style.imageRendering = 'pixelated'; $('exOut').appendChild(im); } }, 'image/png'); };
+    $('exJson').onclick = async () => { const { json } = buildSheet(+$('exScale').value); const ok = await saveFile(`${slug()}.json`, JSON.stringify(json, null, 1)); if (ok === false) toast('Use Copy JSON instead'); };
+    $('exProj').onclick = async () => { const ok = await saveFile(`${slug()}.sprite.json`, JSON.stringify(serialize(P()))); if (ok === false) toast('Use Copy JSON instead'); };
+    $('exCopy').onclick = async () => { try { await navigator.clipboard.writeText(JSON.stringify(serialize(P()))); toast('Project JSON copied'); } catch { toast('Copy failed'); } };
+  });
+};
+
+// ------------------------------------------------------------------ wiring
+function setTool(t) {
+  if (t === 'rect' && S.tool === 'rect') S.rectFill = !S.rectFill;
+  if (t !== 'select') commitFloat();
+  S.tool = t; renderButtons(); render();
+}
+document.querySelectorAll('[data-tool]').forEach((b) => b.onclick = () => setTool(b.dataset.tool));
+$('mirX').onclick = () => { S.mirX = !S.mirX; changed(false); };
+$('mirY').onclick = () => { S.mirY = !S.mirY; changed(false); };
+$('btnOnion').onclick = () => { S.onion = !S.onion; changed(false); };
+$('btnGrid').onclick = () => { S.grid = !S.grid; changed(false); };
+$('zoomIn').onclick = () => { S.zoom = Math.min(64, S.zoom + (S.zoom < 8 ? 1 : 2)); render(); };
+$('zoomOut').onclick = () => { S.zoom = Math.max(2, S.zoom - (S.zoom <= 8 ? 1 : 2)); render(); };
+$('zoomFit').onclick = fitZoom;
+$('btnUndo').onclick = undo; $('btnRedo').onclick = redo;
+$('copyBtn').onclick = () => copy(false); $('cutBtn').onclick = () => copy(true); $('pasteBtn').onclick = paste;
+$('applyBtn').onclick = () => { commitFloat(); S.sel = null; changed(false); };
+$('deselBtn').onclick = () => { commitFloat(); S.sel = null; changed(false); };
+$('selAllBtn').onclick = () => { commitFloat(); S.sel = { x: 0, y: 0, w: P().w, h: P().h }; setTool('select'); changed(false); };
+$('flipH').onclick = () => transform('flipH'); $('flipV').onclick = () => transform('flipV'); $('rot').onclick = () => {
+  if (!S.float && S.sel) { pushUndo(); const f = curFrame(); S.float = { ...S.sel, data: readRegion(f, S.sel) }; clearRegion(f, S.sel); S.sel = null; }
+  transform('rot'); setTool('select'); };
+$('nudL').onclick = () => transform('L'); $('nudR').onclick = () => transform('R'); $('nudU').onclick = () => transform('U'); $('nudD').onclick = () => transform('D');
+$('outlineBtn').onclick = () => transform('outline'); $('clearBtn').onclick = () => transform('clear');
+$('dupFrame').onclick = () => frameOp('dup'); $('delFrame').onclick = () => frameOp('del');
+$('copyFrame').onclick = () => frameOp('copy'); $('pasteFrame').onclick = () => frameOp('paste');
+$('moveL').onclick = () => frameOp('L'); $('moveR').onclick = () => frameOp('R');
+$('addPose').onclick = () => askText('New pose', 'eat', (n) => { pushUndo(); P().poses.push({ name: n, fps: 6, frames: [] }); S.pose = P().poses.length - 1; S.frame = 0; changed(true); });
+$('renPose').onclick = () => askText('Rename pose', curPose().name, (n) => { pushUndo(); curPose().name = n; changed(true); });
+$('delPose').onclick = () => askConfirm(`Delete pose "${curPose().name}"?`, 'Its frames are removed too. You can undo this.', () => { pushUndo(); P().poses.splice(S.pose, 1); S.pose = Math.max(0, S.pose - 1); S.frame = 0; changed(true); });
+$('projName').onchange = () => { pushUndo(); P().name = $('projName').value.trim() || 'Untitled'; changed(true); };
+$('btnProjects').onclick = openProjects; $('btnSettings').onclick = openCanvasSettings;
+$('colorEdit').oninput = () => { if (S.color < 0) return; if (!colorEditUndo) { pushUndo(); colorEditUndo = true; } P().palette[S.color] = $('colorEdit').value; render(); renderPalette(); renderFrames(); };
+let colorEditUndo = false; $('colorEdit').onchange = () => { colorEditUndo = false; changed(true); };
+$('addColor').onclick = () => { if (P().palette.length >= MAX_COLORS) { toast('Palette is full (62 colors)'); return; } pushUndo();
+  P().palette.push(S.color >= 0 ? P().palette[S.color] : '#ffffff'); S.color = P().palette.length - 1; changed(true); toast('Color added: edit it with the color box'); };
+$('delColor').onclick = () => { if (S.color < 0) return; const c = S.color;
+  const used = P().poses.some((po) => po.frames.some((f) => f.includes(c)));
+  if (used) { toast('That color is used in a frame. Recolor those pixels first.'); return; }
+  pushUndo(); P().palette.splice(c, 1); for (const po of P().poses) for (const f of po.frames) for (let i = 0; i < f.length; i++) if (f[i] > c) f[i]--;
+  S.color = Math.min(c, P().palette.length - 1); changed(true); };
+$('presets').onchange = () => { const k = $('presets').value; $('presets').value = ''; if (!k) return; pushUndo(); let n = 0;
+  for (const h of PRESETS[k]) if (!P().palette.includes(h) && P().palette.length < MAX_COLORS) { P().palette.push(h); n++; }
+  changed(true); toast(n ? `Added ${n} colors` : 'Those colors are already in the palette'); };
+$('fps').oninput = () => { curPose().fps = +$('fps').value; $('fpsVal').textContent = curPose().fps + ' fps'; S.dirty = true; scheduleSave(); };
+$('playBtn').onclick = () => { playing = !playing; $('playBtn').textContent = playing ? 'Pause' : 'Play'; };
+
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || $('modal').classList.contains('open')) return;
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && k === 'y') { e.preventDefault(); redo(); return; }
+  if (mod && k === 'c') { e.preventDefault(); copy(false); return; }
+  if (mod && k === 'x') { e.preventDefault(); copy(true); return; }
+  if (mod && k === 'v') { e.preventDefault(); paste(); return; }
+  if (mod && k === 'a') { e.preventDefault(); $('selAllBtn').click(); return; }
+  if (mod) return;
+  const tools = { b: 'pencil', p: 'pencil', e: 'eraser', g: 'fill', i: 'picker', l: 'line', r: 'rect', c: 'replace', m: 'select', h: 'hand' };
+  if (tools[k]) { setTool(tools[k]); return; }
+  if (k === ' ') { spaceHand = true; e.preventDefault(); return; }
+  if (k === 'enter') { commitFloat(); S.sel = null; changed(false); }
+  if (k === 'escape') { commitFloat(); S.sel = null; changed(false); }
+  if (k === 'delete' || k === 'backspace') transform('clear');
+  const arrows = { arrowleft: 'L', arrowright: 'R', arrowup: 'U', arrowdown: 'D' };
+  if (arrows[k]) { e.preventDefault(); transform(arrows[k]); }
+  if (k === 'x') $('flipH').click();
+  if (k === ',' ) { S.frame = Math.max(0, S.frame - 1); changed(false); }
+  if (k === '.') { S.frame = Math.min(curPose().frames.length - 1, S.frame + 1); changed(false); }
+});
+window.addEventListener('keyup', (e) => { if (e.key === ' ') spaceHand = false; });
+window.addEventListener('resize', () => render());
+window.addEventListener('beforeunload', () => { if (S.dirty) save(); });
+
+// ------------------------------------------------------------------ boot
+async function boot() {
+  // Show a working canvas right away; cloud storage lights up when ready.
+  S.project = newProject('My character', 48, 24); S.id = null; fitZoom(); changed(false);
+  requestAnimationFrame(previewTick);
+  const cap = (name) => (window.claude && window.claude.use ? Promise.race([window.claude.use(name), new Promise((r) => setTimeout(() => r(null), 10000))]).catch(() => null) : Promise.resolve(null));
+  [db, downloads] = await Promise.all([cap('db'), cap('downloads')]);
+  let last = null; try { last = localStorage.getItem('spritestudio:last'); } catch {}
+  const list = await listProjects();
+  const pick = (last && list.find((p) => p.id === last)) || list.find((p) => p.id === 'croc') || list[0];
+  if (pick && await loadProject(pick.id)) return;
+  startNew('My character', 48, 24);
+  setSave(db ? 'New project' : 'Saved on this device');
+}
+boot();
+})();
+</script>
+</body>
+</html>
