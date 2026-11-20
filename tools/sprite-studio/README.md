@@ -1,17 +1,15 @@
 # Sprite Studio
 
-Single-file pixel sprite editor (`index.html`), published as a claude.ai artifact.
+The studio now ships inside the game: `public/studio/index.html`, served at
+`studio/index.html` in the same artifact. Sharing the page's origin and cloud
+database lets the game read studio projects directly.
 
-- Projects: fixed canvas (default 48x24), indexed palette (up to 62 colors), poses
-  (idle, move, attack, damage, celebrate + custom), up to 5 frames per pose, fps per pose.
-- Tools: pencil, eraser, fill, picker, line, rectangle (tap again for filled), replace color,
-  select/move, pan; mirror drawing X/Y; onion skin; grid.
-- Edit: copy/cut/paste (floating piece), copy/paste whole frames, flip, rotate, nudge,
-  auto-outline, clear; undo/redo.
-- Import a picture (white = transparent, palette matching); export sprite sheet PNG +
-  Phaser-style JSON (with `meta.animations`), or the project file.
-- Storage: artifact db `projects/<id>` (cloud), falling back to localStorage.
+- **Try in game** (studio top bar) saves, then opens `../index.html?try=<project>&pose=<n>`:
+  a test swim with that drawing. Nothing is saved or recorded, and the real run is untouched.
+- **Back to studio** returns to the same project and pose (`studio/index.html?project=<id>&pose=<n>`).
+- **Options > Your crocodile** in the game picks the look for real runs (`profile.settings.skin`).
+- Pose mapping lives in `src/skins.ts`: idle, move (swim), attack (bite), rest (digest),
+  damage (hit flash) and celebrate (level-up).
 
-Project format (`croc-project.json`): `{name, w, h, palette:[hex], poses:[{name, fps,
-frames:[string]}]}`; each frame string has one char per pixel, row by row:
-`.` = transparent, `0-9A-Za-z` = palette index.
+`croc-project.json` is the seed crocodile project (the son's original idle pose).
+The old standalone studio artifact now shows a "moved" note.

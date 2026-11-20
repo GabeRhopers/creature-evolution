@@ -36,6 +36,10 @@ export interface SpeciesArt {
     idle?: string[];
     /** Idle with eyes closed, shown briefly every few seconds. */
     blink?: string;
+    /** Shown for a moment after being hit. */
+    damage?: string;
+    /** Played on level-up. */
+    celebrate?: string[];
   };
 }
 

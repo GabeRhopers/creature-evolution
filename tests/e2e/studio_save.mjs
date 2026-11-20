@@ -25,7 +25,7 @@ const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m); if(!c) process.exitCode=1;}
 const cloud=()=>p.evaluate(()=>JSON.parse(sessionStorage.getItem('__cloud')||'{}'));
 const local=(id)=>p.evaluate((id)=>JSON.parse(localStorage.getItem('spritestudio:'+id)||'null'),id);
 const state=()=>p.textContent('#saveState');
-await p.goto('http://localhost:8090/'); await p.evaluate(()=>{localStorage.clear(); sessionStorage.clear();}); await p.reload(); await p.waitForTimeout(1500);
+await p.goto('http://localhost:4173/studio/index.html'); await p.evaluate(()=>{localStorage.clear(); sessionStorage.clear();}); await p.reload(); await p.waitForTimeout(1500);
 const draw = async (x,y)=>{ const box=await p.locator('#cv').boundingBox(); const z=box.width/48; await p.locator('[data-tool=pencil]').click(); await p.mouse.click(box.x+(x+0.5)*z, box.y+(y+0.5)*z); };
 await draw(3,3); await p.waitForTimeout(300);
 const id = await p.evaluate(()=>localStorage.getItem('spritestudio:last')) || (await p.evaluate(()=>Object.keys(localStorage).find(k=>k.startsWith('spritestudio:p'))))?.slice(13);

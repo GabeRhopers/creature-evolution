@@ -62,6 +62,9 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   private baseTint = 0xffffff;
   /** Seconds left showing the bite / open-jaw frame. */
   private biteAnim = 0;
+  private celebrateAnim = 0;
+  /** Frames from a Sprite Studio drawing, replacing the species art (player only). */
+  private skinFrames: NonNullable<NonNullable<Species['art']>['frames']> | null = null;
   private animClock = 0;
   private idleClock = 0;
   /** Set by GameScene while the player is digesting (lie flat). */
@@ -93,6 +96,18 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   /** Show the open-jaw frame briefly (species with animation frames). */
   playBite(): void {
     this.biteAnim = 0.25;
+  }
+
+  /** Play the celebrate animation (level-up), if the art has one. */
+  playCelebrate(): void {
+    this.celebrateAnim = 1.1;
+  }
+
+  /** Use frames from another texture (a Sprite Studio drawing). Same frame size as the original art. */
+  applySkin(texture: string, frames: { swim: string[]; idle?: string[]; bite?: string; rest?: string; damage?: string; celebrate?: string[] }): void {
+    if (!frames.swim.length) return;
+    this.skinFrames = { ...frames, celebrate: frames.celebrate?.length ? frames.celebrate : undefined };
+    this.setTexture(texture, frames.swim[0]);
   }
 
   get arcadeBody(): Phaser.Physics.Arcade.Body {
@@ -334,14 +349,19 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   /** Frame animation for species that have it: swim, bite, idle, rest. */
   private animate(dt: number): void {
-    const frames = this.species.art?.frames;
+    const frames = this.skinFrames ?? this.species.art?.frames;
     if (!frames) return;
     this.biteAnim = Math.max(0, this.biteAnim - dt);
+    this.celebrateAnim = Math.max(0, this.celebrateAnim - dt);
     let frame: string;
     const speed = this.arcadeBody.velocity.length();
     const still = speed < this.cruiseSpeed * 0.12 && !this.stunned;
     if (this.biteAnim > 0 && frames.bite) {
       frame = frames.bite;
+    } else if (this.sinceHurt < 0.35 && frames.damage) {
+      frame = frames.damage;
+    } else if (this.celebrateAnim > 0 && frames.celebrate) {
+      frame = frames.celebrate[Math.floor((1.1 - this.celebrateAnim) * 8) % frames.celebrate.length];
     } else if (still && this.digestPose && frames.rest) {
       // Lying flat while digesting.
       frame = frames.rest;

@@ -10,9 +10,13 @@ import { sizeAt } from '../systems/growth';
 import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
 import { APP_VERSION, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
+import { listStudioProjects, loadStudioProject, setActiveSkin, validateProject } from '../skins';
 import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
 
-const STUDIO_URL = 'https://claude.ai/artifact/NN3Dh7yq1ReEreK5xW63E1';
+/** Sprite Studio lives in the same artifact, so both pages share saves. */
+const STUDIO_URL = 'studio/index.html';
+const studioUrl = (project?: string, pose?: number) =>
+  STUDIO_URL + (project ? `?project=${encodeURIComponent(project)}${pose !== undefined ? `&pose=${pose}` : ''}` : '');
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -45,6 +49,27 @@ export function initMenu(game: Phaser.Game): void {
   const panel = $('panel');
   let paused = false;
   let checkpoint: { data: Checkpoint; savedAt: number } | null = null;
+
+  // ---------------------------------------------------------------- creature look (Sprite Studio)
+  let skinReady: Promise<void> = Promise.resolve();
+  /** Load the chosen studio drawing in the background so PLAY starts instantly. */
+  function prepareSkin(id: string | null, quiet = false): Promise<boolean> {
+    let ok = true;
+    skinReady = (async () => {
+      if (!id) return setActiveSkin(null);
+      const project = await loadStudioProject(id);
+      const problems = validateProject(project);
+      if (!project || problems.length) {
+        ok = false;
+        setActiveSkin(null);
+        if (!quiet) notice(`Your drawing could not be used, so the original crocodile is back. ${problems[0] ?? ''}`);
+        return;
+      }
+      setActiveSkin({ id, project });
+    })();
+    return skinReady.then(() => ok);
+  }
+  window.addEventListener('ce:skinfailed', () => notice('Your drawing could not be shown, so the original crocodile is used.'));
 
   // ---------------------------------------------------------------- notices
   function notice(text: string): void {
@@ -105,33 +130,35 @@ export function initMenu(game: Phaser.Game): void {
   );
 
   function showHome(): void {
+    endTest();
     closePanel();
     home.classList.add('open');
     renderBest();
     renderContinue();
   }
-  function startRun(resume: Checkpoint | null): void {
+  async function startRun(resume: Checkpoint | null, test = false): Promise<void> {
     closePanel();
+    await skinReady;
     home.classList.remove('open');
     hud().hideDeath();
     hud().startMusic();
-    scene()?.startPlay(resume ? resume.difficulty : opts.difficulty, resume);
+    scene()?.startPlay(resume ? resume.difficulty : opts.difficulty, resume, test);
   }
   function play(): void {
-    if (!checkpoint) return startRun(null);
+    if (!checkpoint) return void startRun(null);
     const c = checkpoint.data;
     openPanel(
       `<h3>Start a new run?</h3>
       <p>Your saved run (level ${c.level}, ${clock(c.runTime)}) will be replaced.</p>
       <div class="row"><button class="btn btn-danger" id="pNew">Start new run</button><button class="btn" id="pKeep">Keep my saved run</button></div>`,
       () => {
-        $('pNew').onclick = () => startRun(null);
+        $('pNew').onclick = () => void startRun(null);
         $('pKeep').onclick = closePanel;
       },
     );
   }
   $('btnPlay').addEventListener('click', play);
-  $('btnContinue').addEventListener('click', () => checkpoint && startRun(checkpoint.data));
+  $('btnContinue').addEventListener('click', () => checkpoint && void startRun(checkpoint.data));
 
   // First tap anywhere on the home screen starts the music (browsers need a gesture).
   home.addEventListener('pointerdown', () => hud()?.startMusic(), { once: true });
@@ -239,6 +266,7 @@ export function initMenu(game: Phaser.Game): void {
     const lt = profile.lifetime;
     openPanel(
       `<h3>Options</h3>${optionsHtml()}
+      <div class="toggle"><span>Your crocodile<br><span style="color:var(--muted);font-size:13px">Drawings from Sprite Studio</span></span><select id="oSkin" aria-label="Your crocodile"><option value="">Original</option></select></div>
       <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${profile.best.level ? `Level ${profile.best.level} · ${lt.runs} runs played` : 'None yet'}</span></span><button class="btn" id="oReset" data-label="Reset">Reset</button></div>
       <div class="toggle"><span>Reset everything<br><span style="color:var(--muted);font-size:13px">Settings, records and the saved run</span></span><button class="btn" id="oResetAll" data-label="Reset all">Reset all</button></div>
       <p style="color:var(--muted);font-size:13px">${
@@ -250,6 +278,7 @@ export function initMenu(game: Phaser.Game): void {
       () => {
         bindOptions();
         $('pClose').onclick = closePanel;
+        fillSkinPicker($('oSkin') as HTMLSelectElement);
         confirmButton('oReset', 'Tap again to reset', () => {
           profile.best = { level: 0, kills: 0, fish: 0 };
           saveProfile();
@@ -265,6 +294,78 @@ export function initMenu(game: Phaser.Game): void {
   }
   $('cardOptions').addEventListener('click', openOptions);
 
+  async function fillSkinPicker(sel: HTMLSelectElement): Promise<void> {
+    const list = await listStudioProjects();
+    for (const p of list) {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = p.name || p.id;
+      sel.appendChild(o);
+    }
+    if (opts.skin && !list.some((p) => p.id === opts.skin)) {
+      const o = document.createElement('option');
+      o.value = opts.skin;
+      o.textContent = 'Saved drawing (not found)';
+      sel.appendChild(o);
+    }
+    sel.value = opts.skin ?? '';
+    sel.onchange = async () => {
+      const id = sel.value || null;
+      opts.skin = id;
+      saveProfile();
+      if (!(await prepareSkin(id))) {
+        opts.skin = null;
+        saveProfile();
+        sel.value = '';
+      } else badge(id ? 'Your drawing will swim next run' : 'Original crocodile');
+    };
+  }
+
+  // ---------------------------------------------------------------- test swim from Sprite Studio
+  let testing: { id: string; pose: number } | null = null;
+  function endTest(): void {
+    if (!testing) return;
+    testing = null;
+    $('testBar').classList.remove('open');
+    try {
+      history.replaceState(null, '', window.location.pathname);
+    } catch {
+      /* ignore */
+    }
+    void prepareSkin(opts.skin, true);
+  }
+  $('testBack').addEventListener('click', () => {
+    const t = testing;
+    window.location.href = studioUrl(t?.id, t?.pose);
+  });
+  $('testUse').addEventListener('click', () => {
+    if (!testing) return;
+    opts.skin = testing.id;
+    saveProfile();
+    $('testUse').textContent = 'Saved as your look';
+    badge('This drawing is now your crocodile');
+  });
+  async function startTest(id: string, pose: number): Promise<void> {
+    const ok = await prepareSkin(id);
+    if (!ok) {
+      history.replaceState(null, '', window.location.pathname);
+      return;
+    }
+    testing = { id, pose };
+    const project = await loadStudioProject(id);
+    $('testName').textContent = project?.name ?? 'your drawing';
+    $('testUse').textContent = opts.skin === id ? 'This is your look' : 'Use this look';
+    const until = Date.now() + 20000;
+    const wait = window.setInterval(() => {
+      const g = scene();
+      if (g?.player && g.menuMode) {
+        window.clearInterval(wait);
+        $('testBar').classList.add('open');
+        void startRun(null, true);
+      } else if (Date.now() > until) window.clearInterval(wait);
+    }, 200);
+  }
+
   $('cardCredits').addEventListener('click', () =>
     openPanel(
       `<h3>Credits</h3>
@@ -276,7 +377,7 @@ export function initMenu(game: Phaser.Game): void {
         <li><b>Engine:</b> Phaser 4.</li>
       </ul>
       <p style="color:var(--muted);font-size:13px">Game mechanics inspired by underwater survival games. Creature Evolution is an independent fan project. Version ${APP_VERSION}.</p>
-      <div class="row"><a class="btn" href="${STUDIO_URL}" target="_blank" rel="noopener">Open Sprite Studio</a><button class="btn" id="pClose">Close</button></div>`,
+      <div class="row"><a class="btn" href="${STUDIO_URL}">Open Sprite Studio</a><button class="btn" id="pClose">Close</button></div>`,
       () => ($('pClose').onclick = closePanel),
     ),
   );
@@ -294,11 +395,12 @@ export function initMenu(game: Phaser.Game): void {
     game.scene.pause('Game');
     openPanel(
       `<h3>Paused</h3>
-      <p class="saved-line">${saved ? (saves.persistent ? 'Saved just now' : 'Saved until this tab closes') : 'Could not save right now'}</p>
+      <p class="saved-line">${testing ? 'Test swim: nothing here is saved, and your real run is untouched.' : saved ? (saves.persistent ? 'Saved just now' : 'Saved until this tab closes') : 'Could not save right now'}</p>
       <div class="pause-btns">
         <button class="btn btn-play" id="pResume">RESUME</button>
         <button class="btn" id="pRestart" data-label="Restart run">Restart run</button>
-        <button class="btn" id="pHome">Home (run is kept)</button>
+        <button class="btn" id="pHome">${testing ? 'End test swim' : 'Home (run is kept)'}</button>
+        <button class="btn" id="pStudio">${testing ? 'Back to studio' : 'Sprite Studio (run is kept)'}</button>
       </div>
       ${optionsHtml()}`,
       () => {
@@ -312,6 +414,10 @@ export function initMenu(game: Phaser.Game): void {
         $('pHome').onclick = () => {
           resume();
           scene()?.goHome();
+        };
+        $('pStudio').onclick = () => {
+          // The run was saved when the pause menu opened; Continue picks it up later.
+          window.location.href = testing ? studioUrl(testing.id, testing.pose) : studioUrl();
         };
       },
     );
@@ -381,6 +487,13 @@ export function initMenu(game: Phaser.Game): void {
   });
 
   if (loadedProfile.problem) notice(loadedProfile.problem);
+  const params = new URLSearchParams(window.location.search);
+  const tryId = params.get('try');
+  if (tryId && /^[\w-]{1,40}$/.test(tryId)) {
+    void startTest(tryId, Math.max(0, parseInt(params.get('pose') ?? '0', 10) || 0));
+  } else {
+    void prepareSkin(opts.skin, true);
+  }
   $('verLine').textContent = `v${APP_VERSION}`;
   renderBest();
   renderDifficulty();

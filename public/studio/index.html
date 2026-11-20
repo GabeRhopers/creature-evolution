@@ -49,6 +49,9 @@ header { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border
 .brand { font: 700 20px/1 var(--font-display); color: var(--accent); margin-right: 6px; white-space: nowrap; }
 #projName { width: 170px; }
 .grow { flex: 1; }
+.backlink { font: 600 14px/1 var(--font-body); color: var(--ink, #e6f6ff); text-decoration: none; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
+.backlink:hover { border-color: var(--muted); }
+button.try { background: #ffd23f; color: #1b1400; border-color: #ffd23f; font-weight: 700; }
 #saveState { font-size: 12px; color: var(--muted); min-width: 110px; text-align: right; }
 #saveState.ok { color: var(--good); } #saveState.err { color: var(--bad); }
 
@@ -122,6 +125,7 @@ footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: gri
 </head>
 <body>
 <header>
+  <a class="backlink" id="btnBack" href="../index.html" title="Back to Creature Evolution">‹ Game</a>
   <div class="brand">Sprite Studio</div>
   <input id="projName" type="text" aria-label="Project name" value="">
   <button id="btnProjects" title="Open, create or delete projects">Projects</button>
@@ -131,6 +135,7 @@ footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: gri
   <button id="btnRedo" title="Redo (Ctrl+Shift+Z)">Redo</button>
   <button id="btnImport" title="Import a picture into this frame">Import picture</button>
   <button id="btnExport" title="Export sprite sheet and data">Export</button>
+  <button id="btnTry" class="try" title="Swim with this drawing in the game">Try in game ▶</button>
   <span id="saveState">Loading…</span>
 </header>
 
@@ -886,7 +891,7 @@ async function openProjects() {
     <div class="row"><input type="text" id="npName" value="My character" aria-label="Name"><input type="number" id="npW" value="48" min="4" max="128" aria-label="Width" style="width:74px"><span class="label">×</span><input type="number" id="npH" value="24" min="4" max="128" aria-label="Height" style="width:74px"></div>
     <div class="row"><button id="npGo" class="on">Create</button><button id="npDup">Duplicate current</button><button id="npClose">Close</button></div>
     ${trashItems ? `<h3>Recently deleted</h3><p class="label">Kept for ${TRASH_DAYS} days.</p><div class="plist">${trashItems}</div>` : ''}
-    <p class="label">${db ? 'Projects are saved to the cloud with this page, so Claude can load them into your game. Every change is also kept on this device right away.' : 'Cloud saving is not available here, so projects are kept on this device only.'}</p>`, () => {
+    <p class="label">${db ? 'Projects are saved to the cloud with the game. Tap Try in game to swim with one. Every change is also kept on this device right away.' : 'Cloud saving is not available here, so projects are kept on this device only.'}</p>`, () => {
     document.querySelectorAll('[data-open]').forEach((b) => b.onclick = async () => { closeModal(); await save(); await loadProject(b.dataset.open); });
     document.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => askConfirm('Delete project?', `It moves to Recently deleted, where you can restore it for ${TRASH_DAYS} days.`, async () => {
       try { await trashProject(b.dataset.del); } catch { toast('Could not delete right now'); return; }
@@ -1047,7 +1052,17 @@ $('addPose').onclick = () => askText('New pose', 'eat', (n) => { pushUndo(); P()
 $('renPose').onclick = () => askText('Rename pose', curPose().name, (n) => { pushUndo(); curPose().name = n; changed(true); });
 $('delPose').onclick = () => askConfirm(`Delete pose "${curPose().name}"?`, 'Its frames are removed too. You can undo this.', () => { pushUndo(); P().poses.splice(S.pose, 1); S.pose = Math.max(0, S.pose - 1); S.frame = 0; changed(true); });
 $('projName').onchange = () => { pushUndo(); P().name = $('projName').value.trim() || 'Untitled'; changed(true); };
-$('btnProjects').onclick = openProjects; $('btnSettings').onclick = openCanvasSettings;
+$('btnProjects').onclick = openProjects;
+$('btnTry').onclick = async () => {
+  commitFloat();
+  const hasArt = P().poses.some((po) => /^(idle|move)$/i.test(po.name) && po.frames.some((f) => f.some((v) => v >= 0)));
+  if (!hasArt) { toast('Draw something in the idle or move pose first'); return; }
+  if (!S.id) { S.id = 'p' + Date.now().toString(36); }
+  S.dirty = true; writeLocal(true);
+  setSave('Saving…');
+  await Promise.race([save(), new Promise((r) => setTimeout(r, 3000))]); // the device copy is enough if the cloud is slow
+  location.href = '../index.html?try=' + encodeURIComponent(S.id) + '&pose=' + S.pose;
+}; $('btnSettings').onclick = openCanvasSettings;
 $('colorEdit').oninput = () => { if (S.color < 0) return; if (!colorEditUndo) { pushUndo(); colorEditUndo = true; } P().palette[S.color] = $('colorEdit').value; render(); renderPalette(); renderFrames(); };
 let colorEditUndo = false; $('colorEdit').onchange = () => { colorEditUndo = false; changed(true); };
 $('addColor').onclick = () => { if (P().palette.length >= MAX_COLORS) { toast('Palette is full (62 colors)'); return; } pushUndo();
@@ -1100,6 +1115,14 @@ async function boot() {
   const cap = (name) => (window.claude && window.claude.use ? Promise.race([window.claude.use(name), new Promise((r) => setTimeout(() => r(null), 10000))]).catch(() => null) : Promise.resolve(null));
   [db, downloads] = await Promise.all([cap('db'), cap('downloads')]);
   let last = null; try { last = localStorage.getItem('spritestudio:last'); } catch {}
+  const qs = new URLSearchParams(location.search);
+  const want = qs.get('project');
+  if (want && await loadProject(want)) {
+    const pose = Math.min(P().poses.length - 1, Math.max(0, parseInt(qs.get('pose') || '0', 10) || 0));
+    S.pose = pose; S.frame = 0; changed(false);
+    try { history.replaceState(null, '', location.pathname); } catch {}
+    return;
+  }
   const list = await listProjects();
   const pick = (last && list.find((p) => p.id === last)) || list.find((p) => p.id === 'croc') || list[0];
   if (pick && await loadProject(pick.id)) return;

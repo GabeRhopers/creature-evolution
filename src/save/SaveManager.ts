@@ -23,6 +23,8 @@ export interface Settings {
   music: boolean;
   sfx: boolean;
   difficulty: Difficulty;
+  /** Sprite Studio project used as the player's look (null = the original art). */
+  skin: string | null;
 }
 export interface Best {
   level: number;
@@ -94,7 +96,7 @@ export interface SaveLimits {
 }
 
 export const DEFAULT_PROFILE: Profile = {
-  settings: { music: true, sfx: true, difficulty: 'normal' },
+  settings: { music: true, sfx: true, difficulty: 'normal', skin: null },
   best: { level: 0, kills: 0, fish: 0 },
   lifetime: { runs: 0, deaths: { swallowed: 0, bitten: 0, starved: 0 } },
 };
@@ -136,7 +138,12 @@ export function sanitizeProfile(raw: unknown): Profile {
   const l = obj(r.lifetime);
   const d = obj(l.deaths);
   return {
-    settings: { music: bool(s.music, true), sfx: bool(s.sfx, true), difficulty: diff(s.difficulty) },
+    settings: {
+      music: bool(s.music, true),
+      sfx: bool(s.sfx, true),
+      difficulty: diff(s.difficulty),
+      skin: typeof s.skin === 'string' && /^[\w-]{1,40}$/.test(s.skin) ? s.skin : null,
+    },
     best: { level: int(b.level, 0, 999, 0), kills: int(b.kills, 0, 1e7, 0), fish: int(b.fish, 0, 1e7, 0) },
     lifetime: {
       runs: int(l.runs, 0, 1e7, 0),

@@ -136,6 +136,15 @@
         padding: 10px 14px; gap: 10px; align-items: center;
       }
       #notice.open { display: flex; }
+      #testBar {
+        position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 26; display: none; gap: 8px; align-items: center;
+        font: 500 14px/1.2 var(--font-body); color: var(--ink); background: rgba(6, 26, 44, 0.85); border: 1px solid var(--sun);
+        border-radius: 14px; padding: 6px 6px 6px 14px; max-width: 94vw; flex-wrap: wrap; justify-content: center;
+      }
+      #testBar.open { display: flex; }
+      #testBar .btn { min-height: 40px; padding: 8px 12px; }
+      .btn-yellow { background: var(--sun); color: #1b1400; border: 0; font-weight: 700; }
+      .toggle select { font: 600 15px/1 var(--font-body); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; max-width: 220px; }
       .ver { font: 500 11px/1 var(--font-body); color: var(--muted); opacity: 0.8; }
       @media (prefers-reduced-motion: reduce) { #saveBadge { transition: none; } }
 
@@ -178,7 +187,7 @@
 
         <div class="cards">
           <button class="card" id="cardHow"><span class="t">How to play</span><span class="d">Controls, eating, hiding, digesting</span></button>
-          <a class="card studio" id="cardStudio" href="https://claude.ai/artifact/NN3Dh7yq1ReEreK5xW63E1" target="_blank" rel="noopener"><span class="t">Sprite Studio</span><span class="d">Draw your own creature poses</span></a>
+          <a class="card studio" id="cardStudio" href="studio/index.html"><span class="t">Sprite Studio</span><span class="d">Draw your own creature poses</span></a>
           <button class="card" id="cardOptions"><span class="t">Options</span><span class="d">Sound, music, records</span></button>
           <button class="card" id="cardCredits"><span class="t">Credits</span><span class="d">Who made what</span></button>
         </div>
@@ -196,6 +205,11 @@
       <div class="panel" id="panel"></div>
     </div>
 
+    <div id="testBar" role="region" aria-label="Test swim">
+      <span>Test swim: <b id="testName"></b></span>
+      <button class="btn" id="testUse">Use this look</button>
+      <button class="btn btn-yellow" id="testBack">Back to studio</button>
+    </div>
     <div id="saveBadge" role="status" aria-live="polite"></div>
     <div id="notice" role="alert"><span id="noticeText"></span><button class="btn" id="noticeClose">OK</button></div>
 
