@@ -132,5 +132,16 @@
     "musicVolume": 0.35,
     "sfxVolume": 0.6,
     "heartbeatSeconds": 0.85
+  },
+  "playerDefense": {
+    "maxHitFraction": 0.34,
+    "chompMultiplier": 1.5,
+    "invulnerableSeconds": 1.0,
+    "knockback": 380,
+    "stunOnHitSeconds": 0.35
+  },
+  "joystick": {
+    "radius": 70,
+    "deadZone": 0.12
   }
 }

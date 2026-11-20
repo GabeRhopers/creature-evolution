@@ -55,6 +55,8 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   biteCooldown = 0;
   /** Seconds since this fish last took damage (drives regen). */
   sinceHurt = 99;
+  /** Seconds of post-hit invulnerability left (player only). */
+  invulnTimer = 0;
   /** Speed at the end of last frame (before collisions changed it): used for ram checks. */
   lastSpeed = 0;
   private baseTint = 0xffffff;
@@ -165,12 +167,25 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     this.stunTimer = Math.max(this.stunTimer, seconds);
   }
 
-  /** Apply damage. Returns true if this hit killed the fish. Big hits stun (critical wound). */
-  takeDamage(amount: number): boolean {
+  get invulnerable(): boolean {
+    return this.invulnTimer > 0;
+  }
+
+  /** Damage after this species' armor (thick hide). */
+  armored(amount: number): number {
+    return amount * (1 - (this.species.armor ?? 0));
+  }
+
+  /**
+   * Apply damage (armor already applied by the caller via `armored`).
+   * Returns true if this hit killed the fish. Big hits stun (critical wound)
+   * unless `critStun` is false.
+   */
+  takeDamage(amount: number, critStun = true): boolean {
     const c = BALANCE.combat;
     this.hp = Math.max(0, this.hp - amount);
     this.sinceHurt = 0;
-    if (amount >= this.maxHp * c.critFraction) this.stun(c.critStunSeconds);
+    if (critStun && amount >= this.maxHp * c.critFraction) this.stun(c.critStunSeconds);
     // Hit flash.
     this.setTint(0xff7070);
     this.scene.time.delayedCall(120, () => this.active && this.setTint(this.baseTint));
@@ -218,6 +233,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     this.dashTimer = Math.max(0, this.dashTimer - dt);
     this.dashCooldown = Math.max(0, this.dashCooldown - dt);
     this.biteCooldown = Math.max(0, this.biteCooldown - dt);
+    this.invulnTimer = Math.max(0, this.invulnTimer - dt);
     this.sinceHurt += dt;
     // Slow regeneration when out of combat for a while.
     if (this.sinceHurt > c.regenDelaySeconds && this.hp < this.maxHp) this.heal(this.maxHp * c.regenPerSecond * dt);
@@ -300,7 +316,9 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     if (this.stunned) target += Math.sin(this.scene.time.now / 50) * 0.35;
     // Smooth the visual rotation a little more than the physics heading.
     this.rotation = Phaser.Math.Angle.RotateTo(this.rotation, target, 14 * dt);
-    this.setAlpha(this.stunned ? 0.75 + 0.25 * Math.sin(this.scene.time.now / 60) : 1);
+    // Blink while invulnerable after a hit; wobble-fade while stunned.
+    const blink = this.invulnerable && Math.floor(this.scene.time.now / 80) % 2 === 0;
+    this.setAlpha(blink ? 0.35 : this.stunned ? 0.75 + 0.25 * Math.sin(this.scene.time.now / 60) : 1);
     this.animate(dt);
   }
 

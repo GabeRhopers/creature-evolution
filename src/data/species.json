@@ -42,7 +42,8 @@
         "bite": "croc_bite",
         "rest": "croc_lurk"
       }
-    }
+    },
+    "armor": 0.2
   },
   "reef_snapper": {
     "displayName": "Reef Snapper",

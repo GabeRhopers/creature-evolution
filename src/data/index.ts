@@ -50,6 +50,8 @@ export interface Species {
   ability: string | null;
   spawn: SpeciesSpawn;
   art?: SpeciesArt;
+  /** Damage reduction 0..1 (thick hide). */
+  armor?: number;
 }
 
 export type Balance = typeof balanceJson;

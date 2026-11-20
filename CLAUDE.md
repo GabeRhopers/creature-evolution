@@ -36,6 +36,11 @@ text grids in `scripts/croc-frames.py` (48x16, 3x upscale) -> `art/player/` -> a
 Keep his design (eye bumps, tooth row, back scutes, curled tail tip); only polish it.
 Species can declare `art` in species.json (radius, mouth reach, animation frames).
 
+## Player damage rules (`GameScene.attackPlayer`)
+AI never swallows the player. Predators that could swallow you "chomp" (x1.5 damage);
+every hit is capped at `playerDefense.maxHitFraction` of max HP, then knockback +
+invulnerability. Armor per species (`armor` in species.json).
+
 ## Rules
 - **Art comes from the single atlas** (`ATLAS` in `src/assets.ts`):
   `scene.add.image(x, y, ATLAS, 'frame_name')`. Do not load loose PNGs at runtime.

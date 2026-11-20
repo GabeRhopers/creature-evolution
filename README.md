@@ -13,7 +13,10 @@ your stomach. Past 75% full, **stay still** for a moment to digest: the stored
 food heals you first, then turns into XP. At 95% you cannot eat. If the stomach
 empties completely you starve.
 
-Bigger fish hunt you if they can swallow you whole. When "YOU ARE BEING HUNTED"
+Bigger fish hunt you. They can't swallow you in one go: each hit takes at most
+about a third of your health, knocks you back and gives you a moment of
+invulnerability (you blink) so you can escape. The crocodile's hide also
+reduces damage by 20%. When "YOU ARE BEING HUNTED"
 flashes, swim away or hide in kelp: fish inside kelp are invisible to predators
 unless they get very close. Built with Phaser 4, TypeScript and Vite. All assets are free (CC0).
 
@@ -29,7 +32,7 @@ npm run build    # production build in dist/ (upload the folder contents to itch
 
 | Action | Keyboard / mouse | Touch |
 |---|---|---|
-| Swim | WASD or arrow keys, or hold the mouse button | Hold a finger where you want to go (farther = faster) |
+| Swim | WASD or arrow keys, or hold the mouse button | Virtual joystick: thumb anywhere on the left half, drag to steer (farther = faster) |
 | Sprint | Shift (uses stamina) | SPRINT button, or a second finger |
 | Eat: swallow (green ring) or bite (orange ring) | Space or right-click | EAT / BITE button |
 | Dash: lunge, stun and damage what you hit | E or Q | DASH button |

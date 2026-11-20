@@ -7,8 +7,8 @@ import type { Fish, SwimIntent } from './Fish';
  * Keyboard: WASD / arrow keys to swim, Shift to sprint, Space to eat
  *   (swallow if small enough, bite otherwise), E or Q to Dash.
  * Mouse: hold left button to swim toward the pointer; right button eats.
- * Touch: hold a finger to swim toward it (farther = faster); a second finger
- *   sprints. HUD buttons (SPRINT, EAT, DASH) set `uiSprint` / `uiSwallow` /
+ * Touch: virtual joystick on the left half of the screen (HUD sets `stick`);
+ *   a finger held elsewhere still swims toward it; a second finger sprints. HUD buttons (SPRINT, EAT, DASH) set `uiSprint` / `uiSwallow` /
  *   `uiDash` and reserve their pointer so it does not steer.
  */
 export class PlayerController {
@@ -19,6 +19,8 @@ export class PlayerController {
   uiSwallow = false;
   /** Set (once per tap) by the HUD's DASH button; consumed by consumeDash(). */
   uiDash = false;
+  /** Virtual joystick output (set by the HUD every frame). */
+  stick = { active: false, x: 0, y: 0, strength: 0 };
   /** Pointer ids currently owned by HUD buttons (ignored for steering). */
   readonly uiPointers = new Set<number>();
 
@@ -54,8 +56,15 @@ export class PlayerController {
     let strength = dx !== 0 || dy !== 0 ? 1 : 0;
     let sprint = k.SHIFT.isDown || this.uiSprint;
 
+    // Virtual joystick has priority over pointer steering.
+    if (this.stick.active && strength === 0) {
+      dx = this.stick.x;
+      dy = this.stick.y;
+      strength = this.stick.strength;
+    }
+
     // Pointer steering (mouse button held, or a finger on screen).
-    const steering = this.steeringPointers();
+    const steering = this.stick.active ? [] : this.steeringPointers();
     if (steering.length > 0 && strength === 0) {
       const p = steering[0];
       const cam = this.scene.cameras.main;

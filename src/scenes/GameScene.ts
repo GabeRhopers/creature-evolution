@@ -327,9 +327,13 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const cb = BALANCE.combat;
     const a = attacker.fish;
     const t = target.fish;
-    const dmg = a.biteDamage * damageMul;
     a.biteCooldown = attacker.isPlayer ? cb.biteCooldown : cb.aiBiteCooldown;
     a.playBite();
+    if (target.isPlayer) {
+      this.attackPlayer(attacker, damageMul);
+      return;
+    }
+    const dmg = t.armored(a.biteDamage * damageMul);
     const killed = t.takeDamage(dmg);
 
     // Meat chunks torn off at the wound, sized so the attacker can swallow them.
@@ -340,13 +344,41 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.hud.popup(`-${Math.round(dmg)}`, t.x, t.y - t.size, false, '#ff9a8a');
       this.sfx.bite();
     }
-    if (target.isPlayer) {
-      this.hud.hurt();
-      this.sfx.hurt();
-    }
-
     target.brain?.onHurt(attacker);
     if (killed) this.kill(target, attacker);
+  }
+
+  /**
+   * A predator attacks the player. The player is never swallowed in one go:
+   *  - a predator big enough to swallow you "chomps" (extra damage),
+   *  - one hit can take at most `maxHitFraction` of your max HP (>= 3 hits from full),
+   *  - armor (crocodile hide) reduces damage,
+   *  - after a hit you are knocked back and invulnerable for a moment, so you can flee.
+   * The killing blow from a swallow-capable predator counts as "swallowed".
+   */
+  private attackPlayer(attacker: Creature, damageMul = 1): void {
+    const p = this.player;
+    if (this.dead || p.invulnerable) return;
+    const def = BALANCE.playerDefense;
+    const a = attacker.fish;
+    const chomp = a.canSwallow(p.size);
+    const raw = a.biteDamage * damageMul * (chomp ? def.chompMultiplier : 1);
+    const dmg = Math.min(p.armored(raw), p.maxHp * def.maxHitFraction);
+    const killed = p.takeDamage(dmg, false);
+
+    p.invulnTimer = def.invulnerableSeconds;
+    p.stun(def.stunOnHitSeconds);
+    const d = Phaser.Math.Distance.Between(a.x, a.y, p.x, p.y) || 1;
+    p.arcadeBody.setVelocity(((p.x - a.x) / d) * def.knockback, ((p.y - a.y) / d) * def.knockback);
+
+    const wx = Phaser.Math.Linear(p.x, a.x, 0.35);
+    const wy = Phaser.Math.Linear(p.y, a.y, 0.35);
+    this.spawnChunks(wx, wy, a, dmg * BALANCE.combat.meatXpPerDamage, 1);
+    this.hud.popup(`-${Math.round(dmg)}`, p.x, p.y - p.size, true, '#ff5c5c');
+    this.hud.hurt();
+    this.sfx.hurt();
+    this.cameras.main.shake(140, chomp ? 0.008 : 0.005);
+    if (killed) this.playerDied(attacker, chomp ? 'swallowed' : 'bitten');
   }
 
   private spawnChunks(x: number, y: number, eater: Fish, totalXp: number, count: number): void {
@@ -444,7 +476,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
       // An AI hunter ramming the player opens them up for a bite.
       const hunter = c.brain?.state === 'hunt' && c.brain.target === this.playerCreature;
-      if (hunter && !p.stunned && t.lastSpeed > t.cruiseSpeed * cb.ramSpeedRatio && p.size <= t.size * cb.ramSizeRatio) {
+      if (hunter && !p.stunned && !p.invulnerable && t.lastSpeed > t.cruiseSpeed * cb.ramSpeedRatio && p.size <= t.size * cb.ramSizeRatio) {
         p.stun(cb.ramStunSeconds * 0.7);
         this.sfx.stun();
         const nx = (p.x - t.x) / (d || 1);
@@ -470,14 +502,16 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         const t = b.target;
         if (t.isPlayer && this.dead) continue;
         const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, t.fish.x, t.fish.y);
-        if (me.canSwallow(t.fish.size)) {
+        if (t.isPlayer) {
+          // The player is attacked (chomp or bite), never swallowed whole.
+          if (me.biteCooldown <= 0 && d < r + t.fish.size * BALANCE.combat.biteReachMul) this.bite(c, t);
+        } else if (me.canSwallow(t.fish.size)) {
           if (d < r + t.fish.size * 0.5) {
             b.ate('fish');
             this.aiMeals++;
             this.burst(t.fish.x, t.fish.y, t.fish.size);
-            if (t.isPlayer) this.playerDied(c, 'swallowed');
-            else if (this.cameras.main.worldView.contains(me.x, me.y)) this.sfx.gulp(t.fish.size);
-            else this.respawnAmbient(t);
+            if (this.cameras.main.worldView.contains(me.x, me.y)) this.sfx.gulp(t.fish.size);
+            this.respawnAmbient(t);
           }
         } else if (me.biteCooldown <= 0 && d < r + t.fish.size * BALANCE.combat.biteReachMul) {
           this.bite(c, t);

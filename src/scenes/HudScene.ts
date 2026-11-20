@@ -4,6 +4,7 @@ import type { GameScene } from './GameScene';
 import type { DifficultyName } from '../data';
 import { toggleTuningPanel } from '../ui/tuning';
 import { BOT_MODE } from './GameScene';
+import { Joystick } from '../ui/Joystick';
 
 const FONT = 'system-ui, sans-serif';
 
@@ -28,6 +29,7 @@ export class HudScene extends Phaser.Scene {
   private music?: Phaser.Sound.BaseSound;
   private startLayer?: Phaser.GameObjects.Container;
   private static started = false;
+  private joystick!: Joystick;
   private staminaBack!: Phaser.GameObjects.Rectangle;
   private xpFill!: Phaser.GameObjects.Rectangle;
   private info!: Phaser.GameObjects.Text;
@@ -86,6 +88,13 @@ export class HudScene extends Phaser.Scene {
       .text(0, 0, '', { fontFamily: FONT, fontSize: '42px', fontStyle: 'bold', color: '#ffd166', stroke: '#0a2236', strokeThickness: 6 })
       .setOrigin(0.5)
       .setAlpha(0);
+
+    // Virtual joystick (left half of the screen on touch devices).
+    this.joystick = new Joystick(
+      this,
+      (id) => this.game$.controller.uiPointers.add(id),
+      (id) => this.game$.controller.uiPointers.delete(id),
+    );
 
     // Touch buttons. Each reserves its pointer so it does not steer the fish.
     [this.sprintBtn, this.sprintLabel] = this.makeHoldButton('SPRINT', 0xffffff, (down) => (this.game$.controller.uiSprint = down));
@@ -195,7 +204,7 @@ export class HudScene extends Phaser.Scene {
           'Hide in kelp when something big hunts you.',
           'Big predators live in deep water. Grow up in the shallows.',
           '',
-          touch ? 'Hold a finger to swim. Buttons: EAT, SPRINT, DASH.' : 'WASD / mouse to swim, Space eat, Shift sprint, E dash.',
+          touch ? 'Left thumb: joystick to swim. Right thumb: EAT, SPRINT, DASH.' : 'WASD / mouse to swim, Space eat, Shift sprint, E dash.',
         ].join('\n'),
         { fontFamily: FONT, fontSize: '17px', color: '#e6f6ff', align: 'center', lineSpacing: 6 },
       )
@@ -235,7 +244,7 @@ export class HudScene extends Phaser.Scene {
     stats: { plankton: number; fish: number; kills: number; maxLevel: number },
   ): void {
     this.deathTitle.setText(
-      how === 'swallowed' ? `Swallowed by a ${byName}!` : how === 'bitten' ? `Bitten to death by a ${byName}!` : 'You starved!',
+      how === 'swallowed' ? `Finished off by a ${byName}!` : how === 'bitten' ? `Bitten to death by a ${byName}!` : 'You starved!',
     );
     this.deathStats.setText(
       `${how === 'starved' ? 'Keep your stomach from emptying.' : `It was level ${byLevel}.`}\nYou reached level ${stats.maxLevel}: swallowed ${stats.fish} fish, killed ${stats.kills}, ate ${stats.plankton} morsels.\n\nTap anywhere (or press R) to swim again`,
@@ -322,9 +331,10 @@ export class HudScene extends Phaser.Scene {
     this.banner.setPosition(width / 2, height * 0.28);
     this.hint.setPosition(16, height - 28);
     const touch = this.sys.game.device.input.touch;
+    this.joystick.layout(width, height, touch);
     this.hint.setText(
       touch
-        ? 'Hold a finger to swim. EAT: green ring = swallow, orange ring = bite. DASH lunges and stuns.'
+        ? 'Left thumb: joystick to swim. EAT: green ring = swallow, orange = bite. DASH lunges and stuns.'
         : 'WASD/arrows or mouse: swim | Shift: sprint | Space/right-click: eat (green swallow, orange bite) | E/Q: dash | R restart | ` tune | P hitboxes',
     );
   }
@@ -333,6 +343,11 @@ export class HudScene extends Phaser.Scene {
     const g = this.game$;
     const p = g?.player;
     if (!p) return;
+    const c = g.controller.stick;
+    c.active = this.joystick.active;
+    c.x = this.joystick.x;
+    c.y = this.joystick.y;
+    c.strength = this.joystick.strength;
     this.hpFill.width = 216 * Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
     this.hpBack.setStrokeStyle(1, p.wounded ? 0xff2020 : 0xff8a80, p.wounded ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 0.6);
     const ratio = p.stamina / BALANCE.stamina.max;
