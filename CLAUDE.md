@@ -30,6 +30,12 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 - `src/audio/Sfx.ts`: all sound effects synthesized with Web Audio (no files). Music: `public/assets/audio/`.
 - `src/ui/tuning.ts`: live slider panel (` key or TUNE button) for feel tuning.
 
+## Player character
+The player is a **crocodile designed by the owner's son** (pixel art). Frames are drawn as
+text grids in `scripts/croc-frames.py` (48x16, 3x upscale) -> `art/player/` -> atlas.
+Keep his design (eye bumps, tooth row, back scutes, curled tail tip); only polish it.
+Species can declare `art` in species.json (radius, mouth reach, animation frames).
+
 ## Rules
 - **Art comes from the single atlas** (`ATLAS` in `src/assets.ts`):
   `scene.add.image(x, y, ATLAS, 'frame_name')`. Do not load loose PNGs at runtime.

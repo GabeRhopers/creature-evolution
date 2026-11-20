@@ -1099,6 +1099,86 @@
     "w": 128,
     "h": 128
    }
+  },
+  "croc_bite": {
+   "frame": {
+    "x": 1343,
+    "y": 405,
+    "w": 144,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 144,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 144,
+    "h": 48
+   }
+  },
+  "croc_lurk": {
+   "frame": {
+    "x": 1493,
+    "y": 405,
+    "w": 144,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 144,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 144,
+    "h": 48
+   }
+  },
+  "croc_swim1": {
+   "frame": {
+    "x": 1643,
+    "y": 405,
+    "w": 144,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 144,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 144,
+    "h": 48
+   }
+  },
+  "croc_swim2": {
+   "frame": {
+    "x": 1793,
+    "y": 405,
+    "w": 144,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 144,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 144,
+    "h": 48
+   }
   }
  },
  "meta": {

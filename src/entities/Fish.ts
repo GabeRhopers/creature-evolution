@@ -16,10 +16,10 @@ export interface SwimIntent {
 export const NO_INTENT: SwimIntent = { dirX: 0, dirY: 0, strength: 0, sprint: false };
 
 // Kenney fish art: 128x128 frame, the fish body fits a circle of ~36px radius
-// around the frame center. Scaling the sprite by size/ART_RADIUS makes the
-// visible fish match the physics circle.
-const ART_RADIUS = 36;
-const FRAME_CENTER = 64;
+// around the frame center. Scaling the sprite by size/artRadius makes the
+// visible fish match the physics circle. Species can override this with `art`
+// (e.g. the long crocodile frames).
+const DEFAULT_ART_RADIUS = 36;
 
 /**
  * A swimming creature. Shared by the player and every AI fish:
@@ -58,6 +58,9 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   /** Speed at the end of last frame (before collisions changed it): used for ram checks. */
   lastSpeed = 0;
   private baseTint = 0xffffff;
+  /** Seconds left showing the bite / open-jaw frame. */
+  private biteAnim = 0;
+  private animClock = 0;
   private sinceSprint = 99;
 
   constructor(scene: Phaser.Scene, x: number, y: number, species: Species, level = 1) {
@@ -68,13 +71,23 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(ART_RADIUS, FRAME_CENTER - ART_RADIUS, FRAME_CENTER - ART_RADIUS);
+    const r = this.artRadius;
+    body.setCircle(r, this.frame.realWidth / 2 - r, this.frame.realHeight / 2 - r);
     body.setCollideWorldBounds(true);
     body.setAllowGravity(false);
 
     this.heading = Math.random() < 0.5 ? 0 : Math.PI;
     this.setLevel(level);
     this.hp = this.maxHp;
+  }
+
+  get artRadius(): number {
+    return this.species.art?.radius ?? DEFAULT_ART_RADIUS;
+  }
+
+  /** Show the open-jaw frame briefly (species with animation frames). */
+  playBite(): void {
+    this.biteAnim = 0.25;
   }
 
   get arcadeBody(): Phaser.Physics.Arcade.Body {
@@ -95,14 +108,14 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   /** Center of the mouth area in world space (just ahead of the head). */
   mouthPoint(): Phaser.Math.Vector2 {
-    const reach = this.size * BALANCE.eating.mouthReach;
+    const reach = this.size * (this.species.art?.mouthReach ?? BALANCE.eating.mouthReach);
     return new Phaser.Math.Vector2(this.x + Math.cos(this.heading) * reach, this.y + Math.sin(this.heading) * reach);
   }
 
   /** Radius of the mouth area; `suction` widens it while actively swallowing. */
   mouthRadius(suction = false): number {
     const e = BALANCE.eating;
-    return this.size * (e.mouthRadius + (suction ? e.suctionBonus : 0));
+    return this.size * ((this.species.art?.mouthRadius ?? e.mouthRadius) + (suction ? e.suctionBonus : 0));
   }
 
   /** Can this fish swallow something of the given body radius whole? */
@@ -191,7 +204,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     this.size = sizeAt(this.species, this.level);
     this.maxHp = maxHpAt(this.species, this.level);
     this.hp = Math.max(1, Math.round(this.maxHp * hpRatio));
-    this.setScale(this.size / ART_RADIUS);
+    this.setScale(this.size / this.artRadius);
   }
 
   /** Advance swimming physics by dt seconds. */
@@ -288,5 +301,25 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     // Smooth the visual rotation a little more than the physics heading.
     this.rotation = Phaser.Math.Angle.RotateTo(this.rotation, target, 14 * dt);
     this.setAlpha(this.stunned ? 0.75 + 0.25 * Math.sin(this.scene.time.now / 60) : 1);
+    this.animate(dt);
+  }
+
+  /** Frame animation for species that have it: swim cycle, bite, rest. */
+  private animate(dt: number): void {
+    const frames = this.species.art?.frames;
+    if (!frames) return;
+    this.biteAnim = Math.max(0, this.biteAnim - dt);
+    let frame: string;
+    const speed = this.arcadeBody.velocity.length();
+    if (this.biteAnim > 0 && frames.bite) {
+      frame = frames.bite;
+    } else if (frames.rest && speed < this.cruiseSpeed * 0.12 && !this.stunned) {
+      frame = frames.rest;
+    } else {
+      // Paddle faster the faster we swim.
+      this.animClock += dt * (2 + (speed / this.cruiseSpeed) * 6);
+      frame = frames.swim[Math.floor(this.animClock) % frames.swim.length];
+    }
+    if (this.frame.name !== frame) this.setFrame(frame, false, false);
   }
 }

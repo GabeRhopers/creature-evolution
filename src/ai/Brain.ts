@@ -37,6 +37,9 @@ export type BrainState = 'wander' | 'flee' | 'hunt' | 'forage' | 'rest';
  * (smaller than the hunter but too big to swallow): GameScene decides which.
  * Wounded fish are visible from farther away and hunted even by fed predators.
  *
+ * Leash: big predators (tier >= leashFromTier) do not chase prey far above
+ * their home depth band, so shallow water is a safer place to grow up.
+ *
  * Perception runs every `difficulty.aiReactionDelay` seconds (slower on Easy),
  * not every frame: cheaper, and it gives the player a reaction window.
  * Eating itself is resolved by GameScene (it owns removal and respawn).
@@ -181,6 +184,7 @@ export class Brain {
       const wantsFood = this.hungry || this.desperate || c.fish.wounded;
       if (!wantsFood || !this.dietAllows(c)) continue;
       if (!me.canSwallow(c.fish.size) && !this.canBite(c)) continue;
+      if (this.beyondLeash(c.fish.y, 1)) continue;
       if (c.isPlayer && sp.behavior.aggression <= 0) continue;
       // Prefer big, close, wounded meals.
       // Stick with the current target unless something clearly better shows up.
@@ -222,6 +226,13 @@ export class Brain {
     }
     if (this.state === 'forage' && !this.foodTarget) this.setState('wander');
     if (this.state === 'flee') this.setState('wander');
+  }
+
+  /** True if `y` is too far above this predator's home band to chase. */
+  private beyondLeash(y: number, slack: number): boolean {
+    const band = this.self.band;
+    if (!band || this.fish.species.tier < BALANCE.ai.leashFromTier || this.desperate) return false;
+    return y < band.top - BALANCE.ai.predatorLeash * slack;
   }
 
   private dietAllows(c: Creature): boolean {
@@ -269,7 +280,7 @@ export class Brain {
   private huntIntent(): SwimIntent {
     const me = this.fish;
     const t = this.target?.fish;
-    if (!t || !t.active || this.stateTime > BALANCE.ai.giveUpAfterSeconds) {
+    if (!t || !t.active || this.stateTime > BALANCE.ai.giveUpAfterSeconds || this.beyondLeash(t.y, 1.6)) {
       this.target = null;
       this.setState('wander');
       return this.wanderIntent(0);

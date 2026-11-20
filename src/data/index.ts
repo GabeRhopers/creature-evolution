@@ -18,6 +18,18 @@ export interface SpeciesSpawn {
   weight: number;
 }
 
+/** Optional per-species art info (defaults fit the 128px Kenney fish). */
+export interface SpeciesArt {
+  /** Body circle radius in frame pixels (scale = size / radius). */
+  radius: number;
+  /** Mouth center distance ahead of the body center, in body radii. */
+  mouthReach?: number;
+  /** Mouth radius in body radii. */
+  mouthRadius?: number;
+  /** Animation frames in the atlas. */
+  frames?: { swim: string[]; bite?: string; rest?: string };
+}
+
 export interface Species {
   id: string;
   displayName: string;
@@ -37,6 +49,7 @@ export interface Species {
   behavior: SpeciesBehavior;
   ability: string | null;
   spawn: SpeciesSpawn;
+  art?: SpeciesArt;
 }
 
 export type Balance = typeof balanceJson;

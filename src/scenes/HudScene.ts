@@ -3,6 +3,7 @@ import { BALANCE } from '../data';
 import type { GameScene } from './GameScene';
 import type { DifficultyName } from '../data';
 import { toggleTuningPanel } from '../ui/tuning';
+import { BOT_MODE } from './GameScene';
 
 const FONT = 'system-ui, sans-serif';
 
@@ -139,7 +140,7 @@ export class HudScene extends Phaser.Scene {
     });
 
     this.music = this.sound.add('music', { loop: true, volume: BALANCE.audio.musicVolume });
-    if (!HudScene.started) this.showStart();
+    if (!HudScene.started && !BOT_MODE) this.showStart();
     this.growBtn = this.makeTapButton('DEV: GROW +1', () => this.game$.player.setLevel(this.game$.player.level + 1));
 
     this.layout();
@@ -188,10 +189,11 @@ export class HudScene extends Phaser.Scene {
         width / 2,
         height * 0.55,
         [
-          'Start small. Eat plankton, then fish smaller than you.',
+          'You are a young crocodile. Eat plankton, then fish smaller than you.',
           'Green ring = swallow whole. Orange ring = bite.',
           'Stomach full? Stay still for a moment to digest.',
           'Hide in kelp when something big hunts you.',
+          'Big predators live in deep water. Grow up in the shallows.',
           '',
           touch ? 'Hold a finger to swim. Buttons: EAT, SPRINT, DASH.' : 'WASD / mouse to swim, Space eat, Shift sprint, E dash.',
         ].join('\n'),
@@ -351,6 +353,7 @@ export class HudScene extends Phaser.Scene {
       `Level ${p.level}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
     );
     this.modeBtn.setText(`MODE: ${g.difficultyName.toUpperCase()}`);
+    if (!g.dead && this.deathLayer.visible) this.hideDeath(); // run restarted elsewhere (R key, bot)
     if (g.dead) {
       this.status.setText('');
     } else if (p.stunned) {

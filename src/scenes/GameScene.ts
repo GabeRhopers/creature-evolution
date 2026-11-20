@@ -10,6 +10,21 @@ import { Brain, type AIWorld, type Creature } from '../ai/Brain';
 import type { HudScene } from './HudScene';
 import { Stomach } from '../systems/Stomach';
 import { Sfx } from '../audio/Sfx';
+import { PlayerBot } from '../dev/PlayerBot';
+
+/** `?bot=1`: an automated playtester drives the player and metrics are recorded. */
+export const BOT_MODE = new URLSearchParams(window.location.search).has('bot');
+
+interface PlaytestLog {
+  samples: Array<{ run: number; t: number; level: number; difficulty: string }>;
+  deaths: Array<{ run: number; t: number; level: number; cause: string; by: string; difficulty: string }>;
+  run: number;
+}
+function playtestLog(): PlaytestLog {
+  const w = window as unknown as { __playtest?: PlaytestLog };
+  w.__playtest ??= { samples: [], deaths: [], run: 0 };
+  return w.__playtest;
+}
 
 /** What the player's mouth area currently overlaps (drives the mouth ring). */
 type MouthState = 'idle' | 'canSwallow' | 'canBite' | 'full';
@@ -68,6 +83,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   sfx!: Sfx;
   /** Last frame's player intent (to detect resting). */
   private lastIntentStrength = 0;
+  private bot: PlayerBot | null = null;
+  /** Game-time seconds since this run started (pauses excluded). */
+  runTime = 0;
+  private sampleTimer = 0;
   private heartbeatTimer = 0;
 
   constructor() {
@@ -86,6 +105,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.mouthState = 'idle';
     this.swallowCooldown = 0;
     this.difficultyName = currentDifficulty;
+    this.runTime = 0;
+    this.sampleTimer = 0;
     this.difficulty = DIFFICULTY[currentDifficulty];
   }
 
@@ -127,6 +148,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.mouthGfx = this.add.graphics().setDepth(11);
     this.stomach.reset(this.player.level);
     this.sfx = new Sfx(this.sound);
+    if (BOT_MODE) {
+      this.bot = new PlayerBot(this);
+      playtestLog().run++;
+    }
 
     this.food = new FoodField(this, this.swimArea);
     this.spawnAmbientFish(W);
@@ -148,7 +173,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const dt = Math.min(deltaMs / 1000, 1 / 20);
 
     if (!this.dead) {
-      const intent = this.controller.read();
+      const intent = this.bot ? this.bot.read(dt) : this.controller.read();
       this.lastIntentStrength = intent.strength;
       this.player.swim(intent, dt);
     }
@@ -174,6 +199,16 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.updateRams();
     }
     this.updateAiEating();
+
+    if (BOT_MODE && !this.dead) {
+      this.runTime += dt;
+      this.sampleTimer -= dt;
+      if (this.sampleTimer <= 0) {
+        this.sampleTimer = 1;
+        const log = playtestLog();
+        log.samples.push({ run: log.run, t: Math.round(this.runTime), level: this.player.level, difficulty: this.difficultyName });
+      }
+    }
 
     // Heartbeat while hunted in the open.
     this.heartbeatTimer -= dt;
@@ -228,7 +263,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   private updatePlayerEating(dt: number): void {
     const p = this.player;
     const mouth = p.mouthPoint();
-    const acting = this.controller.wantsSwallow();
+    const acting = this.bot ? this.bot.wantsSwallow() : this.controller.wantsSwallow();
     const reach = p.mouthRadius(acting);
     this.swallowCooldown -= dt;
 
@@ -273,6 +308,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
           this.stats.fish++;
           this.burst(t.x, t.y, t.size);
           this.sfx.gulp(t.size);
+          p.playBite();
           this.gainXp(xp, t.x, t.y, true);
           this.respawnAmbient(swallowTarget);
         }
@@ -293,6 +329,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const t = target.fish;
     const dmg = a.biteDamage * damageMul;
     a.biteCooldown = attacker.isPlayer ? cb.biteCooldown : cb.aiBiteCooldown;
+    a.playBite();
     const killed = t.takeDamage(dmg);
 
     // Meat chunks torn off at the wound, sized so the attacker can swallow them.
@@ -340,6 +377,13 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   }
 
   private spawnSkeleton(t: Fish): void {
+    // Animated species (the crocodile) sink belly-up, greyed out, instead of a fish skeleton.
+    const rest = t.species.art?.frames?.rest;
+    if (rest) {
+      const body = this.add.image(t.x, t.y, ATLAS, rest).setScale(t.scaleX).setFlipY(!t.flipY).setRotation(t.rotation).setTint(0x7a8a7a).setDepth(3);
+      this.tweens.add({ targets: body, y: Math.min(t.y + 400, this.seabedTop + 10), alpha: 0, duration: 6000, ease: 'Sine.easeIn', onComplete: () => body.destroy() });
+      return;
+    }
     const frames = ['fish_blue', 'fish_green', 'fish_orange', 'fish_pink', 'fish_red'];
     const frame = frames.includes(t.species.sprite) ? `${t.species.sprite}_skeleton` : 'fish_orange_skeleton';
     const bone = this.add
@@ -451,6 +495,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   playerDied(by: Creature | null, how: 'swallowed' | 'bitten' | 'starved'): void {
     if (this.dead) return;
     this.sfx.death();
+    if (BOT_MODE) {
+      const log = playtestLog();
+      log.deaths.push({
+        run: log.run, t: Math.round(this.runTime), level: this.player.level, cause: how,
+        by: by ? `${by.fish.species.id} L${by.fish.level}` : '-', difficulty: this.difficultyName,
+      });
+      this.time.delayedCall(1500, () => this.restartRun());
+    }
     this.dead = true;
     this.mouthGfx.clear();
     this.player.setVisible(false);

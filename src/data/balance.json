@@ -1,5 +1,5 @@
 {
-  "playerSpecies": "reef_snapper",
+  "playerSpecies": "crocodile",
   "world": {
     "width": 9000,
     "height": 3200,
@@ -74,7 +74,9 @@
     "schoolRadius": 220,
     "wanderStrength": 0.45,
     "desperateVisionMul": 1.5,
-    "stalkSecondsBeforeChasingPlayer": 1.2
+    "stalkSecondsBeforeChasingPlayer": 1.2,
+    "predatorLeash": 250,
+    "leashFromTier": 3
   },
   "respawnLevelKeep": 0,
   "playerStartDepth": 0.18,
