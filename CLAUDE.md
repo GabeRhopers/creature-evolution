@@ -19,6 +19,9 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 - Controllers produce a `SwimIntent` (`PlayerController` for input, brains for AI).
   Never move a fish directly; give it an intent.
 - `src/scenes/`: Boot (loads atlas), Game (world + entities), Hud (screen overlay).
+- `src/entities/Food.ts`: plankton field kept around the camera (pooled images).
+- Eating lives in `GameScene.updateEating()`: mouth = circle ahead of the head
+  (`Fish.mouthPoint/mouthRadius`); swallow allowed if `target.size <= devourSize`.
 - `src/ui/tuning.ts`: live slider panel (` key or TUNE button) for feel tuning.
 
 ## Rules
@@ -38,7 +41,7 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 ## Roadmap (one-week sprints)
 - [x] Sprint 0: setup, atlas, data files
 - [x] Sprint 1: swim feel, world, kelp, rocks, camera zoom, touch controls
-- [ ] Sprint 2: food items, swallow, XP, level-ups, HUD growth bar
+- [x] Sprint 2: plankton (auto-eat on mouth contact), swallow smaller fish (Space/E/right-click/EAT), XP, level-ups, mouth ring, HUD growth bar
 - [ ] Sprint 3: AI state machine (wander, flee, hunt, eat, rest, desperation), kelp blocks vision
 - [ ] Sprint 4: bite vs swallow, meat chunks, ram stun, wounded state, death/respawn, Dash
 - [ ] Sprint 5: stomach and digestion, difficulty presets, SFX, music, polish

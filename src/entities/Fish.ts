@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BALANCE, type Species } from '../data';
 import { ATLAS } from '../assets';
-import { sizeAt, speedFactor, turnFactor, maxHpAt, devourSizeAt } from '../systems/growth';
+import { sizeAt, speedFactor, turnFactor, maxHpAt, devourSizeAt, xpToNext } from '../systems/growth';
 
 /** What a controller (keyboard, touch or AI brain) asks the fish to do this frame. */
 export interface SwimIntent {
@@ -41,6 +41,8 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   stamina: number;
   isSprinting = false;
   exhausted = false;
+  /** XP collected toward the next level. */
+  xp = 0;
   private sinceSprint = 99;
 
   constructor(scene: Phaser.Scene, x: number, y: number, species: Species, level = 1) {
@@ -70,6 +72,43 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   get devourSize(): number {
     return devourSizeAt(this.species, this.level);
+  }
+
+  get xpNeeded(): number {
+    return xpToNext(this.level);
+  }
+
+  /** Center of the mouth area in world space (just ahead of the head). */
+  mouthPoint(): Phaser.Math.Vector2 {
+    const reach = this.size * BALANCE.eating.mouthReach;
+    return new Phaser.Math.Vector2(this.x + Math.cos(this.heading) * reach, this.y + Math.sin(this.heading) * reach);
+  }
+
+  /** Radius of the mouth area; `suction` widens it while actively swallowing. */
+  mouthRadius(suction = false): number {
+    const e = BALANCE.eating;
+    return this.size * (e.mouthRadius + (suction ? e.suctionBonus : 0));
+  }
+
+  /** Can this fish swallow something of the given body radius whole? */
+  canSwallow(targetSize: number): boolean {
+    return targetSize <= this.devourSize;
+  }
+
+  /** Add XP, level up as many times as earned. Returns levels gained. */
+  addXp(amount: number): number {
+    this.xp += amount;
+    let gained = 0;
+    while (this.xp >= this.xpNeeded) {
+      this.xp -= this.xpNeeded;
+      gained++;
+      this.setLevel(this.level + 1);
+    }
+    return gained;
+  }
+
+  heal(amount: number): void {
+    this.hp = Math.min(this.maxHp, this.hp + amount);
   }
 
   setLevel(level: number): void {

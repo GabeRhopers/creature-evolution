@@ -34,5 +34,31 @@
   },
   "surface": {
     "pushDown": 900
+  },
+  "eating": {
+    "mouthReach": 1.2,
+    "mouthRadius": 0.45,
+    "suctionBonus": 0.3,
+    "swallowCooldown": 0.2,
+    "healOnEatPct": 0.05
+  },
+  "food": {
+    "plankton": {
+      "targetCount": 80,
+      "xp": 3,
+      "size": 6,
+      "tints": [
+        "#9adc6c",
+        "#b9ffa4",
+        "#ffec3b"
+      ]
+    },
+    "spawnMargin": 700
+  },
+  "population": {
+    "blue_tang": 45,
+    "reef_snapper": 14,
+    "red_grouper": 7,
+    "grey_shark": 2
   }
 }

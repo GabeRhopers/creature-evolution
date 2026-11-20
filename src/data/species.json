@@ -12,7 +12,7 @@
     "drag": 0.97,
     "turnSpeed": 5.5,
     "devourRatio": 0.5,
-    "xpValue": 12,
+    "xpValue": 35,
     "diet": [
       "food",
       "tier1"
@@ -34,7 +34,7 @@
     "displayName": "Blue Tang",
     "sprite": "fish_blue",
     "tier": 1,
-    "baseSize": 14,
+    "baseSize": 12,
     "baseHP": 15,
     "baseBite": 2,
     "accel": 450,
@@ -43,7 +43,7 @@
     "drag": 0.97,
     "turnSpeed": 6.5,
     "devourRatio": 0.4,
-    "xpValue": 5,
+    "xpValue": 12,
     "diet": [
       "food"
     ],
@@ -73,7 +73,7 @@
     "drag": 0.97,
     "turnSpeed": 3.5,
     "devourRatio": 0.55,
-    "xpValue": 60,
+    "xpValue": 120,
     "diet": [
       "tier1",
       "tier2"
@@ -104,7 +104,7 @@
     "drag": 0.975,
     "turnSpeed": 2.6,
     "devourRatio": 0.6,
-    "xpValue": 250,
+    "xpValue": 500,
     "diet": [
       "tier1",
       "tier2",

@@ -1,7 +1,10 @@
 # Fish Growth Game (working title)
 
 A 2D side-view ocean survival game: start small, eat, grow, and become the
-predator. Built with Phaser 4, TypeScript and Vite. All assets are free (CC0).
+predator.
+
+The mouth ring in front of your fish turns **green** when something you can
+swallow is in reach and **red** when it is too big for you (for now). Built with Phaser 4, TypeScript and Vite. All assets are free (CC0).
 
 ## Play / develop
 
@@ -16,8 +19,10 @@ npm run build    # production build in dist/ (upload the folder contents to itch
 | Action | Keyboard / mouse | Touch |
 |---|---|---|
 | Swim | WASD or arrow keys, or hold the mouse button | Hold a finger where you want to go (farther = faster) |
-| Sprint | Shift or Space (uses stamina) | SPRINT button, or a second finger |
-| Dev: grow / shrink | G / H | GROW +1 button |
+| Sprint | Shift (uses stamina) | SPRINT button, or a second finger |
+| Swallow (fish smaller than you) | Space, E or right-click | EAT button |
+| Eat plankton | just touch it with your mouth | same |
+| Dev: grow / shrink | G / H | DEV: GROW +1 button |
 | Dev: tuning sliders | ` (backtick) | TUNE button |
 | Dev: show hitboxes | P | |
 | Fullscreen | F | |

@@ -4,22 +4,32 @@ import type { Fish, SwimIntent } from './Fish';
 /**
  * Turns keyboard, mouse and touch input into a SwimIntent for the player fish.
  *
- * Keyboard: WASD / arrow keys to swim, Shift or Space to sprint.
- * Mouse / touch: hold anywhere to swim toward the pointer; farther = faster.
- *   A second finger on screen also sprints. The HUD sprint button sets
- *   `uiSprint` and reserves its own pointer so it does not steer.
+ * Keyboard: WASD / arrow keys to swim, Shift to sprint, Space to swallow.
+ * Mouse: hold left button to swim toward the pointer; right button swallows.
+ * Touch: hold a finger to swim toward it (farther = faster); a second finger
+ *   sprints. HUD buttons (SPRINT, EAT) set `uiSprint` / `uiSwallow` and
+ *   reserve their pointer so it does not steer.
  */
 export class PlayerController {
   private keys: Record<string, Phaser.Input.Keyboard.Key>;
   /** Set by the HUD's on-screen sprint button. */
   uiSprint = false;
+  /** Set by the HUD's on-screen EAT button. */
+  uiSwallow = false;
   /** Pointer ids currently owned by HUD buttons (ignored for steering). */
   readonly uiPointers = new Set<number>();
 
   constructor(private scene: Phaser.Scene, private fish: Fish) {
     const kb = scene.input.keyboard!;
-    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,SPACE') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,SPACE,E') as Record<string, Phaser.Input.Keyboard.Key>;
     scene.input.addPointer(2);
+    scene.input.mouse?.disableContextMenu();
+  }
+
+  /** True while the player is trying to swallow (Space, E, right mouse, EAT button). */
+  wantsSwallow(): boolean {
+    const mouse = this.scene.input.mousePointer;
+    return this.keys.SPACE.isDown || this.keys.E.isDown || this.uiSwallow || (mouse.isDown && mouse.rightButtonDown());
   }
 
   read(): SwimIntent {
@@ -31,7 +41,7 @@ export class PlayerController {
     if (k.W.isDown || k.UP.isDown) dy -= 1;
     if (k.S.isDown || k.DOWN.isDown) dy += 1;
     let strength = dx !== 0 || dy !== 0 ? 1 : 0;
-    let sprint = k.SHIFT.isDown || k.SPACE.isDown || this.uiSprint;
+    let sprint = k.SHIFT.isDown || this.uiSprint;
 
     // Pointer steering (mouse button held, or a finger on screen).
     const steering = this.steeringPointers();
@@ -56,7 +66,7 @@ export class PlayerController {
 
   private steeringPointers(): Phaser.Input.Pointer[] {
     return this.scene.input.manager.pointers.filter(
-      (p) => p.isDown && !this.uiPointers.has(p.id),
+      (p) => p.isDown && !this.uiPointers.has(p.id) && !(p.wasTouch === false && p.rightButtonDown()),
     );
   }
 }
