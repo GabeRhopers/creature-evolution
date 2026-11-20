@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Fish Growth Game (working title)</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #0b2a45; overflow: hidden; touch-action: none; }
+      #game { width: 100vw; height: 100vh; }
+      #tuning {
+        position: fixed; top: 8px; right: 8px; z-index: 10; display: none;
+        background: rgba(8, 24, 40, 0.88); color: #dff1ff; font: 12px/1.4 system-ui, sans-serif;
+        padding: 10px 12px; border-radius: 8px; max-height: 90vh; overflow-y: auto; width: 240px;
+      }
+      #tuning label { display: block; margin-top: 6px; }
+      #tuning input { width: 100%; }
+      #tuning .v { float: right; color: #9fd3ff; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="tuning"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

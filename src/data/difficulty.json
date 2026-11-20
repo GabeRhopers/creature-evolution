@@ -1,0 +1,5 @@
+{
+  "easy":   { "aiSpeed": 0.8, "aiReactionDelay": 0.6, "predatorDensity": 0.6, "preySpawnRate": 1.4 },
+  "normal": { "aiSpeed": 1.0, "aiReactionDelay": 0.35, "predatorDensity": 1.0, "preySpawnRate": 1.0 },
+  "hard":   { "aiSpeed": 1.15, "aiReactionDelay": 0.15, "predatorDensity": 1.5, "preySpawnRate": 0.8 }
+}

@@ -1,0 +1,38 @@
+{
+  "playerSpecies": "reef_snapper",
+  "world": {
+    "width": 9000,
+    "height": 3200,
+    "surfaceY": 120,
+    "seabedDepth": 260,
+    "rockCount": 26,
+    "kelpPatches": 18
+  },
+  "growth": {
+    "sizePerLevel": 1.12,
+    "hpExponent": 2.0,
+    "biteExponent": 1.5,
+    "xpBase": 10,
+    "xpExponent": 1.5,
+    "speedExponent": 0.35,
+    "turnExponent": -0.25
+  },
+  "stamina": {
+    "max": 100,
+    "drainPerSecond": 28,
+    "regenPerSecond": 18,
+    "regenDelay": 0.6,
+    "exhaustedThreshold": 25
+  },
+  "camera": {
+    "baseZoom": 1.0,
+    "zoomExponent": 0.75,
+    "minZoom": 0.22,
+    "maxZoom": 1.3,
+    "lerp": 0.08,
+    "zoomLerp": 0.03
+  },
+  "surface": {
+    "pushDown": 900
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "reef_snapper": {
+    "displayName": "Reef Snapper",
+    "sprite": "fish_orange",
+    "tier": 2,
+    "baseSize": 22,
+    "baseHP": 40,
+    "baseBite": 6,
+    "accel": 480,
+    "maxSpeed": 230,
+    "sprintMultiplier": 1.85,
+    "drag": 0.97,
+    "turnSpeed": 5.5,
+    "devourRatio": 0.5,
+    "xpValue": 12,
+    "diet": [
+      "food",
+      "tier1"
+    ],
+    "behavior": {
+      "schooling": true,
+      "aggression": 0.3,
+      "visionRange": 350,
+      "fleeRatio": 1.3
+    },
+    "ability": "dash",
+    "spawn": {
+      "depthMin": 0.1,
+      "depthMax": 0.5,
+      "weight": 30
+    }
+  },
+  "blue_tang": {
+    "displayName": "Blue Tang",
+    "sprite": "fish_blue",
+    "tier": 1,
+    "baseSize": 14,
+    "baseHP": 15,
+    "baseBite": 2,
+    "accel": 450,
+    "maxSpeed": 210,
+    "sprintMultiplier": 1.7,
+    "drag": 0.97,
+    "turnSpeed": 6.5,
+    "devourRatio": 0.4,
+    "xpValue": 5,
+    "diet": [
+      "food"
+    ],
+    "behavior": {
+      "schooling": true,
+      "aggression": 0.0,
+      "visionRange": 300,
+      "fleeRatio": 1.2
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.4,
+      "weight": 50
+    }
+  },
+  "red_grouper": {
+    "displayName": "Red Grouper",
+    "sprite": "fish_red",
+    "tier": 3,
+    "baseSize": 48,
+    "baseHP": 160,
+    "baseBite": 18,
+    "accel": 420,
+    "maxSpeed": 200,
+    "sprintMultiplier": 1.6,
+    "drag": 0.97,
+    "turnSpeed": 3.5,
+    "devourRatio": 0.55,
+    "xpValue": 60,
+    "diet": [
+      "tier1",
+      "tier2"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.7,
+      "visionRange": 450,
+      "fleeRatio": 1.4
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.4,
+      "depthMax": 1.0,
+      "weight": 12
+    }
+  },
+  "grey_shark": {
+    "displayName": "Grey Hunter",
+    "sprite": "fish_grey",
+    "tier": 4,
+    "baseSize": 90,
+    "baseHP": 600,
+    "baseBite": 45,
+    "accel": 460,
+    "maxSpeed": 240,
+    "sprintMultiplier": 1.7,
+    "drag": 0.975,
+    "turnSpeed": 2.6,
+    "devourRatio": 0.6,
+    "xpValue": 250,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 1.0,
+      "visionRange": 600,
+      "fleeRatio": 2.0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.6,
+      "depthMax": 1.0,
+      "weight": 3
+    }
+  }
+}
