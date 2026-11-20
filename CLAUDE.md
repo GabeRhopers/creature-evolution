@@ -16,7 +16,10 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 - `src/systems/growth.ts`: pure growth formulas (size, HP, bite, XP, devour size).
 - `src/entities/Fish.ts`: one class for every swimmer (player and AI). Movement =
   heading + limited turn rate + thrust + drag + soft speed cap + stamina sprint.
-- Controllers produce a `SwimIntent` (`PlayerController` for input, brains for AI).
+- Controllers produce a `SwimIntent` (`PlayerController` for input, `src/ai/Brain.ts` for AI).
+- `Brain` = per-fish state machine; GameScene implements `AIWorld` (creature list,
+  food, kelp hiding, difficulty) and resolves who eats whom (`updateAiEating`).
+- Threat rule everywhere: X is a threat to Y if X can swallow Y (`canSwallow`).
   Never move a fish directly; give it an intent.
 - `src/scenes/`: Boot (loads atlas), Game (world + entities), Hud (screen overlay).
 - `src/entities/Food.ts`: plankton field kept around the camera (pooled images).
@@ -42,7 +45,7 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 - [x] Sprint 0: setup, atlas, data files
 - [x] Sprint 1: swim feel, world, kelp, rocks, camera zoom, touch controls
 - [x] Sprint 2: plankton (auto-eat on mouth contact), swallow smaller fish (Space/E/right-click/EAT), XP, level-ups, mouth ring, HUD growth bar
-- [ ] Sprint 3: AI state machine (wander, flee, hunt, eat, rest, desperation), kelp blocks vision
+- [x] Sprint 3: AI brains (wander+schooling, flee, hunt with stalking vs player, forage plankton, rest, hunger/desperation), kelp hides fish, player can be eaten (death screen, restart), Easy/Normal/Hard
 - [ ] Sprint 4: bite vs swallow, meat chunks, ram stun, wounded state, death/respawn, Dash
 - [ ] Sprint 5: stomach and digestion, difficulty presets, SFX, music, polish
 - [ ] Sprint 6: playtest, balance, itch.io release

@@ -1,52 +1,80 @@
 import Phaser from 'phaser';
-import { BALANCE, SPECIES, getSpecies } from '../data';
+import { BALANCE, DIFFICULTY, SPECIES, getSpecies, type Difficulty, type DifficultyName } from '../data';
 import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
-import { WanderBrain } from '../entities/WanderBrain';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Bubbles } from '../systems/Bubbles';
 import { ATLAS } from '../assets';
-import { FoodField, type FoodItem } from '../entities/Food';
+import { FoodField } from '../entities/Food';
+import { Brain, type AIWorld, type Creature } from '../ai/Brain';
 import type { HudScene } from './HudScene';
-
-interface AmbientFish {
-  fish: Fish;
-  brain: WanderBrain;
-  band: Phaser.Geom.Rectangle;
-}
 
 /** What the player's mouth area currently overlaps (drives the mouth ring). */
 type MouthState = 'idle' | 'canSwallow' | 'tooBig';
 
+/** Difficulty survives scene restarts (chosen from the HUD). */
+let currentDifficulty: DifficultyName = readDifficultyFromUrl();
+
+function readDifficultyFromUrl(): DifficultyName {
+  const d = new URLSearchParams(window.location.search).get('difficulty');
+  return d === 'easy' || d === 'hard' ? d : 'normal';
+}
+
 /**
- * Side-view ocean: world, seabed, rocks, kelp, bubbles, the player's swimming,
- * camera follow + zoom by size (Sprint 1), and eating + growth (Sprint 2):
- * plankton is eaten on mouth contact, smaller fish are swallowed with the
- * swallow action. Ambient fish only wander until Sprint 3 adds real AI.
+ * Side-view ocean.
+ *  Sprint 1: world, seabed, rocks, kelp, bubbles, swimming, camera zoom by size.
+ *  Sprint 2: plankton (eaten on mouth contact), swallowing smaller fish, XP.
+ *  Sprint 3: every AI fish runs a Brain (wander/school, flee, hunt, forage,
+ *            rest, hunger); kelp hides fish from AI; the player can be eaten.
  */
-export class GameScene extends Phaser.Scene {
+export class GameScene extends Phaser.Scene implements AIWorld {
   player!: Fish;
+  playerCreature!: Creature;
   controller!: PlayerController;
-  /** Rectangles covered by kelp. Sprint 3 uses them to block AI vision. */
+  /** All swimmers (player first). Brains scan this list. */
+  creatures: Creature[] = [];
+  /** Rectangles covered by kelp: fish inside are hidden from AI. */
   kelpZones: Phaser.Geom.Rectangle[] = [];
   seabedTop = 0;
+  food!: FoodField;
+  swimArea!: Phaser.Geom.Rectangle;
+  difficulty!: Difficulty;
+  difficultyName: DifficultyName = 'normal';
+  mouthState: MouthState = 'idle';
+  /** True while at least one AI fish is hunting the player (HUD warning). */
+  playerHunted = false;
+  playerHidden = false;
+  dead = false;
+  /** Fish eaten by AI predators this run (debug/balance). */
+  aiMeals = 0;
+  /** Running totals for the HUD / future stats screen. */
+  stats = { plankton: 0, fish: 0, maxLevel: 1 };
 
   private rocks!: Phaser.Physics.Arcade.StaticGroup;
-  private ambient: AmbientFish[] = [];
   private ambientBubbles!: Bubbles;
   private trailBubbles!: Bubbles;
   private ambientTimer = 0;
   private trailTimer = 0;
-  food!: FoodField;
-  private swimArea!: Phaser.Geom.Rectangle;
   private mouthGfx!: Phaser.GameObjects.Graphics;
   private swallowCooldown = 0;
-  mouthState: MouthState = 'idle';
-  /** Running totals for the HUD / future stats screen. */
-  stats = { plankton: 0, fish: 0 };
 
   constructor() {
     super('Game');
+  }
+
+  /** Reset per-run state (Phaser reuses the scene instance on restart). */
+  init(): void {
+    this.creatures = [];
+    this.kelpZones = [];
+    this.stats = { plankton: 0, fish: 0, maxLevel: 1 };
+    this.dead = false;
+    this.aiMeals = 0;
+    this.playerHunted = false;
+    this.playerHidden = false;
+    this.mouthState = 'idle';
+    this.swallowCooldown = 0;
+    this.difficultyName = currentDifficulty;
+    this.difficulty = DIFFICULTY[currentDifficulty];
   }
 
   create(): void {
@@ -68,8 +96,11 @@ export class GameScene extends Phaser.Scene {
 
     // Player.
     const species = getSpecies(BALANCE.playerSpecies);
-    this.player = new Fish(this, W / 2, H * 0.35, species, 1);
+    const startY = swimTop + (this.seabedTop - swimTop) * BALANCE.playerStartDepth;
+    this.player = new Fish(this, W / 2, startY, species, 1);
     this.player.setDepth(10);
+    this.playerCreature = { fish: this.player, isPlayer: true };
+    this.creatures.push(this.playerCreature);
     this.controller = new PlayerController(this, this.player);
     this.physics.add.collider(this.player, this.rocks);
     this.mouthGfx = this.add.graphics().setDepth(11);
@@ -93,13 +124,21 @@ export class GameScene extends Phaser.Scene {
     // Clamp dt so a background tab or hitch does not launch fish across the map.
     const dt = Math.min(deltaMs / 1000, 1 / 20);
 
-    this.player.swim(this.controller.read(), dt);
+    if (!this.dead) this.player.swim(this.controller.read(), dt);
     this.updateBubbles(dt);
 
-    for (const a of this.ambient) a.fish.swim(a.brain.think(dt), dt);
+    let hunted = false;
+    for (const c of this.creatures) {
+      if (!c.brain) continue;
+      c.fish.swim(c.brain.think(dt), dt);
+      if (c.brain.state === 'hunt' && c.brain.target === this.playerCreature) hunted = true;
+    }
+    this.playerHunted = hunted && !this.dead;
+    this.playerHidden = this.inKelp(this.player);
 
     this.food.update(dt, this.cameras.main.worldView, time);
-    this.updateEating(dt);
+    if (!this.dead) this.updatePlayerEating(dt);
+    this.updateAiEating();
 
     // Zoom out as the player grows so it stays a readable size on screen.
     const cam = this.cameras.main;
@@ -114,13 +153,37 @@ export class GameScene extends Phaser.Scene {
     return Phaser.Math.Clamp(c.baseZoom * screenFit * Math.pow(1 / ratio, c.zoomExponent), c.minZoom, c.maxZoom);
   }
 
+  // ---------------------------------------------------------------- AIWorld
+
+  /** Kelp hides a fish unless the observer is very close. */
+  isHidden(target: Fish, observer: Fish): boolean {
+    if (!this.inKelp(target)) return false;
+    const d = Phaser.Math.Distance.Between(target.x, target.y, observer.x, observer.y);
+    return d > target.size * BALANCE.ai.kelpSeeThroughDistance;
+  }
+
+  inKelp(f: Fish): boolean {
+    return this.kelpZones.some((z) => z.contains(f.x, f.y));
+  }
+
+  // ---------------------------------------------------------------- difficulty / restart
+
+  setDifficulty(name: DifficultyName): void {
+    currentDifficulty = name;
+    this.restartRun();
+  }
+
+  restartRun(): void {
+    this.scene.restart();
+  }
+
   // ---------------------------------------------------------------- eating
 
   private get hud(): HudScene {
     return this.scene.get('Hud') as HudScene;
   }
 
-  private updateEating(dt: number): void {
+  private updatePlayerEating(dt: number): void {
     const p = this.player;
     const mouth = p.mouthPoint();
     const swallowing = this.controller.wantsSwallow();
@@ -132,22 +195,25 @@ export class GameScene extends Phaser.Scene {
     for (let i = this.food.items.length - 1; i >= 0; i--) {
       const f = this.food.items[i];
       if (p.canSwallow(f.size) && Phaser.Math.Distance.Between(mouth.x, mouth.y, f.img.x, f.img.y) < touchR + f.size) {
-        this.eatFood(f);
+        this.food.remove(f);
+        this.stats.plankton++;
+        this.gainXp(f.xp, f.img.x, f.img.y, false);
       }
     }
 
     // Live fish: need the swallow action, and must be small enough.
-    let best: AmbientFish | null = null;
+    let best: Creature | null = null;
     let sawTooBig = false;
     const checkR = p.mouthRadius(true);
-    for (const a of this.ambient) {
-      const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, a.fish.x, a.fish.y);
-      if (d > checkR + a.fish.size * 0.5) continue;
-      if (!p.canSwallow(a.fish.size)) {
+    for (const c of this.creatures) {
+      if (c.isPlayer) continue;
+      const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, c.fish.x, c.fish.y);
+      if (d > checkR + c.fish.size * 0.5) continue;
+      if (!p.canSwallow(c.fish.size)) {
         sawTooBig = true;
         continue;
       }
-      if (!best || a.fish.size > best.fish.size) best = a;
+      if (!best || c.fish.size > best.fish.size) best = c;
     }
     this.mouthState = best ? 'canSwallow' : sawTooBig ? 'tooBig' : 'idle';
 
@@ -155,11 +221,57 @@ export class GameScene extends Phaser.Scene {
       const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, best.fish.x, best.fish.y);
       if (d <= reach + best.fish.size * 0.5) {
         this.swallowCooldown = BALANCE.eating.swallowCooldown;
-        this.eatFish(best);
+        const xp = best.fish.species.xpValue * best.fish.level;
+        const { x, y } = best.fish;
+        this.stats.fish++;
+        this.burst(x, y, best.fish.size);
+        this.gainXp(xp, x, y, true);
+        this.respawnAmbient(best);
       }
     }
 
     this.drawMouth(mouth, reach, swallowing);
+  }
+
+  /** AI fish swallow their current target (fish or plankton) on mouth contact. */
+  private updateAiEating(): void {
+    for (const c of this.creatures) {
+      const b = c.brain;
+      if (!b) continue;
+      const me = c.fish;
+      const mouth = me.mouthPoint();
+      const r = me.mouthRadius(true);
+
+      if (b.state === 'hunt' && b.target) {
+        const t = b.target;
+        if (t.isPlayer && this.dead) continue;
+        const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, t.fish.x, t.fish.y);
+        if (d < r + t.fish.size * 0.5 && me.canSwallow(t.fish.size)) {
+          b.ate('fish');
+          this.aiMeals++;
+          this.burst(t.fish.x, t.fish.y, t.fish.size);
+          if (t.isPlayer) this.playerEaten(c);
+          else this.respawnAmbient(t);
+        }
+      } else if (b.state === 'forage' && b.foodTarget?.alive) {
+        const f = b.foodTarget;
+        if (Phaser.Math.Distance.Between(mouth.x, mouth.y, f.img.x, f.img.y) < r + f.size) {
+          this.food.remove(f);
+          b.ate('food');
+        }
+      }
+    }
+  }
+
+  private playerEaten(by: Creature): void {
+    this.dead = true;
+    this.mouthGfx.clear();
+    this.player.setVisible(false);
+    this.player.arcadeBody.setVelocity(0, 0);
+    this.player.arcadeBody.enable = false;
+    // Follow the predator so the player sees what got them.
+    this.cameras.main.startFollow(by.fish, true, 0.05, 0.05);
+    this.hud.showDeath(by.fish.species.displayName, by.fish.level, this.stats);
   }
 
   private drawMouth(mouth: Phaser.Math.Vector2, r: number, swallowing: boolean): void {
@@ -175,29 +287,13 @@ export class GameScene extends Phaser.Scene {
     g.strokeCircle(mouth.x, mouth.y, r);
   }
 
-  private eatFood(f: FoodItem): void {
-    const x = f.img.x;
-    const y = f.img.y;
-    this.food.remove(f);
-    this.stats.plankton++;
-    this.gainXp(f.xp, x, y, false);
-  }
-
-  private eatFish(a: AmbientFish): void {
-    const xp = a.fish.species.xpValue * a.fish.level;
-    const { x, y } = a.fish;
-    this.stats.fish++;
-    this.burst(x, y, a.fish.size);
-    this.gainXp(xp, x, y, true);
-    this.respawnAmbient(a);
-  }
-
   private gainXp(xp: number, x: number, y: number, big: boolean): void {
     const p = this.player;
     p.heal(p.maxHp * BALANCE.eating.healOnEatPct);
     const levels = p.addXp(xp);
     this.hud.popup(`+${xp}`, x, y, big);
     if (levels > 0) {
+      this.stats.maxLevel = Math.max(this.stats.maxLevel, p.level);
       this.hud.levelUp(p.level);
       this.burst(p.x, p.y, p.size * 1.5);
     }
@@ -218,18 +314,21 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Put an eaten fish back somewhere off-screen in its depth band. */
-  private respawnAmbient(a: AmbientFish): void {
+  /** Put an eaten AI fish back somewhere off-screen in its depth band. */
+  private respawnAmbient(c: Creature): void {
+    for (const o of this.creatures) o.brain?.forget(c);
+    const band = c.band ?? this.swimArea;
     const view = this.cameras.main.worldView;
     let x = 0;
     for (let i = 0; i < 20; i++) {
-      x = Phaser.Math.Between(a.band.left, a.band.right);
+      x = Phaser.Math.Between(band.left, band.right);
       if (x < view.left - 200 || x > view.right + 200) break;
     }
-    const y = Phaser.Math.Between(a.band.top, a.band.bottom);
-    a.fish.arcadeBody.reset(x, y);
-    a.fish.setLevel(Phaser.Math.Between(1, 3));
-    a.fish.hp = a.fish.maxHp;
+    const y = Phaser.Math.Between(band.top, band.bottom);
+    c.fish.arcadeBody.reset(x, y);
+    c.fish.setLevel(Phaser.Math.Between(1, 3));
+    c.fish.hp = c.fish.maxHp;
+    if (c.brain) c.brain.hunger = Phaser.Math.FloatBetween(0.5, 1);
   }
 
   // ---------------------------------------------------------------- world
@@ -401,8 +500,11 @@ export class GameScene extends Phaser.Scene {
   private spawnAmbientFish(W: number): void {
     const surfaceY = BALANCE.world.surfaceY;
     const waterH = this.seabedTop - surfaceY;
-    for (const [id, count] of Object.entries(BALANCE.population)) {
+    for (const [id, baseCount] of Object.entries(BALANCE.population)) {
       const sp = SPECIES[id];
+      // Difficulty: more predators on Hard, more small prey on Easy.
+      const mul = sp.tier >= 3 ? this.difficulty.predatorDensity : sp.tier <= 1 ? this.difficulty.preySpawnRate : 1;
+      const count = Math.max(1, Math.round(baseCount * mul));
       const band = new Phaser.Geom.Rectangle(
         100,
         surfaceY + waterH * sp.spawn.depthMin + 40,
@@ -413,8 +515,11 @@ export class GameScene extends Phaser.Scene {
         const fish = new Fish(this, Phaser.Math.Between(band.left, band.right),
           Phaser.Math.Between(band.top, band.bottom), sp, Phaser.Math.Between(1, 3));
         fish.setDepth(5);
+        fish.speedMul = this.difficulty.aiSpeed;
         this.physics.add.collider(fish, this.rocks);
-        this.ambient.push({ fish, brain: new WanderBrain(fish, band), band });
+        const c: Creature = { fish, isPlayer: false, band };
+        c.brain = new Brain(c, this);
+        this.creatures.push(c);
       }
     }
   }
@@ -424,6 +529,7 @@ export class GameScene extends Phaser.Scene {
   private bindDevKeys(): void {
     const kb = this.input.keyboard!;
     kb.on('keydown-G', () => this.player.setLevel(this.player.level + 1));
+    kb.on('keydown-R', () => this.restartRun());
     kb.on('keydown-H', () => this.player.setLevel(this.player.level - 1));
     kb.on('keydown-BACKTICK', () => toggleTuningPanel(this.player.species));
     kb.on('keydown-P', () => this.toggleDebug());

@@ -4,7 +4,11 @@ A 2D side-view ocean survival game: start small, eat, grow, and become the
 predator.
 
 The mouth ring in front of your fish turns **green** when something you can
-swallow is in reach and **red** when it is too big for you (for now). Built with Phaser 4, TypeScript and Vite. All assets are free (CC0).
+swallow is in reach and **red** when it is too big for you (for now).
+
+Bigger fish hunt you if they can swallow you whole. When "YOU ARE BEING HUNTED"
+flashes, swim away or hide in kelp: fish inside kelp are invisible to predators
+unless they get very close. Built with Phaser 4, TypeScript and Vite. All assets are free (CC0).
 
 ## Play / develop
 
@@ -22,6 +26,8 @@ npm run build    # production build in dist/ (upload the folder contents to itch
 | Sprint | Shift (uses stamina) | SPRINT button, or a second finger |
 | Swallow (fish smaller than you) | Space, E or right-click | EAT button |
 | Eat plankton | just touch it with your mouth | same |
+| Restart run | R | tap the death screen |
+| Difficulty (restarts) | MODE button or `?difficulty=easy` / `hard` in the URL | MODE button |
 | Dev: grow / shrink | G / H | DEV: GROW +1 button |
 | Dev: tuning sliders | ` (backtick) | TUNE button |
 | Dev: show hitboxes | P | |

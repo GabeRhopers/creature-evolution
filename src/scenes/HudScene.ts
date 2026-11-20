@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BALANCE } from '../data';
 import type { GameScene } from './GameScene';
+import type { DifficultyName } from '../data';
 import { toggleTuningPanel } from '../ui/tuning';
 
 const FONT = 'system-ui, sans-serif';
@@ -25,6 +26,12 @@ export class HudScene extends Phaser.Scene {
   private gearBtn!: Phaser.GameObjects.Text;
   private growBtn!: Phaser.GameObjects.Text;
   private popups: Phaser.GameObjects.Text[] = [];
+  private status!: Phaser.GameObjects.Text;
+  private modeBtn!: Phaser.GameObjects.Text;
+  private deathLayer!: Phaser.GameObjects.Container;
+  private deathTitle!: Phaser.GameObjects.Text;
+  private deathStats!: Phaser.GameObjects.Text;
+  private deathShade!: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super('Hud');
@@ -54,7 +61,29 @@ export class HudScene extends Phaser.Scene {
     [this.sprintBtn, this.sprintLabel] = this.makeHoldButton('SPRINT', 0xffffff, (down) => (this.game$.controller.uiSprint = down));
     [this.eatBtn, this.eatLabel] = this.makeHoldButton('EAT', 0xffa53a, (down) => (this.game$.controller.uiSwallow = down));
 
+    this.status = this.add
+      .text(0, 0, '', { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#ff6b6b', stroke: '#0a2236', strokeThickness: 5 })
+      .setOrigin(0.5, 0);
+
     this.gearBtn = this.makeTapButton('TUNE', () => toggleTuningPanel(this.game$.player.species));
+    this.modeBtn = this.makeTapButton('', () => {
+      const order: DifficultyName[] = ['easy', 'normal', 'hard'];
+      const next = order[(order.indexOf(this.game$.difficultyName) + 1) % order.length];
+      this.hideDeath();
+      this.game$.setDifficulty(next);
+    });
+
+    // "You were eaten" overlay.
+    this.deathShade = this.add.rectangle(0, 0, 10, 10, 0x020c16, 0.72).setOrigin(0, 0);
+    this.deathTitle = this.add
+      .text(0, 0, '', { fontFamily: FONT, fontSize: '40px', fontStyle: 'bold', color: '#ff6b6b', stroke: '#0a2236', strokeThickness: 6, align: 'center' })
+      .setOrigin(0.5);
+    this.deathStats = this.add
+      .text(0, 0, '', { fontFamily: FONT, fontSize: '18px', color: '#e6f6ff', align: 'center', lineSpacing: 8 })
+      .setOrigin(0.5);
+    this.deathLayer = this.add.container(0, 0, [this.deathShade, this.deathTitle, this.deathStats]).setVisible(false).setDepth(100);
+    this.deathShade.on('pointerdown', () => this.respawn());
+    this.input.keyboard?.on('keydown-R', () => this.deathLayer.visible && this.respawn());
     this.growBtn = this.makeTapButton('DEV: GROW +1', () => this.game$.player.setLevel(this.game$.player.level + 1));
 
     this.layout();
@@ -84,6 +113,29 @@ export class HudScene extends Phaser.Scene {
       ease: 'Cubic.easeOut',
       onComplete: () => t!.setActive(false).setVisible(false),
     });
+  }
+
+  showDeath(byName: string, byLevel: number, stats: { plankton: number; fish: number; maxLevel: number }): void {
+    this.deathTitle.setText(`Eaten by a ${byName}!`);
+    this.deathStats.setText(
+      `It was level ${byLevel}.\nYou reached level ${stats.maxLevel}, ate ${stats.fish} fish and ${stats.plankton} plankton.\n\nTap anywhere (or press R) to swim again`,
+    );
+    this.time.delayedCall(900, () => {
+      const { width, height } = this.scale;
+      this.deathShade.setInteractive(new Phaser.Geom.Rectangle(0, 0, width, height), Phaser.Geom.Rectangle.Contains);
+      this.deathLayer.setVisible(true).setAlpha(0);
+      this.tweens.add({ targets: this.deathLayer, alpha: 1, duration: 300 });
+    });
+  }
+
+  private hideDeath(): void {
+    this.deathLayer.setVisible(false);
+    this.deathShade.disableInteractive();
+  }
+
+  private respawn(): void {
+    this.hideDeath();
+    this.game$.restartRun();
   }
 
   levelUp(level: number): void {
@@ -138,13 +190,18 @@ export class HudScene extends Phaser.Scene {
     this.eatLabel.setPosition(width - 175, height - 70);
     this.gearBtn.setPosition(width - 12, 12);
     this.growBtn.setPosition(width - 12, 46);
+    this.modeBtn.setPosition(width - 12, 80);
+    this.status.setPosition(width / 2, 14);
+    this.deathShade.setSize(width, height);
+    this.deathTitle.setPosition(width / 2, height * 0.4);
+    this.deathStats.setPosition(width / 2, height * 0.4 + 90);
     this.banner.setPosition(width / 2, height * 0.28);
     this.hint.setPosition(16, height - 28);
     const touch = this.sys.game.device.input.touch;
     this.hint.setText(
       touch
         ? 'Hold a finger to swim. EAT swallows fish when the mouth ring turns green. Plankton is eaten on touch.'
-        : 'WASD/arrows or hold mouse: swim | Shift: sprint | Space/E/right-click: swallow | ` tune | P hitboxes | F fullscreen',
+        : 'WASD/arrows or hold mouse: swim | Shift: sprint | Space/E/right-click: swallow | R restart | ` tune | P hitboxes | F fullscreen',
     );
   }
 
@@ -160,6 +217,18 @@ export class HudScene extends Phaser.Scene {
     this.info.setText(
       `Level ${p.level}  |  Size ${p.size.toFixed(0)}  |  Can swallow up to ${p.devourSize.toFixed(0)}  |  Eaten: ${g.stats.fish} fish, ${g.stats.plankton} plankton`,
     );
+    this.modeBtn.setText(`MODE: ${g.difficultyName.toUpperCase()}`);
+    if (g.dead) {
+      this.status.setText('');
+    } else if (g.playerHunted) {
+      this.status.setText(g.playerHidden ? 'HUNTED (hiding in kelp)' : 'YOU ARE BEING HUNTED!').setColor('#ff6b6b');
+      this.status.setAlpha(0.6 + 0.4 * Math.sin(this.time.now / 120));
+    } else if (g.playerHidden) {
+      this.status.setText('Hidden in kelp').setColor('#7cff6b').setAlpha(0.9);
+    } else {
+      this.status.setText('');
+    }
+
     // Pulse the EAT button when something swallowable is in reach.
     const ready = g.mouthState === 'canSwallow';
     this.eatBtn.setStrokeStyle(ready ? 5 : 3, ready ? 0x7cff6b : 0xffa53a, ready ? 1 : 0.65);

@@ -60,5 +60,22 @@
     "reef_snapper": 14,
     "red_grouper": 7,
     "grey_shark": 2
-  }
+  },
+  "ai": {
+    "hungerDrainPerSecond": 0.014,
+    "huntBelowHunger": 0.65,
+    "desperateBelowHunger": 0.2,
+    "hungerPerFish": 0.4,
+    "hungerPerPlankton": 0.06,
+    "giveUpAfterSeconds": 8,
+    "restSeconds": 1.2,
+    "fleeMemorySeconds": 1.6,
+    "kelpSeeThroughDistance": 4,
+    "schoolRadius": 220,
+    "wanderStrength": 0.45,
+    "desperateVisionMul": 1.5,
+    "stalkSecondsBeforeChasingPlayer": 1.2
+  },
+  "respawnLevelKeep": 0,
+  "playerStartDepth": 0.18
 }

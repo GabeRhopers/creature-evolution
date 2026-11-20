@@ -22,7 +22,8 @@ export class PlayerController {
   constructor(private scene: Phaser.Scene, private fish: Fish) {
     const kb = scene.input.keyboard!;
     this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,SPACE,E') as Record<string, Phaser.Input.Keyboard.Key>;
-    scene.input.addPointer(2);
+    // Up to 3 touch points (steer + sprint/eat). Only add once; restarts reuse them.
+    if (scene.input.manager.pointersTotal < 3) scene.input.addPointer(3 - scene.input.manager.pointersTotal);
     scene.input.mouse?.disableContextMenu();
   }
 

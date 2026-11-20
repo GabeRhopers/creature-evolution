@@ -43,6 +43,8 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   exhausted = false;
   /** XP collected toward the next level. */
   xp = 0;
+  /** Difficulty multiplier on swim speed (AI only; player stays 1). */
+  speedMul = 1;
   private sinceSprint = 99;
 
   constructor(scene: Phaser.Scene, x: number, y: number, species: Species, level = 1) {
@@ -151,8 +153,8 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     }
 
     const sprintMul = this.isSprinting ? sp.sprintMultiplier : 1;
-    const maxSpeed = sp.maxSpeed * speedFactor(sp, this.level) * sprintMul;
-    const accel = sp.accel * speedFactor(sp, this.level) * (this.isSprinting ? 1.6 : 1);
+    const maxSpeed = sp.maxSpeed * speedFactor(sp, this.level) * sprintMul * this.speedMul;
+    const accel = sp.accel * speedFactor(sp, this.level) * (this.isSprinting ? 1.6 : 1) * this.speedMul;
 
     let vx = body.velocity.x;
     let vy = body.velocity.y;
