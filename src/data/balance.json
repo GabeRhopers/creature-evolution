@@ -77,5 +77,37 @@
     "stalkSecondsBeforeChasingPlayer": 1.2
   },
   "respawnLevelKeep": 0,
-  "playerStartDepth": 0.18
+  "playerStartDepth": 0.18,
+  "combat": {
+    "biteCooldown": 0.45,
+    "aiBiteCooldown": 0.9,
+    "biteReachMul": 0.9,
+    "meatXpPerDamage": 0.5,
+    "meatTint": "#e2574c",
+    "chunkLifeSeconds": 25,
+    "chunkSinkSpeed": 14,
+    "ramSpeedRatio": 0.85,
+    "ramStunSeconds": 1.2,
+    "rockStunSeconds": 0.7,
+    "ramSizeRatio": 1.1,
+    "critFraction": 0.34,
+    "critStunSeconds": 0.8,
+    "woundedBelow": 0.3,
+    "woundedSpeedMul": 0.6,
+    "distressVisionMul": 1.5,
+    "regenPerSecond": 0.01,
+    "regenDelaySeconds": 4,
+    "aiBiteMinAggression": 0.5,
+    "aiBiteMaxSizeRatio": 0.9,
+    "threatSizeRatio": 1.25,
+    "dash": {
+      "speedMul": 2.6,
+      "durationSeconds": 0.35,
+      "cooldownSeconds": 4,
+      "staminaCost": 25,
+      "damageMul": 1.2,
+      "knockback": 420,
+      "reboundSizeRatio": 1.5
+    }
+  }
 }

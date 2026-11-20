@@ -19,7 +19,8 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 - Controllers produce a `SwimIntent` (`PlayerController` for input, `src/ai/Brain.ts` for AI).
 - `Brain` = per-fish state machine; GameScene implements `AIWorld` (creature list,
   food, kelp hiding, difficulty) and resolves who eats whom (`updateAiEating`).
-- Threat rule everywhere: X is a threat to Y if X can swallow Y (`canSwallow`).
+- Threat rule: X threatens Y if X can swallow Y, or X is an aggressive biter and
+  >= 1.25x Y's size (`Brain.isThreat`). Combat lives in GameScene `bite/kill/updateRams`.
   Never move a fish directly; give it an intent.
 - `src/scenes/`: Boot (loads atlas), Game (world + entities), Hud (screen overlay).
 - `src/entities/Food.ts`: plankton field kept around the camera (pooled images).
@@ -46,6 +47,6 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 - [x] Sprint 1: swim feel, world, kelp, rocks, camera zoom, touch controls
 - [x] Sprint 2: plankton (auto-eat on mouth contact), swallow smaller fish (Space/E/right-click/EAT), XP, level-ups, mouth ring, HUD growth bar
 - [x] Sprint 3: AI brains (wander+schooling, flee, hunt with stalking vs player, forage plankton, rest, hunger/desperation), kelp hides fish, player can be eaten (death screen, restart), Easy/Normal/Hard
-- [ ] Sprint 4: bite vs swallow, meat chunks, ram stun, wounded state, death/respawn, Dash
+- [x] Sprint 4: bite (anything too big to swallow) with meat chunks, kills + skeletons, ram stun, rock impact stun, critical wounds, wounded state + distress, HP regen, AI biting/retaliation, death by bite, Dash (E/Q/DASH)
 - [ ] Sprint 5: stomach and digestion, difficulty presets, SFX, music, polish
 - [ ] Sprint 6: playtest, balance, itch.io release

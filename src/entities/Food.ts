@@ -10,24 +10,29 @@ export interface FoodItem {
   phase: number;
   driftX: number;
   alive: boolean;
+  kind: 'plankton' | 'meat';
+  /** Seconds left before it disappears (plankton: Infinity). */
+  life: number;
 }
 
 /**
  * Plankton field: small drifting food that keeps a steady count around the
  * camera. Items spawn just off-screen (so they never pop in view) and are
  * recycled when the camera leaves them far behind.
- * Sprint 4 adds meat chunks from bites through the same `spawnAt` path.
+ * Meat chunks from bites go through `spawnMeat`: they sink slowly and expire.
  */
 export class FoodField {
   readonly items: FoodItem[] = [];
   private pool: FoodItem[] = [];
   private tints: number[];
+  private meatTint: number;
 
   constructor(
     private scene: Phaser.Scene,
     private swimArea: Phaser.Geom.Rectangle,
   ) {
     this.tints = BALANCE.food.plankton.tints.map((h) => Phaser.Display.Color.HexStringToColor(h).color);
+    this.meatTint = Phaser.Display.Color.HexStringToColor(BALANCE.combat.meatTint).color;
   }
 
   /** Fill the area around the camera right away (used at start). */
@@ -43,11 +48,13 @@ export class FoodField {
     let f = this.pool.pop();
     if (!f) {
       const img = this.scene.add.image(0, 0, ATLAS, 'bubble_b').setDepth(4);
-      f = { img, size, xp, phase: 0, driftX: 0, alive: true };
+      f = { img, size, xp, phase: 0, driftX: 0, alive: true, kind: 'plankton', life: Infinity };
     }
     f.size = size;
     f.xp = xp;
     f.alive = true;
+    f.kind = 'plankton';
+    f.life = Infinity;
     f.phase = Math.random() * Math.PI * 2;
     f.driftX = Phaser.Math.FloatBetween(-8, 8);
     // bubble_b's dot is ~24px wide in its 128px frame.
@@ -58,6 +65,16 @@ export class FoodField {
       .setAlpha(0.95)
       .setVisible(true);
     this.items.push(f);
+    return f;
+  }
+
+  /** A chunk of meat torn off by a bite. */
+  spawnMeat(x: number, y: number, size: number, xp: number): FoodItem {
+    const f = this.spawnAt(x, y, size, xp);
+    f.kind = 'meat';
+    f.life = BALANCE.combat.chunkLifeSeconds;
+    f.driftX = Phaser.Math.FloatBetween(-25, 25);
+    f.img.setTint(this.meatTint).setScale((size * 2.4) / 24);
     return f;
   }
 
@@ -72,9 +89,18 @@ export class FoodField {
 
   update(dt: number, view: Phaser.Geom.Rectangle, time: number): void {
     // Drift and gentle bobbing.
-    for (const f of this.items) {
+    for (let i = this.items.length - 1; i >= 0; i--) {
+      const f = this.items[i];
       f.img.x += f.driftX * dt;
-      f.img.y += Math.sin(time * 0.0012 + f.phase) * 6 * dt;
+      if (f.kind === 'meat') {
+        f.driftX *= 0.98;
+        f.img.y = Math.min(f.img.y + BALANCE.combat.chunkSinkSpeed * dt, this.swimArea.bottom);
+        f.life -= dt;
+        if (f.life < 3) f.img.setAlpha(Math.max(0, f.life / 3));
+        if (f.life <= 0) this.remove(f);
+      } else {
+        f.img.y += Math.sin(time * 0.0012 + f.phase) * 6 * dt;
+      }
     }
 
     // Recycle food left far behind the camera.
@@ -88,11 +114,15 @@ export class FoodField {
     // Top up: spawn just outside the visible view so nothing pops in.
     const want = BALANCE.food.plankton.targetCount;
     const area = this.spawnArea(view);
+    let plankton = this.items.reduce((n, f) => n + (f.kind === 'plankton' ? 1 : 0), 0);
     let tries = 0;
-    while (this.items.length < want && tries++ < 40) {
+    while (plankton < want && tries++ < 40) {
       const x = Phaser.Math.Between(area.left, area.right);
       const y = Phaser.Math.Between(area.top, area.bottom);
-      if (!view.contains(x, y)) this.spawnAt(x, y);
+      if (!view.contains(x, y)) {
+        this.spawnAt(x, y);
+        plankton++;
+      }
     }
   }
 

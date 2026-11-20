@@ -31,6 +31,11 @@ export type BrainState = 'wander' | 'flee' | 'hunt' | 'forage' | 'rest';
  *  wander --(hungry + sees swallowable prey)-------> hunt --(caught)--> rest
  *  wander --(hungry + plankton eater + sees food)--> forage
  *  any    --(hunger < desperate)--> leaves its school, hunts any tier, sees farther
+ *  any    --(bitten)--> flees a bigger attacker, or fights back if aggressive
+ *
+ * Prey can be swallowable (eaten whole) or, for aggressive species, biteable
+ * (smaller than the hunter but too big to swallow): GameScene decides which.
+ * Wounded fish are visible from farther away and hunted even by fed predators.
  *
  * Perception runs every `difficulty.aiReactionDelay` seconds (slower on Easy),
  * not every frame: cheaper, and it gives the player a reaction window.
@@ -77,6 +82,34 @@ export class Brain {
     this.target = null;
     this.foodTarget = null;
     if (kind === 'fish') this.setState('rest');
+  }
+
+  /** Called by GameScene when this fish is bitten or rammed. */
+  onHurt(attacker: Creature): void {
+    const me = this.fish;
+    if (attacker.fish.size > me.size * 0.8) {
+      this.threat = attacker;
+      this.sinceThreat = 0;
+      this.setState('flee');
+    } else if (me.species.behavior.aggression >= 0.3) {
+      this.target = attacker;
+      this.setState('hunt');
+    }
+  }
+
+  /** Can this fish attack `c` by biting (too big to swallow, small enough to fight)? */
+  canBite(c: Creature): boolean {
+    const cb = BALANCE.combat;
+    const me = this.fish;
+    return me.species.behavior.aggression >= cb.aiBiteMinAggression && c.fish.size <= me.size * cb.aiBiteMaxSizeRatio;
+  }
+
+  /** Is `c` dangerous to this fish? Swallowers always; big aggressive biters too. */
+  private isThreat(c: Creature): boolean {
+    const me = this.fish;
+    if (c.fish.canSwallow(me.size)) return true;
+    const aggressive = c.isPlayer || c.fish.species.behavior.aggression >= BALANCE.combat.aiBiteMinAggression;
+    return aggressive && c.fish.size >= me.size * BALANCE.combat.threatSizeRatio;
   }
 
   /** Forget a target that no longer exists (eaten by someone else, respawned). */
@@ -129,26 +162,32 @@ export class Brain {
     let preyScore = -Infinity;
 
     for (const c of this.world.creatures) {
-      if (c === this.self || !c.fish.active) continue;
+      if (c === this.self || !c.fish.active || !c.fish.visible) continue;
       const d = Phaser.Math.Distance.Between(me.x, me.y, c.fish.x, c.fish.y);
-      if (d > vision) continue;
+      // Wounded fish send distress: noticed from farther away.
+      const range = c.fish.wounded ? vision * BALANCE.combat.distressVisionMul : vision;
+      if (d > range) continue;
       if (this.world.isHidden(c.fish, me)) continue;
 
-      // Threat: anything that could swallow me whole.
-      if (c.fish.canSwallow(me.size) && d < threatD) {
-        threat = c;
-        threatD = d;
+      if (this.isThreat(c)) {
+        if (d < threatD) {
+          threat = c;
+          threatD = d;
+        }
         continue;
       }
-      // Prey: something I can swallow and my diet allows.
-      if ((this.hungry || this.desperate) && me.canSwallow(c.fish.size) && this.dietAllows(c)) {
-        if (c.isPlayer && sp.behavior.aggression <= 0) continue;
-        // Prefer big, close meals.
-        const score = c.fish.size * 2 - d * 0.05;
-        if (score > preyScore) {
-          prey = c;
-          preyScore = score;
-        }
+      // Prey: swallowable or biteable, diet allows. Hungry fish hunt;
+      // any predator goes for wounded prey.
+      const wantsFood = this.hungry || this.desperate || c.fish.wounded;
+      if (!wantsFood || !this.dietAllows(c)) continue;
+      if (!me.canSwallow(c.fish.size) && !this.canBite(c)) continue;
+      if (c.isPlayer && sp.behavior.aggression <= 0) continue;
+      // Prefer big, close, wounded meals.
+      // Stick with the current target unless something clearly better shows up.
+      const score = c.fish.size * 2 - d * 0.05 + (c.fish.wounded ? 200 : 0) + (c === this.target ? 40 : 0);
+      if (score > preyScore) {
+        prey = c;
+        preyScore = score;
       }
     }
 

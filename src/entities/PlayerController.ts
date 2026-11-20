@@ -4,11 +4,12 @@ import type { Fish, SwimIntent } from './Fish';
 /**
  * Turns keyboard, mouse and touch input into a SwimIntent for the player fish.
  *
- * Keyboard: WASD / arrow keys to swim, Shift to sprint, Space to swallow.
- * Mouse: hold left button to swim toward the pointer; right button swallows.
+ * Keyboard: WASD / arrow keys to swim, Shift to sprint, Space to eat
+ *   (swallow if small enough, bite otherwise), E or Q to Dash.
+ * Mouse: hold left button to swim toward the pointer; right button eats.
  * Touch: hold a finger to swim toward it (farther = faster); a second finger
- *   sprints. HUD buttons (SPRINT, EAT) set `uiSprint` / `uiSwallow` and
- *   reserve their pointer so it does not steer.
+ *   sprints. HUD buttons (SPRINT, EAT, DASH) set `uiSprint` / `uiSwallow` /
+ *   `uiDash` and reserve their pointer so it does not steer.
  */
 export class PlayerController {
   private keys: Record<string, Phaser.Input.Keyboard.Key>;
@@ -16,21 +17,30 @@ export class PlayerController {
   uiSprint = false;
   /** Set by the HUD's on-screen EAT button. */
   uiSwallow = false;
+  /** Set (once per tap) by the HUD's DASH button; consumed by consumeDash(). */
+  uiDash = false;
   /** Pointer ids currently owned by HUD buttons (ignored for steering). */
   readonly uiPointers = new Set<number>();
 
   constructor(private scene: Phaser.Scene, private fish: Fish) {
     const kb = scene.input.keyboard!;
-    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,SPACE,E') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,SPACE,E,Q') as Record<string, Phaser.Input.Keyboard.Key>;
     // Up to 3 touch points (steer + sprint/eat). Only add once; restarts reuse them.
     if (scene.input.manager.pointersTotal < 3) scene.input.addPointer(3 - scene.input.manager.pointersTotal);
     scene.input.mouse?.disableContextMenu();
   }
 
-  /** True while the player is trying to swallow (Space, E, right mouse, EAT button). */
+  /** True while the player wants to eat: swallow or bite (Space, right mouse, EAT button). */
   wantsSwallow(): boolean {
     const mouse = this.scene.input.mousePointer;
-    return this.keys.SPACE.isDown || this.keys.E.isDown || this.uiSwallow || (mouse.isDown && mouse.rightButtonDown());
+    return this.keys.SPACE.isDown || this.uiSwallow || (mouse.isDown && mouse.rightButtonDown());
+  }
+
+  /** True once per Dash press (E, Q or DASH button). */
+  consumeDash(): boolean {
+    const pressed = Phaser.Input.Keyboard.JustDown(this.keys.E) || Phaser.Input.Keyboard.JustDown(this.keys.Q) || this.uiDash;
+    this.uiDash = false;
+    return pressed;
   }
 
   read(): SwimIntent {

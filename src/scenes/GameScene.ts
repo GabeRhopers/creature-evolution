@@ -10,7 +10,7 @@ import { Brain, type AIWorld, type Creature } from '../ai/Brain';
 import type { HudScene } from './HudScene';
 
 /** What the player's mouth area currently overlaps (drives the mouth ring). */
-type MouthState = 'idle' | 'canSwallow' | 'tooBig';
+type MouthState = 'idle' | 'canSwallow' | 'canBite';
 
 /** Difficulty survives scene restarts (chosen from the HUD). */
 let currentDifficulty: DifficultyName = readDifficultyFromUrl();
@@ -26,6 +26,9 @@ function readDifficultyFromUrl(): DifficultyName {
  *  Sprint 2: plankton (eaten on mouth contact), swallowing smaller fish, XP.
  *  Sprint 3: every AI fish runs a Brain (wander/school, flee, hunt, forage,
  *            rest, hunger); kelp hides fish from AI; the player can be eaten.
+ *  Sprint 4: bites (damage + meat chunks) on anything too big to swallow,
+ *            kills leave skeletons, ram stuns, rock impacts, wounded state,
+ *            Dash; the player can also be bitten to death.
  */
 export class GameScene extends Phaser.Scene implements AIWorld {
   player!: Fish;
@@ -48,7 +51,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** Fish eaten by AI predators this run (debug/balance). */
   aiMeals = 0;
   /** Running totals for the HUD / future stats screen. */
-  stats = { plankton: 0, fish: 0, maxLevel: 1 };
+  stats = { plankton: 0, fish: 0, kills: 0, maxLevel: 1 };
 
   private rocks!: Phaser.Physics.Arcade.StaticGroup;
   private ambientBubbles!: Bubbles;
@@ -66,7 +69,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   init(): void {
     this.creatures = [];
     this.kelpZones = [];
-    this.stats = { plankton: 0, fish: 0, maxLevel: 1 };
+    this.stats = { plankton: 0, fish: 0, kills: 0, maxLevel: 1 };
     this.dead = false;
     this.aiMeals = 0;
     this.playerHunted = false;
@@ -102,7 +105,15 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.playerCreature = { fish: this.player, isPlayer: true };
     this.creatures.push(this.playerCreature);
     this.controller = new PlayerController(this, this.player);
-    this.physics.add.collider(this.player, this.rocks);
+    // Hitting a rock at speed stuns you.
+    this.physics.add.collider(this.player, this.rocks, () => {
+      const p = this.player;
+      if (!p.stunned && p.lastSpeed > p.cruiseSpeed * BALANCE.combat.ramSpeedRatio) {
+        p.stun(BALANCE.combat.rockStunSeconds);
+        this.cameras.main.shake(120, 0.004);
+        this.burst(p.x, p.y, p.size * 0.6);
+      }
+    });
     this.mouthGfx = this.add.graphics().setDepth(11);
 
     this.food = new FoodField(this, this.swimArea);
@@ -137,7 +148,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.playerHidden = this.inKelp(this.player);
 
     this.food.update(dt, this.cameras.main.worldView, time);
-    if (!this.dead) this.updatePlayerEating(dt);
+    if (!this.dead) {
+      if (this.controller.consumeDash() && this.player.tryDash()) this.burst(this.player.x, this.player.y, this.player.size * 0.5);
+      this.updatePlayerEating(dt);
+      this.updateRams();
+    }
     this.updateAiEating();
 
     // Zoom out as the player grows so it stays a readable size on screen.
@@ -186,51 +201,171 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   private updatePlayerEating(dt: number): void {
     const p = this.player;
     const mouth = p.mouthPoint();
-    const swallowing = this.controller.wantsSwallow();
-    const reach = p.mouthRadius(swallowing);
+    const acting = this.controller.wantsSwallow();
+    const reach = p.mouthRadius(acting);
     this.swallowCooldown -= dt;
 
-    // Plankton: eaten automatically on mouth contact (filter feeding).
+    // Plankton and meat chunks: eaten automatically on mouth contact.
     const touchR = p.mouthRadius(false);
     for (let i = this.food.items.length - 1; i >= 0; i--) {
       const f = this.food.items[i];
       if (p.canSwallow(f.size) && Phaser.Math.Distance.Between(mouth.x, mouth.y, f.img.x, f.img.y) < touchR + f.size) {
         this.food.remove(f);
         this.stats.plankton++;
-        this.gainXp(f.xp, f.img.x, f.img.y, false);
+        this.gainXp(Math.max(1, Math.round(f.xp)), f.img.x, f.img.y, false);
       }
     }
 
-    // Live fish: need the swallow action, and must be small enough.
-    let best: Creature | null = null;
-    let sawTooBig = false;
+    // Fish in reach: swallow if small enough, otherwise bite.
+    let swallowTarget: Creature | null = null;
+    let biteTarget: Creature | null = null;
     const checkR = p.mouthRadius(true);
     for (const c of this.creatures) {
       if (c.isPlayer) continue;
       const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, c.fish.x, c.fish.y);
-      if (d > checkR + c.fish.size * 0.5) continue;
-      if (!p.canSwallow(c.fish.size)) {
-        sawTooBig = true;
-        continue;
-      }
-      if (!best || c.fish.size > best.fish.size) best = c;
-    }
-    this.mouthState = best ? 'canSwallow' : sawTooBig ? 'tooBig' : 'idle';
-
-    if (swallowing && best && this.swallowCooldown <= 0) {
-      const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, best.fish.x, best.fish.y);
-      if (d <= reach + best.fish.size * 0.5) {
-        this.swallowCooldown = BALANCE.eating.swallowCooldown;
-        const xp = best.fish.species.xpValue * best.fish.level;
-        const { x, y } = best.fish;
-        this.stats.fish++;
-        this.burst(x, y, best.fish.size);
-        this.gainXp(xp, x, y, true);
-        this.respawnAmbient(best);
+      if (p.canSwallow(c.fish.size)) {
+        if (d <= checkR + c.fish.size * 0.5 && (!swallowTarget || c.fish.size > swallowTarget.fish.size)) swallowTarget = c;
+      } else if (d <= checkR + c.fish.size * BALANCE.combat.biteReachMul) {
+        if (!biteTarget || d < Phaser.Math.Distance.Between(mouth.x, mouth.y, biteTarget.fish.x, biteTarget.fish.y)) biteTarget = c;
       }
     }
+    this.mouthState = swallowTarget ? 'canSwallow' : biteTarget ? 'canBite' : 'idle';
 
-    this.drawMouth(mouth, reach, swallowing);
+    if (acting && !p.stunned) {
+      if (swallowTarget && this.swallowCooldown <= 0) {
+        const t = swallowTarget.fish;
+        const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, t.x, t.y);
+        if (d <= reach + t.size * 0.5) {
+          this.swallowCooldown = BALANCE.eating.swallowCooldown;
+          const xp = t.species.xpValue * t.level;
+          this.stats.fish++;
+          this.burst(t.x, t.y, t.size);
+          this.gainXp(xp, t.x, t.y, true);
+          this.respawnAmbient(swallowTarget);
+        }
+      } else if (biteTarget && p.biteCooldown <= 0) {
+        this.bite(this.playerCreature, biteTarget);
+      }
+    }
+
+    this.drawMouth(mouth, reach, acting);
+  }
+
+  // ---------------------------------------------------------------- combat
+
+  /** `attacker` bites `target`: damage, meat chunks, reactions, maybe a kill. */
+  private bite(attacker: Creature, target: Creature, damageMul = 1): void {
+    const cb = BALANCE.combat;
+    const a = attacker.fish;
+    const t = target.fish;
+    const dmg = a.biteDamage * damageMul;
+    a.biteCooldown = attacker.isPlayer ? cb.biteCooldown : cb.aiBiteCooldown;
+    const killed = t.takeDamage(dmg);
+
+    // Meat chunks torn off at the wound, sized so the attacker can swallow them.
+    const wx = Phaser.Math.Linear(t.x, a.x, 0.35);
+    const wy = Phaser.Math.Linear(t.y, a.y, 0.35);
+    this.spawnChunks(wx, wy, a, dmg * cb.meatXpPerDamage, Phaser.Math.Between(1, 2));
+    if (attacker.isPlayer) this.hud.popup(`-${Math.round(dmg)}`, t.x, t.y - t.size, false, '#ff9a8a');
+    if (target.isPlayer) this.hud.hurt();
+
+    target.brain?.onHurt(attacker);
+    if (killed) this.kill(target, attacker);
+  }
+
+  private spawnChunks(x: number, y: number, eater: Fish, totalXp: number, count: number): void {
+    const size = Phaser.Math.Clamp(eater.devourSize * 0.6, 3, 40);
+    for (let i = 0; i < count; i++) {
+      const f = this.food.spawnMeat(x + Phaser.Math.Between(-10, 10), y + Phaser.Math.Between(-10, 10), size, totalXp / count);
+      f.driftX = Phaser.Math.FloatBetween(-60, 60); // spray outward, then slow down and sink
+    }
+  }
+
+  /** A fish died from damage: skeleton, a pile of meat, respawn (or game over). */
+  private kill(victim: Creature, by: Creature): void {
+    const t = victim.fish;
+    if (victim.isPlayer) {
+      this.playerDied(by, 'bitten');
+      return;
+    }
+    this.spawnSkeleton(t);
+    this.burst(t.x, t.y, t.size);
+    // The carcass is worth most of what swallowing it would have been.
+    const total = t.species.xpValue * t.level * 0.6;
+    this.spawnChunks(t.x, t.y, by.fish, total, Phaser.Math.Clamp(Math.round(t.size / 10), 3, 10));
+    if (by.isPlayer) this.stats.kills++;
+    this.respawnAmbient(victim);
+  }
+
+  private spawnSkeleton(t: Fish): void {
+    const frames = ['fish_blue', 'fish_green', 'fish_orange', 'fish_pink', 'fish_red'];
+    const frame = frames.includes(t.species.sprite) ? `${t.species.sprite}_skeleton` : 'fish_orange_skeleton';
+    const bone = this.add
+      .image(t.x, t.y, ATLAS, frame)
+      .setScale(t.scaleX)
+      .setRotation(t.rotation)
+      .setFlipY(t.flipY)
+      .setDepth(3);
+    this.tweens.add({
+      targets: bone,
+      y: Math.min(t.y + 400, this.seabedTop + 10),
+      angle: bone.angle + 160,
+      alpha: 0,
+      duration: 6000,
+      ease: 'Sine.easeIn',
+      onComplete: () => bone.destroy(),
+    });
+  }
+
+  /**
+   * Ramming: a fast collision stuns fish up to 10% bigger than the rammer.
+   * A Dash also deals damage and knocks back; ramming something much
+   * heavier during a Dash bounces you off and stuns you instead.
+   */
+  private updateRams(): void {
+    const cb = BALANCE.combat;
+    const p = this.player;
+    for (const c of this.creatures) {
+      if (c.isPlayer) continue;
+      const t = c.fish;
+      const d = Phaser.Math.Distance.Between(p.x, p.y, t.x, t.y);
+      if (d > (p.size + t.size) * 0.9) continue;
+
+      // The player ramming an AI fish.
+      const fast = p.dashing || p.lastSpeed > p.cruiseSpeed * cb.ramSpeedRatio;
+      if (fast && !t.stunned) {
+        const nx = (t.x - p.x) / (d || 1);
+        const ny = (t.y - p.y) / (d || 1);
+        if (p.dashing && t.size > p.size * cb.dash.reboundSizeRatio) {
+          p.arcadeBody.setVelocity(-nx * p.lastSpeed * 0.5, -ny * p.lastSpeed * 0.5);
+          p.dashTimer = 0;
+          p.stun(0.5);
+          this.cameras.main.shake(120, 0.005);
+        } else if (t.size <= p.size * cb.ramSizeRatio || p.dashing) {
+          t.stun(cb.ramStunSeconds);
+          t.arcadeBody.setVelocity(nx * cb.dash.knockback, ny * cb.dash.knockback);
+          p.arcadeBody.velocity.scale(0.5);
+          this.burst(t.x, t.y, t.size * 0.5);
+          if (p.dashing) {
+            p.dashTimer = 0;
+            this.bite(this.playerCreature, c, cb.dash.damageMul);
+          } else {
+            c.brain?.onHurt(this.playerCreature);
+          }
+        }
+      }
+
+      // An AI hunter ramming the player opens them up for a bite.
+      const hunter = c.brain?.state === 'hunt' && c.brain.target === this.playerCreature;
+      if (hunter && !p.stunned && t.lastSpeed > t.cruiseSpeed * cb.ramSpeedRatio && p.size <= t.size * cb.ramSizeRatio) {
+        p.stun(cb.ramStunSeconds * 0.7);
+        const nx = (p.x - t.x) / (d || 1);
+        const ny = (p.y - t.y) / (d || 1);
+        p.arcadeBody.setVelocity(nx * 250, ny * 250);
+        this.cameras.main.shake(150, 0.006);
+        this.hud.hurt();
+      }
+    }
   }
 
   /** AI fish swallow their current target (fish or plankton) on mouth contact. */
@@ -242,16 +377,21 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       const mouth = me.mouthPoint();
       const r = me.mouthRadius(true);
 
+      if (me.stunned) continue;
       if (b.state === 'hunt' && b.target) {
         const t = b.target;
         if (t.isPlayer && this.dead) continue;
         const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, t.fish.x, t.fish.y);
-        if (d < r + t.fish.size * 0.5 && me.canSwallow(t.fish.size)) {
-          b.ate('fish');
-          this.aiMeals++;
-          this.burst(t.fish.x, t.fish.y, t.fish.size);
-          if (t.isPlayer) this.playerEaten(c);
-          else this.respawnAmbient(t);
+        if (me.canSwallow(t.fish.size)) {
+          if (d < r + t.fish.size * 0.5) {
+            b.ate('fish');
+            this.aiMeals++;
+            this.burst(t.fish.x, t.fish.y, t.fish.size);
+            if (t.isPlayer) this.playerDied(c, 'swallowed');
+            else this.respawnAmbient(t);
+          }
+        } else if (me.biteCooldown <= 0 && d < r + t.fish.size * BALANCE.combat.biteReachMul) {
+          this.bite(c, t);
         }
       } else if (b.state === 'forage' && b.foodTarget?.alive) {
         const f = b.foodTarget;
@@ -263,7 +403,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
   }
 
-  private playerEaten(by: Creature): void {
+  playerDied(by: Creature, how: 'swallowed' | 'bitten'): void {
     this.dead = true;
     this.mouthGfx.clear();
     this.player.setVisible(false);
@@ -271,14 +411,16 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.player.arcadeBody.enable = false;
     // Follow the predator so the player sees what got them.
     this.cameras.main.startFollow(by.fish, true, 0.05, 0.05);
-    this.hud.showDeath(by.fish.species.displayName, by.fish.level, this.stats);
+    if (how === 'bitten') this.spawnSkeleton(this.player);
+    this.stats.maxLevel = Math.max(this.stats.maxLevel, this.player.level);
+    this.hud.showDeath(by.fish.species.displayName, by.fish.level, how, this.stats);
   }
 
   private drawMouth(mouth: Phaser.Math.Vector2, r: number, swallowing: boolean): void {
     const g = this.mouthGfx;
     g.clear();
-    // Green = something you can swallow is in reach; red = too big to swallow.
-    const color = this.mouthState === 'canSwallow' ? 0x7cff6b : this.mouthState === 'tooBig' ? 0xff4d4d : 0xffffff;
+    // Green = something you can swallow whole; orange = too big, you will bite it.
+    const color = this.mouthState === 'canSwallow' ? 0x7cff6b : this.mouthState === 'canBite' ? 0xffa53a : 0xffffff;
     const alpha = this.mouthState === 'idle' ? (swallowing ? 0.5 : 0.22) : 0.95;
     const w = Math.max(2, this.player.size * 0.07);
     g.lineStyle(w + 2, 0x0a2236, alpha * 0.6);
@@ -327,7 +469,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const y = Phaser.Math.Between(band.top, band.bottom);
     c.fish.arcadeBody.reset(x, y);
     c.fish.setLevel(Phaser.Math.Between(1, 3));
-    c.fish.hp = c.fish.maxHp;
+    c.fish.resetCombat();
     if (c.brain) c.brain.hunger = Phaser.Math.FloatBetween(0.5, 1);
   }
 

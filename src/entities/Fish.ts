@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BALANCE, type Species } from '../data';
 import { ATLAS } from '../assets';
-import { sizeAt, speedFactor, turnFactor, maxHpAt, devourSizeAt, xpToNext } from '../systems/growth';
+import { sizeAt, speedFactor, turnFactor, maxHpAt, devourSizeAt, xpToNext, biteDamageAt } from '../systems/growth';
 
 /** What a controller (keyboard, touch or AI brain) asks the fish to do this frame. */
 export interface SwimIntent {
@@ -45,6 +45,19 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   xp = 0;
   /** Difficulty multiplier on swim speed (AI only; player stays 1). */
   speedMul = 1;
+  /** Seconds left stunned (no steering or thrust). */
+  stunTimer = 0;
+  /** Seconds left in an active Dash. */
+  dashTimer = 0;
+  /** Seconds until Dash can be used again. */
+  dashCooldown = 0;
+  /** Seconds until the next bite is allowed. */
+  biteCooldown = 0;
+  /** Seconds since this fish last took damage (drives regen). */
+  sinceHurt = 99;
+  /** Speed at the end of last frame (before collisions changed it): used for ram checks. */
+  lastSpeed = 0;
+  private baseTint = 0xffffff;
   private sinceSprint = 99;
 
   constructor(scene: Phaser.Scene, x: number, y: number, species: Species, level = 1) {
@@ -113,6 +126,65 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     this.hp = Math.min(this.maxHp, this.hp + amount);
   }
 
+  get biteDamage(): number {
+    return biteDamageAt(this.species, this.level);
+  }
+
+  get stunned(): boolean {
+    return this.stunTimer > 0;
+  }
+
+  get dashing(): boolean {
+    return this.dashTimer > 0;
+  }
+
+  /** Below 30% HP: slow, tilted, and attracts predators. */
+  get wounded(): boolean {
+    return this.hp < this.maxHp * BALANCE.combat.woundedBelow;
+  }
+
+  /** Normal top speed right now (no sprint), used as the ramming reference. */
+  get cruiseSpeed(): number {
+    return this.species.maxSpeed * speedFactor(this.species, this.level) * this.speedMul;
+  }
+
+  stun(seconds: number): void {
+    this.stunTimer = Math.max(this.stunTimer, seconds);
+  }
+
+  /** Apply damage. Returns true if this hit killed the fish. Big hits stun (critical wound). */
+  takeDamage(amount: number): boolean {
+    const c = BALANCE.combat;
+    this.hp = Math.max(0, this.hp - amount);
+    this.sinceHurt = 0;
+    if (amount >= this.maxHp * c.critFraction) this.stun(c.critStunSeconds);
+    // Hit flash.
+    this.setTint(0xff7070);
+    this.scene.time.delayedCall(120, () => this.active && this.setTint(this.baseTint));
+    return this.hp <= 0;
+  }
+
+  /** Lunge forward. Returns false if on cooldown, stunned or out of stamina. */
+  tryDash(): boolean {
+    const d = BALANCE.combat.dash;
+    if (this.dashCooldown > 0 || this.stunned || this.stamina < d.staminaCost) return false;
+    this.stamina -= d.staminaCost;
+    this.dashTimer = d.durationSeconds;
+    this.dashCooldown = d.cooldownSeconds;
+    const v = this.cruiseSpeed * d.speedMul;
+    this.arcadeBody.setVelocity(Math.cos(this.heading) * v, Math.sin(this.heading) * v);
+    return true;
+  }
+
+  /** Reset combat state (used when an AI fish respawns). */
+  resetCombat(): void {
+    this.hp = this.maxHp;
+    this.stunTimer = 0;
+    this.dashTimer = 0;
+    this.sinceHurt = 99;
+    this.setTint(this.baseTint);
+  }
+
   setLevel(level: number): void {
     const hpRatio = this.maxHp > 1 ? this.hp / this.maxHp : 1;
     this.level = Math.max(1, level);
@@ -128,8 +200,17 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     const st = BALANCE.stamina;
     const body = this.arcadeBody;
 
+    const c = BALANCE.combat;
+    this.stunTimer = Math.max(0, this.stunTimer - dt);
+    this.dashTimer = Math.max(0, this.dashTimer - dt);
+    this.dashCooldown = Math.max(0, this.dashCooldown - dt);
+    this.biteCooldown = Math.max(0, this.biteCooldown - dt);
+    this.sinceHurt += dt;
+    // Slow regeneration when out of combat for a while.
+    if (this.sinceHurt > c.regenDelaySeconds && this.hp < this.maxHp) this.heal(this.maxHp * c.regenPerSecond * dt);
+
     const len = Math.hypot(intent.dirX, intent.dirY);
-    const thrust = len > 0.0001 ? Phaser.Math.Clamp(intent.strength, 0, 1) : 0;
+    const thrust = len > 0.0001 && !this.stunned ? Phaser.Math.Clamp(intent.strength, 0, 1) : 0;
 
     // Turning: rotate heading toward the requested direction at a limited rate.
     if (thrust > 0) {
@@ -153,7 +234,10 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     }
 
     const sprintMul = this.isSprinting ? sp.sprintMultiplier : 1;
-    const maxSpeed = sp.maxSpeed * speedFactor(sp, this.level) * sprintMul * this.speedMul;
+    const woundMul = this.wounded ? c.woundedSpeedMul : 1;
+    // While dashing, the cap is the dash speed so the lunge is not clipped.
+    const dashMul = this.dashing ? c.dash.speedMul : 1;
+    const maxSpeed = sp.maxSpeed * speedFactor(sp, this.level) * Math.max(sprintMul * woundMul, dashMul) * this.speedMul;
     const accel = sp.accel * speedFactor(sp, this.level) * (this.isSprinting ? 1.6 : 1) * this.speedMul;
 
     let vx = body.velocity.x;
@@ -188,6 +272,8 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     if (this.y - this.size < surfaceY + 4) vy += BALANCE.surface.pushDown * dt;
 
     body.setVelocity(vx, vy);
+    // Speed we asked for, before the next physics step's collisions change it.
+    this.lastSpeed = Math.hypot(vx, vy);
     this.updateVisual(dt);
   }
 
@@ -195,7 +281,12 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   private updateVisual(dt: number): void {
     const facingLeft = Math.cos(this.heading) < 0;
     this.setFlipY(facingLeft);
+    // Wounded fish list toward belly-up; stunned fish wobble.
+    let target = this.heading;
+    if (this.wounded) target += (facingLeft ? -1 : 1) * 0.7;
+    if (this.stunned) target += Math.sin(this.scene.time.now / 50) * 0.35;
     // Smooth the visual rotation a little more than the physics heading.
-    this.rotation = Phaser.Math.Angle.RotateTo(this.rotation, this.heading, 14 * dt);
+    this.rotation = Phaser.Math.Angle.RotateTo(this.rotation, target, 14 * dt);
+    this.setAlpha(this.stunned ? 0.75 + 0.25 * Math.sin(this.scene.time.now / 60) : 1);
   }
 }

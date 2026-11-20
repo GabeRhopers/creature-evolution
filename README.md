@@ -4,7 +4,9 @@ A 2D side-view ocean survival game: start small, eat, grow, and become the
 predator.
 
 The mouth ring in front of your fish turns **green** when something you can
-swallow is in reach and **red** when it is too big for you (for now).
+swallow whole is in reach and **orange** when it is too big: then EAT bites it,
+tearing off meat chunks you can eat. Below 30% health you are **wounded**
+(slow, tilted, and predators notice you from farther away): eat to heal.
 
 Bigger fish hunt you if they can swallow you whole. When "YOU ARE BEING HUNTED"
 flashes, swim away or hide in kelp: fish inside kelp are invisible to predators
@@ -24,8 +26,9 @@ npm run build    # production build in dist/ (upload the folder contents to itch
 |---|---|---|
 | Swim | WASD or arrow keys, or hold the mouse button | Hold a finger where you want to go (farther = faster) |
 | Sprint | Shift (uses stamina) | SPRINT button, or a second finger |
-| Swallow (fish smaller than you) | Space, E or right-click | EAT button |
-| Eat plankton | just touch it with your mouth | same |
+| Eat: swallow (green ring) or bite (orange ring) | Space or right-click | EAT / BITE button |
+| Dash: lunge, stun and damage what you hit | E or Q | DASH button |
+| Eat plankton and meat chunks | just touch them with your mouth | same |
 | Restart run | R | tap the death screen |
 | Difficulty (restarts) | MODE button or `?difficulty=easy` / `hard` in the URL | MODE button |
 | Dev: grow / shrink | G / H | DEV: GROW +1 button |
