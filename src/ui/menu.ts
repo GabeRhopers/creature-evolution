@@ -1,56 +1,78 @@
 // Home screen, pop-up panels and pause menu (HTML overlays over the game).
 //
 // The game boots in "attract mode" behind the home screen: the reef and its
-// fish run live, with no player. PLAY starts a run; HOME (pause or death
-// screen) returns here. Options and records are remembered per device.
+// fish run live, with no player. PLAY starts a run; CONTINUE picks up a saved
+// one; HOME (pause or death screen) returns here. Settings, records and the
+// run checkpoint go through the SaveManager (src/save).
 import type Phaser from 'phaser';
 import { BALANCE, SPECIES, type DifficultyName } from '../data';
 import { sizeAt } from '../systems/growth';
 import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
+import { APP_VERSION, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
+import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
 
 const STUDIO_URL = 'https://claude.ai/artifact/NN3Dh7yq1ReEreK5xW63E1';
 
-interface Options {
-  music: boolean;
-  sfx: boolean;
-  difficulty: DifficultyName;
-}
-interface Best {
-  level: number;
-  kills: number;
-  fish: number;
-}
-
 const $ = (id: string) => document.getElementById(id)!;
 
-function loadJson<T>(key: string, fallback: T): T {
-  try {
-    return { ...fallback, ...JSON.parse(window.localStorage.getItem(key) || '{}') };
-  } catch {
-    return fallback;
-  }
+function ago(ms: number): string {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 10) return 'just now';
+  if (s < 60) return `${s} s ago`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} h ago`;
+  return `${Math.round(h / 24)} days ago`;
 }
-function saveJson(key: string, value: unknown): void {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* storage unavailable: keep in memory only */
-  }
+function clock(sec: number): string {
+  const m = Math.floor(sec / 60);
+  return `${m}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 }
 
 export function initMenu(game: Phaser.Game): void {
-  const opts = loadJson<Options>('ce.options', { music: true, sfx: true, difficulty: 'normal' });
-  let best = loadJson<Best>('ce.best', { level: 0, kills: 0, fish: 0 });
-  const scene = () => game.scene.getScene('Game') as GameScene;
+  const loadedProfile = saves.loadProfile();
+  const profile: Profile = loadedProfile.data;
+  const opts = profile.settings;
+  const saveProfile = () => {
+    if (!saves.saveProfile(profile)) badge('Could not save on this device', true);
+  };
+  const scene = () => game.scene.getScene('Game') as GameScene | null;
   const hud = () => game.scene.getScene('Hud') as HudScene;
   const home = $('home');
   const wrap = $('panelWrap');
   const panel = $('panel');
   let paused = false;
+  let checkpoint: { data: Checkpoint; savedAt: number } | null = null;
+
+  // ---------------------------------------------------------------- notices
+  function notice(text: string): void {
+    $('noticeText').textContent = text;
+    $('notice').classList.add('open');
+  }
+  $('noticeClose').addEventListener('click', () => $('notice').classList.remove('open'));
+
+  let badgeTimer = 0;
+  function badge(text: string, warn = false): void {
+    const b = $('saveBadge');
+    b.textContent = text;
+    b.classList.toggle('warn', warn);
+    b.classList.add('show');
+    window.clearTimeout(badgeTimer);
+    badgeTimer = window.setTimeout(() => b.classList.remove('show'), warn ? 4000 : 1400);
+  }
+  window.addEventListener('ce:saved', () => badge(saves.persistent ? 'Saved' : 'Saved until this tab closes', !saves.persistent));
+  let lastFailNote = 0;
+  window.addEventListener('ce:savefailed', () => {
+    if (Date.now() - lastFailNote < 30_000) return;
+    lastFailNote = Date.now();
+    badge('Could not save on this device', true);
+  });
 
   // ---------------------------------------------------------------- home
   function renderBest(): void {
+    const best = profile.best;
     $('bestLine').innerHTML = best.level
       ? `Best: <b>level ${best.level}</b> · ${best.fish} fish swallowed · ${best.kills} kills`
       : 'No record yet. Go set one!';
@@ -58,10 +80,26 @@ export function initMenu(game: Phaser.Game): void {
   function renderDifficulty(): void {
     document.querySelectorAll<HTMLButtonElement>('[data-diff]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.diff === opts.difficulty)));
   }
+  function renderContinue(): void {
+    const got = saves.loadCheckpoint();
+    checkpoint = got.data ? { data: got.data, savedAt: got.savedAt } : null;
+    if (got.problem) notice(got.problem);
+    const btn = $('btnContinue') as HTMLButtonElement;
+    btn.hidden = !checkpoint;
+    if (checkpoint) {
+      const c = checkpoint.data;
+      const name = SPECIES[c.species]?.displayName ?? 'Creature';
+      $('continueSub').textContent = `${name} · level ${c.level} · ${clock(c.runTime)} · saved ${ago(checkpoint.savedAt)}`;
+      $('btnPlay').textContent = 'NEW RUN';
+    } else {
+      $('btnPlay').textContent = 'PLAY';
+    }
+    $('btnPlay').classList.toggle('alt', !!checkpoint);
+  }
   document.querySelectorAll<HTMLButtonElement>('[data-diff]').forEach((b) =>
     b.addEventListener('click', () => {
       opts.difficulty = b.dataset.diff as DifficultyName;
-      saveJson('ce.options', opts);
+      saveProfile();
       renderDifficulty();
     }),
   );
@@ -70,15 +108,30 @@ export function initMenu(game: Phaser.Game): void {
     closePanel();
     home.classList.add('open');
     renderBest();
+    renderContinue();
   }
-  function play(): void {
+  function startRun(resume: Checkpoint | null): void {
     closePanel();
     home.classList.remove('open');
     hud().hideDeath();
     hud().startMusic();
-    scene().startPlay(opts.difficulty);
+    scene()?.startPlay(resume ? resume.difficulty : opts.difficulty, resume);
+  }
+  function play(): void {
+    if (!checkpoint) return startRun(null);
+    const c = checkpoint.data;
+    openPanel(
+      `<h3>Start a new run?</h3>
+      <p>Your saved run (level ${c.level}, ${clock(c.runTime)}) will be replaced.</p>
+      <div class="row"><button class="btn btn-danger" id="pNew">Start new run</button><button class="btn" id="pKeep">Keep my saved run</button></div>`,
+      () => {
+        $('pNew').onclick = () => startRun(null);
+        $('pKeep').onclick = closePanel;
+      },
+    );
   }
   $('btnPlay').addEventListener('click', play);
+  $('btnContinue').addEventListener('click', () => checkpoint && startRun(checkpoint.data));
 
   // First tap anywhere on the home screen starts the music (browsers need a gesture).
   home.addEventListener('pointerdown', () => hud()?.startMusic(), { once: true });
@@ -124,6 +177,10 @@ export function initMenu(game: Phaser.Game): void {
         <li>When your stomach is over 75% full, stay still to digest. Digesting heals you, then turns food into growth.</li>
         <li>Don't let your stomach run empty, or you starve.</li>
       </ul>
+      <h4>Saving</h4>
+      <ul>
+        <li>Your run saves by itself every few seconds, when you level up, pause, or switch apps. Tap <b>CONTINUE</b> on the home screen to pick it up.</li>
+      </ul>
       <div class="row"><button class="btn" id="pClose">Got it</button></div>`,
       () => ($('pClose').onclick = closePanel),
     ),
@@ -137,13 +194,13 @@ export function initMenu(game: Phaser.Game): void {
   function bindOptions(): void {
     $('oMusic').onclick = () => {
       opts.music = !opts.music;
-      saveJson('ce.options', opts);
+      saveProfile();
       hud().setMusicOn(opts.music);
       refreshToggles();
     };
     $('oSfx').onclick = () => {
       opts.sfx = !opts.sfx;
-      saveJson('ce.options', opts);
+      saveProfile();
       hud().setSfxOn(opts.sfx);
       refreshToggles();
     };
@@ -157,24 +214,56 @@ export function initMenu(game: Phaser.Game): void {
       }
     }
   }
-  $('cardOptions').addEventListener('click', () =>
+  /** Two-tap confirmation for anything destructive (kid-safe). */
+  function confirmButton(id: string, label: string, action: () => void): void {
+    const b = $(id) as HTMLButtonElement;
+    let armed = false;
+    b.onclick = () => {
+      if (!armed) {
+        armed = true;
+        b.textContent = label;
+        b.classList.add('btn-danger');
+        window.setTimeout(() => {
+          if (!armed) return;
+          armed = false;
+          b.classList.remove('btn-danger');
+          b.textContent = b.dataset.label ?? 'Reset';
+        }, 4000);
+        return;
+      }
+      armed = false;
+      action();
+    };
+  }
+  function openOptions(): void {
+    const lt = profile.lifetime;
     openPanel(
       `<h3>Options</h3>${optionsHtml()}
-      <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${best.level ? `Level ${best.level}` : 'None yet'}</span></span><button class="btn" id="oReset">Reset</button></div>
-      <p style="color:var(--muted);font-size:13px">Settings and records are saved on this device.</p>
+      <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${profile.best.level ? `Level ${profile.best.level} · ${lt.runs} runs played` : 'None yet'}</span></span><button class="btn" id="oReset" data-label="Reset">Reset</button></div>
+      <div class="toggle"><span>Reset everything<br><span style="color:var(--muted);font-size:13px">Settings, records and the saved run</span></span><button class="btn" id="oResetAll" data-label="Reset all">Reset all</button></div>
+      <p style="color:var(--muted);font-size:13px">${
+        saves.persistent
+          ? 'Your settings, records and saved run are kept on this device.'
+          : 'This browser is blocking storage, so saves last only until this tab closes.'
+      }</p>
       <div class="row"><button class="btn" id="pClose">Done</button></div>`,
       () => {
         bindOptions();
         $('pClose').onclick = closePanel;
-        $('oReset').onclick = () => {
-          best = { level: 0, kills: 0, fish: 0 };
-          saveJson('ce.best', best);
+        confirmButton('oReset', 'Tap again to reset', () => {
+          profile.best = { level: 0, kills: 0, fish: 0 };
+          saveProfile();
           renderBest();
           $('oReset').textContent = 'Cleared';
-        };
+        });
+        confirmButton('oResetAll', 'Tap again: erase all', () => {
+          saves.resetAll();
+          window.location.reload();
+        });
       },
-    ),
-  );
+    );
+  }
+  $('cardOptions').addEventListener('click', openOptions);
 
   $('cardCredits').addEventListener('click', () =>
     openPanel(
@@ -186,37 +275,43 @@ export function initMenu(game: Phaser.Game): void {
         <li><b>Sound effects:</b> generated in the game's code.</li>
         <li><b>Engine:</b> Phaser 4.</li>
       </ul>
-      <p style="color:var(--muted);font-size:13px">Game mechanics inspired by underwater survival games. Creature Evolution is an independent fan project.</p>
+      <p style="color:var(--muted);font-size:13px">Game mechanics inspired by underwater survival games. Creature Evolution is an independent fan project. Version ${APP_VERSION}.</p>
       <div class="row"><a class="btn" href="${STUDIO_URL}" target="_blank" rel="noopener">Open Sprite Studio</a><button class="btn" id="pClose">Close</button></div>`,
       () => ($('pClose').onclick = closePanel),
     ),
   );
 
   // ---------------------------------------------------------------- pause
+  function playing(): boolean {
+    const g = scene();
+    return !!g && !g.menuMode && !g.dead && !!g.player;
+  }
   function pause(): void {
     const g = scene();
-    if (!g || g.menuMode || g.dead || paused) return;
+    if (!g || !playing() || paused) return;
+    const saved = g.checkpoint(true);
     paused = true;
     game.scene.pause('Game');
     openPanel(
       `<h3>Paused</h3>
+      <p class="saved-line">${saved ? (saves.persistent ? 'Saved just now' : 'Saved until this tab closes') : 'Could not save right now'}</p>
       <div class="pause-btns">
         <button class="btn btn-play" id="pResume">RESUME</button>
-        <button class="btn" id="pRestart">Restart run</button>
-        <button class="btn" id="pHome">Home</button>
+        <button class="btn" id="pRestart" data-label="Restart run">Restart run</button>
+        <button class="btn" id="pHome">Home (run is kept)</button>
       </div>
       ${optionsHtml()}`,
       () => {
         bindOptions();
         $('pResume').onclick = () => closePanel();
-        $('pRestart').onclick = () => {
+        confirmButton('pRestart', 'Tap again to restart', () => {
           resume();
           wrap.classList.remove('open');
-          scene().restartRun();
-        };
+          scene()?.restartRun();
+        });
         $('pHome').onclick = () => {
           resume();
-          scene().goHome();
+          scene()?.goHome();
         };
       },
     );
@@ -237,17 +332,83 @@ export function initMenu(game: Phaser.Game): void {
   // ---------------------------------------------------------------- game events
   window.addEventListener('ce:home', showHome);
   window.addEventListener('ce:run', (e) => {
-    const r = (e as CustomEvent<Best>).detail;
-    if (r.level > best.level || (r.level === best.level && r.kills > best.kills)) {
-      best = r;
-      saveJson('ce.best', best);
-      renderBest();
+    const r = (e as CustomEvent<{ level: number; kills: number; fish: number; ended: boolean; cause?: DeathCause }>).detail;
+    profile.best = mergeBest(profile.best, { level: r.level, kills: r.kills, fish: r.fish });
+    if (r.ended) {
+      profile.lifetime.runs++;
+      if (r.cause) profile.lifetime.deaths[r.cause]++;
     }
+    saveProfile();
+    renderBest();
   });
 
+  // ---------------------------------------------------------------- safety net
+  installSafetyNet(game, {
+    saveNow: () => scene()?.checkpoint(true) ?? false,
+    playing,
+    pause,
+    showError: (saved) => {
+      const wasPaused = paused;
+      if (playing() && !paused) {
+        paused = true;
+        game.scene.pause('Game');
+      }
+      openPanel(
+        `<h3>Something went wrong</h3>
+        <p>${saved ? 'Your run was saved.' : 'Your settings and records are safe.'} You can keep playing, or reload the game to start clean.</p>
+        <div class="row"><button class="btn btn-play" id="eResume">Keep playing</button><button class="btn" id="eReload">Reload</button></div>`,
+        () => {
+          $('eResume').onclick = () => (wasPaused ? wrap.classList.remove('open') : closePanel());
+          $('eReload').onclick = () => {
+            if (saved) requestAutoContinue();
+            window.location.reload();
+          };
+        },
+      );
+    },
+    showGraphicsLost: (saved) =>
+      openPanel(
+        `<h3>The screen needs a refresh</h3>
+        <p>The device paused the game's graphics to save memory. ${saved ? 'Your run is saved, and you will be right back in it.' : 'Your settings and records are safe.'}</p>
+        <div class="row"><button class="btn btn-play" id="gReload">Tap to restore</button></div>`,
+        () => {
+          $('gReload').onclick = () => {
+            if (saved) requestAutoContinue();
+            window.location.reload();
+          };
+        },
+      ),
+  });
+
+  if (loadedProfile.problem) notice(loadedProfile.problem);
+  $('verLine').textContent = `v${APP_VERSION}`;
   renderBest();
   renderDifficulty();
+  renderContinue();
   drawArt();
+
+  // After a reload from the error or graphics panel, go straight back into the run.
+  const saved = checkpoint as { data: Checkpoint } | null; // set by renderContinue()
+  if (takeAutoContinue() && saved) {
+    const cp = saved.data;
+    const until = Date.now() + 15000;
+    const wait = window.setInterval(() => {
+      const g = scene();
+      if (g?.player && g.menuMode) {
+        window.clearInterval(wait);
+        startRun(cp);
+      } else if (Date.now() > until) window.clearInterval(wait);
+    }, 200);
+  }
+
+  // Diagnostics from the browser console: ceDiagnostics()
+  (window as unknown as { ceDiagnostics: () => unknown }).ceDiagnostics = () => ({
+    version: APP_VERSION,
+    device: saves.device,
+    persistent: saves.persistent,
+    failedWrites: saves.failedWrites,
+    errors: readErrorLog(),
+  });
 }
 
 // ---------------------------------------------------------------- artwork from the atlas

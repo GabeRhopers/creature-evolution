@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { saves } from '../save';
 import { BALANCE } from '../data';
 import type { GameScene } from './GameScene';
 import { toggleTuningPanel } from '../ui/tuning';
@@ -138,16 +139,12 @@ export class HudScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-R', () => this.deathLayer.visible && this.respawn());
 
     // Sound options (set from the home screen's Options panel, remembered per device).
-    try {
-      const o = JSON.parse(window.localStorage.getItem('ce.options') || '{}');
-      this.musicOn = o.music !== false;
-      this.sfxOn = o.sfx !== false;
-    } catch {
-      /* storage unavailable: defaults */
-    }
+    const o = saves.loadProfile().data.settings;
+    this.musicOn = o.music;
+    this.sfxOn = o.sfx;
     this.game$.sfx.setMuted(!this.sfxOn);
 
-    this.music = this.sound.add('music', { loop: true, volume: BALANCE.audio.musicVolume });
+    if (this.cache.audio.exists('music')) this.music = this.sound.add('music', { loop: true, volume: BALANCE.audio.musicVolume });
     this.growBtn = this.makeTapButton('DEV: GROW +1', () => this.game$.player.setLevel(this.game$.player.level + 1));
     this.gearBtn.setVisible(this.dev);
     this.growBtn.setVisible(this.dev);

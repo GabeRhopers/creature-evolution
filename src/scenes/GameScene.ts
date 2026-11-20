@@ -11,6 +11,7 @@ import type { HudScene } from './HudScene';
 import { Stomach } from '../systems/Stomach';
 import { Sfx } from '../audio/Sfx';
 import { PlayerBot } from '../dev/PlayerBot';
+import { saves, type Checkpoint, type DeathCause } from '../save';
 
 /** `?bot=1`: an automated playtester drives the player and metrics are recorded. */
 export const BOT_MODE = new URLSearchParams(window.location.search).has('bot');
@@ -33,6 +34,13 @@ type MouthState = 'idle' | 'canSwallow' | 'canBite' | 'full';
 let currentDifficulty: DifficultyName = readDifficultyFromUrl();
 /** Whether the next (re)start shows the home screen's attract mode instead of a run. */
 let nextMenuMode = true;
+/** A saved run to continue on the next start (set by Continue on the home screen). */
+let pendingResume: Checkpoint | null = null;
+
+/** Seconds of play between automatic checkpoints. */
+const AUTOSAVE_SECONDS = 20;
+/** Seconds of protection after continuing a saved run. */
+const RESUME_SHIELD_SECONDS = 2;
 
 function readDifficultyFromUrl(): DifficultyName {
   const d = new URLSearchParams(window.location.search).get('difficulty');
@@ -92,6 +100,9 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   runTime = 0;
   private sampleTimer = 0;
   private heartbeatTimer = 0;
+  private autosaveTimer = AUTOSAVE_SECONDS;
+  /** When the last checkpoint of this run was written (ms since epoch, 0 = never). */
+  lastCheckpointAt = 0;
 
   constructor() {
     super('Game');
@@ -108,11 +119,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.playerHidden = false;
     this.mouthState = 'idle';
     this.swallowCooldown = 0;
-    this.difficultyName = currentDifficulty;
     this.runReported = false;
     this.menuMode = nextMenuMode && !BOT_MODE;
     this.runTime = 0;
     this.sampleTimer = 0;
+    this.autosaveTimer = AUTOSAVE_SECONDS;
+    this.lastCheckpointAt = 0;
+    if (pendingResume) currentDifficulty = pendingResume.difficulty;
+    this.difficultyName = currentDifficulty;
     this.difficulty = DIFFICULTY[currentDifficulty];
   }
 
@@ -153,6 +167,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     });
     this.mouthGfx = this.add.graphics().setDepth(11);
     this.stomach.reset(this.player.level);
+    if (!this.menuMode && pendingResume) this.applyCheckpoint(pendingResume);
+    pendingResume = null;
     this.sfx = new Sfx(this.sound);
     if (BOT_MODE) {
       this.bot = new PlayerBot(this);
@@ -219,8 +235,15 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
     this.updateAiEating();
 
-    if (BOT_MODE && !this.dead) {
+    if (!this.dead) {
       this.runTime += dt;
+      this.autosaveTimer -= dt;
+      if (this.autosaveTimer <= 0) {
+        // Only at a safe moment; otherwise try again shortly.
+        this.autosaveTimer = this.checkpoint(false) ? AUTOSAVE_SECONDS : 2;
+      }
+    }
+    if (BOT_MODE && !this.dead) {
       this.sampleTimer -= dt;
       if (this.sampleTimer <= 0) {
         this.sampleTimer = 1;
@@ -269,33 +292,98 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.restartRun();
   }
 
+  /** Start over: the current run ends and its checkpoint is dropped. */
   restartRun(): void {
-    this.reportRun();
+    this.reportRun(true);
+    if (!BOT_MODE) saves.clearCheckpoint();
+    pendingResume = null;
     nextMenuMode = false;
     this.scene.restart();
   }
 
-  /** Start a run from the home screen. */
-  startPlay(difficulty: DifficultyName): void {
+  /** Start a run from the home screen (a fresh one, or a saved one to continue). */
+  startPlay(difficulty: DifficultyName, resume: Checkpoint | null = null): void {
     currentDifficulty = difficulty;
+    pendingResume = resume;
+    if (!resume && !BOT_MODE) saves.clearCheckpoint();
     nextMenuMode = false;
     this.scene.restart();
   }
 
-  /** Back to the home screen (the run's stats are recorded first). */
+  /** Back to the home screen. A live run is checkpointed so it can be continued. */
   goHome(): void {
-    this.reportRun();
+    if (!this.dead) this.checkpoint(true);
+    this.reportRun(false);
     nextMenuMode = true;
+    pendingResume = null;
     this.scene.restart();
     window.dispatchEvent(new CustomEvent('ce:home'));
   }
 
-  /** Tell the home screen how this run went (for the best-record line). */
-  private reportRun(): void {
+  /** Tell the home screen how this run went (best record, lifetime stats). */
+  private reportRun(ended: boolean, cause?: DeathCause): void {
     if (this.menuMode || BOT_MODE || this.runReported) return;
-    this.runReported = true;
+    if (ended) this.runReported = true;
     const level = Math.max(this.stats.maxLevel, this.player?.level ?? 1);
-    window.dispatchEvent(new CustomEvent('ce:run', { detail: { level, kills: this.stats.kills, fish: this.stats.fish } }));
+    window.dispatchEvent(
+      new CustomEvent('ce:run', { detail: { level, kills: this.stats.kills, fish: this.stats.fish, ended, cause } }),
+    );
+  }
+
+  // ---------------------------------------------------------------- save / continue
+
+  /** A moment where continuing later would not drop you into danger. */
+  isSafeToSave(): boolean {
+    const p = this.player;
+    return !this.dead && !p.stunned && !(this.playerHunted && !this.playerHidden);
+  }
+
+  /**
+   * Write a checkpoint of the run. `force` saves even at a risky moment (pause,
+   * app switch, closing the page): the resume shield covers that case.
+   */
+  checkpoint(force: boolean): boolean {
+    if (this.menuMode || BOT_MODE || this.dead || !this.player) return false;
+    if (!force && !this.isSafeToSave()) return false;
+    const p = this.player;
+    const ok = saves.saveCheckpoint({
+      species: p.species.id,
+      difficulty: this.difficultyName,
+      level: p.level,
+      xp: p.xp,
+      hpRatio: p.maxHp > 0 ? p.hp / p.maxHp : 1,
+      stamina: p.stamina,
+      stomachRatio: this.stomach.ratio,
+      stomachBank: this.stomach.bank,
+      x: p.x,
+      y: p.y,
+      runTime: this.runTime,
+      stats: { ...this.stats, maxLevel: Math.max(this.stats.maxLevel, p.level) },
+    });
+    if (ok) {
+      this.lastCheckpointAt = saves.lastSavedAt;
+      window.dispatchEvent(new CustomEvent('ce:saved', { detail: { at: this.lastCheckpointAt, persistent: saves.persistent } }));
+    } else {
+      window.dispatchEvent(new CustomEvent('ce:savefailed'));
+    }
+    return ok;
+  }
+
+  private applyCheckpoint(c: Checkpoint): void {
+    const p = this.player;
+    p.setLevel(c.level);
+    p.hp = Math.max(1, Math.round(p.maxHp * c.hpRatio));
+    p.xp = Math.min(c.xp, p.xpNeeded - 0.001);
+    p.stamina = c.stamina;
+    const a = this.swimArea;
+    p.setPosition(Phaser.Math.Clamp(c.x, a.left, a.right), Phaser.Math.Clamp(c.y, a.top, a.bottom));
+    this.stomach.reset(c.level);
+    this.stomach.fill = this.stomach.capacity * c.stomachRatio;
+    this.stomach.bank = c.stomachBank;
+    this.runTime = c.runTime;
+    this.stats = { ...c.stats };
+    p.invulnTimer = RESUME_SHIELD_SECONDS;
+    this.lastCheckpointAt = Date.now();
   }
   private runReported = false;
 
@@ -588,7 +676,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (this.dead) return;
     this.sfx.death();
     this.stats.maxLevel = Math.max(this.stats.maxLevel, this.player.level);
-    this.reportRun();
+    this.reportRun(true, how);
+    if (!BOT_MODE) saves.clearCheckpoint();
     if (BOT_MODE) {
       const log = playtestLog();
       log.deaths.push({
@@ -640,6 +729,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.stats.maxLevel = Math.max(this.stats.maxLevel, p.level);
       this.hud.levelUp(p.level);
       this.sfx.levelUp();
+      this.checkpoint(false);
       this.burst(p.x, p.y, p.size * 1.5);
     }
   }
