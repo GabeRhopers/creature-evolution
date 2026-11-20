@@ -63,6 +63,9 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   /** Seconds left showing the bite / open-jaw frame. */
   private biteAnim = 0;
   private animClock = 0;
+  private idleClock = 0;
+  /** Set by GameScene while the player is digesting (lie flat). */
+  digestPose = false;
   private sinceSprint = 99;
 
   constructor(scene: Phaser.Scene, x: number, y: number, species: Species, level = 1) {
@@ -241,6 +244,13 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     const len = Math.hypot(intent.dirX, intent.dirY);
     const thrust = len > 0.0001 && !this.stunned ? Phaser.Math.Clamp(intent.strength, 0, 1) : 0;
 
+    // Animated species settle to horizontal when idle, so the idle pose and
+    // the mouth both face sideways.
+    if (thrust === 0 && sp.art?.frames?.idle && body.velocity.length() < this.cruiseSpeed * 0.12) {
+      const side = Math.cos(this.heading) < 0 ? Math.PI : 0;
+      this.heading = Phaser.Math.Angle.RotateTo(this.heading, side, sp.turnSpeed * 0.5 * dt);
+    }
+
     // Turning: rotate heading toward the requested direction at a limited rate.
     if (thrust > 0) {
       const target = Math.atan2(intent.dirY, intent.dirX);
@@ -322,18 +332,29 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     this.animate(dt);
   }
 
-  /** Frame animation for species that have it: swim cycle, bite, rest. */
+  /** Frame animation for species that have it: swim, bite, idle, rest. */
   private animate(dt: number): void {
     const frames = this.species.art?.frames;
     if (!frames) return;
     this.biteAnim = Math.max(0, this.biteAnim - dt);
     let frame: string;
     const speed = this.arcadeBody.velocity.length();
+    const still = speed < this.cruiseSpeed * 0.12 && !this.stunned;
     if (this.biteAnim > 0 && frames.bite) {
       frame = frames.bite;
-    } else if (frames.rest && speed < this.cruiseSpeed * 0.12 && !this.stunned) {
+    } else if (still && this.digestPose && frames.rest) {
+      // Lying flat while digesting.
+      frame = frames.rest;
+    } else if (still && frames.idle) {
+      // Gentle idle loop: tail sway + tongue flick, with a blink every few seconds.
+      this.idleClock += dt;
+      const blinkPhase = this.idleClock % 3.4;
+      if (frames.blink && blinkPhase > 3.25) frame = frames.blink;
+      else frame = frames.idle[Math.floor(this.idleClock * 1.6) % frames.idle.length];
+    } else if (still && frames.rest) {
       frame = frames.rest;
     } else {
+      this.idleClock = 0;
       // Paddle faster the faster we swim.
       this.animClock += dt * (2 + (speed / this.cruiseSpeed) * 6);
       frame = frames.swim[Math.floor(this.animClock) % frames.swim.length];

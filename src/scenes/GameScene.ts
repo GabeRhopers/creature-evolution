@@ -592,6 +592,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const resting =
       this.lastIntentStrength === 0 && !p.stunned && p.speed < p.cruiseSpeed * BALANCE.stomach.restSpeedRatio;
     const { released, startedDigest } = st.update(dt, resting);
+    p.digestPose = st.digesting || st.restTime > 0;
 
     if (released > 0) {
       // Banked food heals first (condition), the rest becomes XP.

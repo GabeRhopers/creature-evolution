@@ -40,7 +40,12 @@
           "croc_swim2"
         ],
         "bite": "croc_bite",
-        "rest": "croc_lurk"
+        "rest": "croc_lurk",
+        "idle": [
+          "croc_idle1",
+          "croc_idle2"
+        ],
+        "blink": "croc_idle_blink"
       }
     },
     "armor": 0.2

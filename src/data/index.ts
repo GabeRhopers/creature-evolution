@@ -27,7 +27,16 @@ export interface SpeciesArt {
   /** Mouth radius in body radii. */
   mouthRadius?: number;
   /** Animation frames in the atlas. */
-  frames?: { swim: string[]; bite?: string; rest?: string };
+  frames?: {
+    swim: string[];
+    bite?: string;
+    /** Lying flat: used while digesting. */
+    rest?: string;
+    /** Standing-still animation (plays when not moving). */
+    idle?: string[];
+    /** Idle with eyes closed, shown briefly every few seconds. */
+    blink?: string;
+  };
 }
 
 export interface Species {

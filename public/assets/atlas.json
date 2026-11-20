@@ -1105,7 +1105,7 @@
     "x": 1343,
     "y": 405,
     "w": 144,
-    "h": 48
+    "h": 72
    },
    "rotated": false,
    "trimmed": false,
@@ -1113,19 +1113,19 @@
     "x": 0,
     "y": 0,
     "w": 144,
-    "h": 48
+    "h": 72
    },
    "sourceSize": {
     "w": 144,
-    "h": 48
+    "h": 72
    }
   },
-  "croc_lurk": {
+  "croc_idle1": {
    "frame": {
     "x": 1493,
     "y": 405,
     "w": 144,
-    "h": 48
+    "h": 72
    },
    "rotated": false,
    "trimmed": false,
@@ -1133,19 +1133,19 @@
     "x": 0,
     "y": 0,
     "w": 144,
-    "h": 48
+    "h": 72
    },
    "sourceSize": {
     "w": 144,
-    "h": 48
+    "h": 72
    }
   },
-  "croc_swim1": {
+  "croc_idle2": {
    "frame": {
     "x": 1643,
     "y": 405,
     "w": 144,
-    "h": 48
+    "h": 72
    },
    "rotated": false,
    "trimmed": false,
@@ -1153,19 +1153,19 @@
     "x": 0,
     "y": 0,
     "w": 144,
-    "h": 48
+    "h": 72
    },
    "sourceSize": {
     "w": 144,
-    "h": 48
+    "h": 72
    }
   },
-  "croc_swim2": {
+  "croc_idle_blink": {
    "frame": {
     "x": 1793,
     "y": 405,
     "w": 144,
-    "h": 48
+    "h": 72
    },
    "rotated": false,
    "trimmed": false,
@@ -1173,11 +1173,71 @@
     "x": 0,
     "y": 0,
     "w": 144,
-    "h": 48
+    "h": 72
    },
    "sourceSize": {
     "w": 144,
-    "h": 48
+    "h": 72
+   }
+  },
+  "croc_lurk": {
+   "frame": {
+    "x": 3,
+    "y": 539,
+    "w": 144,
+    "h": 72
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 144,
+    "h": 72
+   },
+   "sourceSize": {
+    "w": 144,
+    "h": 72
+   }
+  },
+  "croc_swim1": {
+   "frame": {
+    "x": 153,
+    "y": 539,
+    "w": 144,
+    "h": 72
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 144,
+    "h": 72
+   },
+   "sourceSize": {
+    "w": 144,
+    "h": 72
+   }
+  },
+  "croc_swim2": {
+   "frame": {
+    "x": 303,
+    "y": 539,
+    "w": 144,
+    "h": 72
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 144,
+    "h": 72
+   },
+   "sourceSize": {
+    "w": 144,
+    "h": 72
    }
   }
  },
@@ -1185,7 +1245,7 @@
   "image": "atlas.png",
   "size": {
    "w": 2010,
-   "h": 536
+   "h": 614
   },
   "scale": "1"
  }
