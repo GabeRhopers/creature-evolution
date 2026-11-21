@@ -29,3 +29,7 @@ level 10 with its perks; Continue keeps the crab level and a new run clears it.
 `enemies.mjs` checks the higher-level enemies: none on the home screen or at the start, lionfish at
 level 6 (with a banner and venom), moray eels at 14 (they lunge), barracuda at 22, and a run
 continued at level 15 starts with the enemies it has unlocked.
+
+`slots.mjs` covers save slots: the first run saves in slot 1 (the original key), NEW RUN offers an
+empty slot, slots keep separate runs, rename (kept after reload), Continue from the panel, delete
+with a confirm step, and New game in an empty slot.

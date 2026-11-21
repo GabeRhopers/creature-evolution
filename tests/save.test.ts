@@ -201,3 +201,69 @@ describe('helpers', () => {
     expect(size).toBeLessThan(5000);
   });
 });
+
+describe('save slots', () => {
+  it('a save from before slots exists becomes slot 1', () => {
+    const { store, sm } = fresh();
+    sm.saveCheckpoint(CP); // written with the original key
+    expect(store.getItem('ce.save.checkpoint')).not.toBeNull();
+    const again = new SaveManager(store, LIM);
+    expect(again.activeSlot).toBe(1);
+    expect(again.loadCheckpoint().data?.level).toBe(7);
+  });
+  it('each slot keeps its own run, with its own backup', () => {
+    const { sm } = fresh();
+    sm.saveCheckpoint(CP);
+    sm.setSlot(2);
+    expect(sm.loadCheckpoint().data).toBeNull();
+    sm.saveCheckpoint({ ...CP, level: 22, species: 'blue_tang' });
+    sm.saveCheckpoint({ ...CP, level: 23, species: 'blue_tang' });
+    expect(sm.loadCheckpoint().data?.level).toBe(23);
+    expect(sm.loadCheckpoint(1).data?.level).toBe(7);
+    expect(sm.loadCheckpoint(3).data).toBeNull();
+  });
+  it('a damaged slot falls back to its own backup, never to another slot', () => {
+    const { store, sm } = fresh();
+    sm.setSlot(2);
+    sm.saveCheckpoint({ ...CP, level: 10 });
+    sm.saveCheckpoint({ ...CP, level: 11 });
+    store.setItem('ce.save.checkpoint.2', '{broken');
+    const got = sm.loadCheckpoint();
+    expect(got.source).toBe('backup');
+    expect(got.data?.level).toBe(10);
+  });
+  it('deleting a slot leaves the others alone', () => {
+    const { sm } = fresh();
+    sm.saveCheckpoint(CP);
+    sm.setSlot(3);
+    sm.saveCheckpoint({ ...CP, level: 30 });
+    sm.clearCheckpoint(3);
+    expect(sm.loadCheckpoint(3).data).toBeNull();
+    expect(sm.loadCheckpoint(1).data?.level).toBe(7);
+  });
+  it('slot numbers stay in range', () => {
+    const { sm } = fresh();
+    sm.setSlot(9);
+    expect(sm.activeSlot).toBe(3);
+    sm.setSlot(-2);
+    expect(sm.activeSlot).toBe(1);
+  });
+  it('slot names: renameable, cleaned, defaults for missing or empty names', () => {
+    expect(DEFAULT_PROFILE.slots.names).toEqual(['Game 1', 'Game 2', 'Game 3']);
+    const p = sanitizeProfile({ slots: { active: 2, names: ['  Mike\u0007s reef  ', '', 42, 'x'.repeat(60)] } });
+    expect(p.slots.active).toBe(2);
+    expect(p.slots.names).toEqual(['Mikes reef', 'Game 2', 'Game 3']);
+    expect(sanitizeProfile({ slots: { names: ['<b>Dad</b>'] } }).slots.names[0]).toBe('bDad/b');
+    expect(sanitizeProfile({ slots: { active: 7 } }).slots.active).toBe(3);
+    expect(sanitizeProfile({}).slots).toEqual({ active: 1, names: ['Game 1', 'Game 2', 'Game 3'] });
+  });
+  it('reset removes every slot', () => {
+    const { store, sm } = fresh();
+    for (const n of [1, 2, 3]) {
+      sm.setSlot(n);
+      sm.saveCheckpoint({ ...CP, level: n * 5 });
+    }
+    sm.resetAll();
+    for (const n of [1, 2, 3]) expect(store.getItem(SaveManager.slotKey(n))).toBeNull();
+  });
+});

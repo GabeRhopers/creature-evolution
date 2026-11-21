@@ -9,7 +9,7 @@ import { ALL_STAGE_SKINS, DEFAULT_HERO, HEROES, SPECIES, heroStages, isHero, typ
 import { levelToSwallow } from '../systems/growth';
 import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
-import { APP_VERSION, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
+import { APP_VERSION, SLOT_COUNT, cleanSlotName, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
 import { perkIconUrl } from './perkIcons';
 import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
 import type { PerkDef } from '../systems/perks';
@@ -44,6 +44,8 @@ export function initMenu(game: Phaser.Game): void {
   const saveProfile = () => {
     if (!saves.saveProfile(profile)) badge('Could not save on this device', true);
   };
+  // The save slot the game reads and writes (picked in Saved games).
+  saves.setSlot(profile.slots.active);
   const scene = () => game.scene.getScene('Game') as GameScene | null;
   const hud = () => game.scene.getScene('Hud') as HudScene;
   const home = $('home');
@@ -141,7 +143,7 @@ export function initMenu(game: Phaser.Game): void {
     if (checkpoint) {
       const c = checkpoint.data;
       const name = SPECIES[c.species]?.displayName ?? 'Creature';
-      $('continueSub').textContent = `${name} · level ${c.level} · ${clock(c.runTime)} · saved ${ago(checkpoint.savedAt)}`;
+      $('continueSub').textContent = `${slotName(saves.activeSlot)}: ${name} · level ${c.level} · ${clock(c.runTime)} · saved ${ago(checkpoint.savedAt)}`;
       $('btnPlay').textContent = 'NEW RUN';
     } else {
       $('btnPlay').textContent = 'PLAY';
@@ -175,16 +177,128 @@ export function initMenu(game: Phaser.Game): void {
   function play(): void {
     if (!checkpoint) return void startRun(null);
     const c = checkpoint.data;
+    // Prefer an empty slot, so nobody's run gets replaced by accident.
+    const empty = slotNumbers().find((n) => n !== saves.activeSlot && !saves.loadCheckpoint(n).data);
     openPanel(
       `<h3>Start a new run?</h3>
-      <p>Your saved run (level ${c.level}, ${clock(c.runTime)}) will be replaced.</p>
-      <div class="row"><button class="btn btn-danger" id="pNew">Start new run</button><button class="btn" id="pKeep">Keep my saved run</button></div>`,
+      <p>${esc(slotName(saves.activeSlot))} has a saved run (level ${c.level}, ${clock(c.runTime)}).</p>
+      <div class="row">${empty ? `<button class="btn" id="pEmpty">Start in ${esc(slotName(empty))} (empty)</button>` : ''}
+      <button class="btn btn-danger" id="pNew">Replace ${esc(slotName(saves.activeSlot))}</button><button class="btn" id="pKeep">Keep my saved run</button></div>`,
       () => {
+        if (empty) $('pEmpty').onclick = () => {
+          selectSlot(empty);
+          void startRun(null);
+        };
         $('pNew').onclick = () => void startRun(null);
         $('pKeep').onclick = closePanel;
       },
     );
   }
+
+  // ---------------------------------------------------------------- saved games (slots)
+  const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
+  function slotNumbers(): number[] {
+    return Array.from({ length: SLOT_COUNT }, (_, i) => i + 1);
+  }
+  function slotName(n: number): string {
+    return profile.slots.names[n - 1] ?? `Game ${n}`;
+  }
+  function selectSlot(n: number): void {
+    saves.setSlot(n);
+    profile.slots.active = n;
+    saveProfile();
+    renderContinue();
+  }
+  function savesHtml(): string {
+    return slotNumbers()
+      .map((n) => {
+        const got = saves.loadCheckpoint(n);
+        const c = got.data;
+        const active = n === saves.activeSlot;
+        const info = c
+          ? `${esc(SPECIES[c.species]?.displayName ?? 'Creature')} · level ${c.level} · ${clock(c.runTime)} played · saved ${ago(got.savedAt)}`
+          : 'Empty';
+        return `<div class="slot${active ? ' on' : ''}" data-slot="${n}">
+          <div class="slot-head"><b class="slot-name">${esc(slotName(n))}</b>${active ? '<span class="tag">In use</span>' : ''}</div>
+          <div class="slot-sub">${info}</div>
+          <div class="row">
+            ${c ? `<button class="btn" data-act="continue">Continue</button>` : ''}
+            <button class="btn" data-act="new">New game</button>
+            <button class="btn" data-act="rename">Rename</button>
+            ${c ? `<button class="btn btn-danger" data-act="delete">Delete</button>` : ''}
+          </div>
+        </div>`;
+      })
+      .join('');
+  }
+  function openSaves(): void {
+    openPanel(
+      `<h3>Saved games</h3>
+      <p>Each game keeps its own run. Your records count across all of them.</p>
+      <div class="slots" id="slotList">${savesHtml()}</div>
+      <div class="row"><button class="btn" id="pClose">Done</button></div>`,
+      bindSaves,
+    );
+  }
+  function refreshSaves(): void {
+    $('slotList').innerHTML = savesHtml();
+    bindSaves();
+  }
+  function bindSaves(): void {
+    $('pClose').onclick = closePanel;
+    panel.querySelectorAll<HTMLElement>('.slot').forEach((el) => {
+      const n = Number(el.dataset.slot);
+      const act = (a: string) => el.querySelector<HTMLButtonElement>(`[data-act="${a}"]`);
+      const row = el.querySelector('.row') as HTMLElement;
+      act('continue')?.addEventListener('click', () => {
+        selectSlot(n);
+        if (checkpoint) void startRun(checkpoint.data);
+      });
+      act('new')?.addEventListener('click', () => {
+        if (!saves.loadCheckpoint(n).data) {
+          selectSlot(n);
+          return void startRun(null);
+        }
+        row.innerHTML = `<span>Replace the run in ${esc(slotName(n))}?</span>
+          <button class="btn btn-danger" data-act="yes">Replace</button><button class="btn" data-act="no">Cancel</button>`;
+        act('yes')!.onclick = () => {
+          selectSlot(n);
+          void startRun(null);
+        };
+        act('no')!.onclick = refreshSaves;
+      });
+      act('rename')?.addEventListener('click', () => {
+        row.innerHTML = `<input class="slot-input" maxlength="24" aria-label="Name for this game" value="${esc(slotName(n))}">
+          <button class="btn" data-act="save">Save</button><button class="btn" data-act="no">Cancel</button>`;
+        const input = row.querySelector('input') as HTMLInputElement;
+        input.focus();
+        input.select();
+        const save = () => {
+          profile.slots.names[n - 1] = cleanSlotName(input.value, n);
+          saveProfile();
+          renderContinue();
+          refreshSaves();
+        };
+        act('save')!.onclick = save;
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') refreshSaves();
+        });
+        act('no')!.onclick = refreshSaves;
+      });
+      act('delete')?.addEventListener('click', () => {
+        row.innerHTML = `<span>Delete the run in ${esc(slotName(n))}? This can't be undone.</span>
+          <button class="btn btn-danger" data-act="yes">Delete</button><button class="btn" data-act="no">Cancel</button>`;
+        act('yes')!.onclick = () => {
+          saves.clearCheckpoint(n);
+          renderContinue();
+          refreshSaves();
+        };
+        act('no')!.onclick = refreshSaves;
+      });
+    });
+  }
+  $('cardSaves').addEventListener('click', openSaves);
   $('btnPlay').addEventListener('click', play);
   $('btnContinue').addEventListener('click', () => checkpoint && void startRun(checkpoint.data));
 
@@ -467,7 +581,6 @@ export function initMenu(game: Phaser.Game): void {
     choosingPerk = true;
     paused = true;
     game.scene.pause('Game');
-    const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
     openPanel(
       `<h3>Level ${level}: choose a perk</h3>
       <p class="saved-line">Pick one. Perks add up, and they stay with you if you swim again from your stage.</p>
