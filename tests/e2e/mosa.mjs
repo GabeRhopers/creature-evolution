@@ -59,7 +59,7 @@ await G(()=>window.game.scene.getScene('Game').checkpoint(true));
 ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.species==='mosa'), 'the checkpoint is a Mosa run');
 await p.click('[data-hero="crocodile"]').catch(()=>{});            // hidden during play: no effect
 await p.reload(); await p.waitForTimeout(3500);
-ok((await p.textContent('#continueSub')).startsWith('Mosa'), 'Continue shows the Mosa run: '+await p.textContent('#continueSub'));
+ok((await p.textContent('#continueSub')).includes(': Mosa'), 'Continue shows the Mosa run: '+await p.textContent('#continueSub'));
 await p.click('[data-hero="crocodile"]');                           // pick the croc for NEW runs...
 await p.click('#btnContinue');
 ok(await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMode && g.player.level>=21;}, 5000), 'the saved run is back');
