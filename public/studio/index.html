@@ -1192,9 +1192,10 @@ window.addEventListener('online', () => { if (S.dirty) save(); });
 // New designs shipped with the game (seeds/*.json) are added once to the
 // project list, so they can be opened and edited like any other project.
 // Deleting one later does not bring it back.
-const SEEDS = { 'croc-hatchling': 3, 'croc-juvenile': 3, 'croc-adult': 3 };   // id -> design version
+const SEEDS = { 'croc-hatchling': 3, 'croc-juvenile': 3, 'croc-adult': 3,
+  'fish-blue_tang': 3, 'fish-reef_snapper': 3, 'fish-red_grouper': 3, 'fish-grey_shark': 3 };   // id -> design version
 // Every starter design ships with one of these timestamps; saving any change replaces it.
-const SEED_STAMPS = ['2026-11-21T08:45:00.000Z', '2026-11-21T09:30:00.000Z', '2026-11-21T11:30:00.000Z'];
+const SEED_STAMPS = ['2026-11-21T08:45:00.000Z', '2026-11-21T09:30:00.000Z', '2026-11-21T11:30:00.000Z', '2026-11-21T12:00:00.000Z'];
 async function seedStarters() {
   let done = {};
   try { const v = JSON.parse(localStorage.getItem('spritestudio.seeded') || '{}'); done = Array.isArray(v) ? Object.fromEntries(v.map((id) => [id, 1])) : v; } catch {}

@@ -53,6 +53,9 @@ invulnerability. Armor per species (`armor` in species.json).
   (`public/studio/palette-endesga32.json`) plus at most 3 signature colors per creature; textures hold
   1 pixel per art pixel and use smooth pixel art (`texture.setSmoothPixelArt(true)`); small effects
   (bubbles, food) come from `src/systems/pixelTextures.ts`. Camera zoom changes only per stage.
+  Reef fish looks are Sprite Studio starter designs (`public/studio/seeds/fish-*.json`, drawn by
+  `tools/fish/draw_fish.py`), linked by `look` in species.json, loaded by Boot, built once per scene.
+  Target pixel density: about 3.5 world pixels per art pixel (size / bodyRadius).
 - **No Phaser ParticleEmitter for now**; use the pooled `Bubbles` helper or
   similar plain-image pools.
 - Use Arcade Physics with **circle bodies only** (fish rotate; circles do not care).

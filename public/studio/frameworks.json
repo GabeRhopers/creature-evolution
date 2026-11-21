@@ -57,6 +57,35 @@
     "mouth": [
       36,
       16
-    ]
+    ],
+    "notes": "Small and medium reef fish (Blue Tang, Reef Snapper). About 3.5 world pixels per art pixel in the game."
+  },
+  "bigfish": {
+    "extends": "default",
+    "name": "Big fish",
+    "canvas": [
+      80,
+      48
+    ],
+    "bodyRadius": 14,
+    "mouth": [
+      70,
+      27
+    ],
+    "notes": "Large reef fish such as the Red Grouper."
+  },
+  "shark": {
+    "extends": "default",
+    "name": "Shark",
+    "canvas": [
+      112,
+      56
+    ],
+    "bodyRadius": 24,
+    "mouth": [
+      101,
+      30
+    ],
+    "notes": "Long predators: room for a tall dorsal fin and a crescent tail."
   }
 }

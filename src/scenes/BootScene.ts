@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { ATLAS } from '../assets';
+import { SPECIES } from '../data';
 import { createPixelTextures } from '../systems/pixelTextures';
 
 export class BootScene extends Phaser.Scene {
@@ -18,6 +19,8 @@ export class BootScene extends Phaser.Scene {
     this.load.atlas(ATLAS, 'assets/atlas.png', 'assets/atlas.json');
     // Music: "Aquaria" by cynicmusic (CC0), see CREDITS.md. MP3 plays everywhere incl. iOS Safari.
     this.load.audio('music', 'assets/audio/music-aquaria.mp3');
+    // Pixel looks of the reef fish (Sprite Studio starter designs).
+    for (const sp of Object.values(SPECIES)) if (sp.look) this.load.json('look:' + sp.look, `studio/seeds/${sp.look}.json`);
   }
 
   private failed: string[] = [];

@@ -143,10 +143,15 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   }
 
   /** Use frames from another texture (a Sprite Studio drawing). Same frame size as the original art. */
-  applySkin(texture: string, frames: { swim: string[]; idle?: string[]; bite?: string; biteSeq?: string[]; rest?: string; damage?: string; celebrate?: string[] }): void {
+  applySkin(texture: string, frames: { swim: string[]; idle?: string[]; bite?: string; biteSeq?: string[]; rest?: string; damage?: string; celebrate?: string[]; dead?: string }): void {
     if (!frames.swim.length) return;
     this.skinFrames = { ...frames, celebrate: frames.celebrate?.length ? frames.celebrate : undefined };
     this.setTexture(texture, frames.swim[0]);
+  }
+
+  /** The skeleton frame of this fish's look, if it has one. */
+  get deadFrame(): string | undefined {
+    return this.skinFrames?.dead;
   }
 
   /** Back to the species' own art. */

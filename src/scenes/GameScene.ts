@@ -12,7 +12,7 @@ import { Stomach } from '../systems/Stomach';
 import { Sfx } from '../audio/Sfx';
 import { PlayerBot } from '../dev/PlayerBot';
 import { saves, type Checkpoint, type DeathCause } from '../save';
-import { buildSkinTexture, getActiveSkin, getStageLook } from '../skins';
+import { buildSkinTexture, getActiveSkin, getStageLook, validateProject, type SkinArt, type SkinFrames, type StudioProject } from '../skins';
 import { stageIndex } from '../systems/growth';
 import { offerPerks, perkById, perkMods, perksOwed } from '../systems/perks';
 
@@ -161,6 +161,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.perkPending = false;
     this.depthBlocked = false;
     this.seenAreas = new Set();
+    this.speciesLooks = new Map();
     if (pendingResume) currentDifficulty = pendingResume.difficulty;
     this.difficultyName = currentDifficulty;
     this.difficulty = DIFFICULTY[currentDifficulty];
@@ -905,11 +906,37 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.respawnAmbient(victim);
   }
 
+  /** A species' pixel look, built into a texture once per scene (null = keep the atlas art). */
+  private speciesLooks = new Map<string, { key: string; frames: SkinFrames; art: SkinArt | null } | null>();
+  private speciesLook(look?: string): { key: string; frames: SkinFrames; art: SkinArt | null } | null {
+    if (!look) return null;
+    if (this.speciesLooks.has(look)) return this.speciesLooks.get(look)!;
+    let built: { key: string; frames: SkinFrames; art: SkinArt | null } | null = null;
+    const project = this.cache.json.get('look:' + look) as StudioProject | undefined;
+    if (project && !validateProject(project).length) {
+      try {
+        const key = 'look_' + look;
+        const b = buildSkinTexture(this, key, project);
+        built = { key, frames: b, art: b.art };
+      } catch (err) {
+        console.warn('look not built', look, err);
+      }
+    }
+    this.speciesLooks.set(look, built);
+    return built;
+  }
+
   private spawnSkeleton(t: Fish): void {
-    // Animated species (the crocodile) sink belly-up, greyed out, instead of a fish skeleton.
+    // A fish with a pixel look leaves its pixel skeleton.
+    if (t.deadFrame) {
+      const bone = this.add.image(t.x, t.y, t.texture.key, t.deadFrame).setScale(t.scaleX).setRotation(t.rotation).setFlipY(t.flipY).setDepth(3);
+      this.tweens.add({ targets: bone, y: Math.min(t.y + 400, this.seabedTop + 10), angle: bone.angle + 160, alpha: 0, duration: 6000, ease: 'Sine.easeIn', onComplete: () => bone.destroy() });
+      return;
+    }
+    // The player (and other animated species) sink belly-up, greyed out, in their current look.
     const rest = t.species.art?.frames?.rest;
-    if (rest) {
-      const body = this.add.image(t.x, t.y, ATLAS, rest).setScale(t.scaleX).setFlipY(!t.flipY).setRotation(t.rotation).setTint(0x7a8a7a).setDepth(3);
+    if (rest || t === this.player) {
+      const body = this.add.image(t.x, t.y, t.texture.key, t.frame.name).setScale(t.scaleX).setFlipY(!t.flipY).setRotation(t.rotation).setTint(0x7a8a7a).setDepth(3);
       this.tweens.add({ targets: body, y: Math.min(t.y + 400, this.seabedTop + 10), alpha: 0, duration: 6000, ease: 'Sine.easeIn', onComplete: () => body.destroy() });
       return;
     }
@@ -1340,6 +1367,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       for (let i = 0; i < count; i++) {
         const fish = new Fish(this, Phaser.Math.Between(band.left, band.right),
           Phaser.Math.Between(band.top, band.bottom), sp, Phaser.Math.Between(1, 3));
+        const look = this.speciesLook(sp.look);
+        if (look) {
+          fish.applySkin(look.key, look.frames);
+          fish.setArt(look.art);
+        }
         fish.setDepth(5);
         fish.speedMul = this.difficulty.aiSpeed;
         this.physics.add.collider(fish, this.rocks);

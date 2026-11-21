@@ -10,7 +10,7 @@ import { levelToSwallow } from '../systems/growth';
 import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
 import { APP_VERSION, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
-import { listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject } from '../skins';
+import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
 import type { PerkDef } from '../systems/perks';
 import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
 
@@ -593,9 +593,10 @@ async function drawArt(): Promise<void> {
   if (!reduce) setInterval(drawHero, 380);
 
   // Food chain: what the crocodile can swallow at which level (bigger ones it can only bite).
-  const steps: Array<{ name: string; frame: string; level: number | null; tint?: string }> = [
-    { name: 'Plankton', frame: 'bubble_b', level: 1, tint: '#9adc6c' },
+  const steps: Array<{ id?: string; name: string; frame: string; level: number | null; tint?: string }> = [
+    { name: 'Plankton', frame: 'bubble_b', level: 1, tint: '#63c74d' },
     ...['blue_tang', 'reef_snapper', 'red_grouper', 'grey_shark'].map((id) => ({
+      id,
       name: SPECIES[id].displayName,
       frame: SPECIES[id].sprite,
       level: levelToSwallow(SPECIES[id].baseSize),
@@ -617,20 +618,45 @@ async function drawArt(): Promise<void> {
     c.width = 112;
     c.height = 80;
     const g = c.getContext('2d')!;
-    const f = frames[s.frame]?.frame;
-    if (f) {
-      if (s.tint) {
-        // Plankton: a small tinted dot.
-        g.fillStyle = s.tint;
-        g.beginPath();
-        g.arc(56, 40, 9, 0, Math.PI * 2);
-        g.fill();
-      } else {
-        g.drawImage(img, f.x, f.y, f.w, f.h, 16, 0, 80, 80);
-      }
+    if (s.tint) {
+      // Plankton: a small pixel dot in its game color.
+      g.fillStyle = s.tint;
+      for (const [x, y, w, h] of [[51, 35, 10, 10], [49, 37, 14, 6], [53, 33, 6, 14]]) g.fillRect(x, y, w, h);
+    } else {
+      const look = SPECIES[s.id!]?.look;
+      if (look) void drawLook(c, `studio/seeds/${look}.json`);
     }
     el.appendChild(c);
     el.insertAdjacentHTML('beforeend', `<span class="n">${s.name}</span><span class="lv">${s.level === 1 ? 'from the start' : s.level ? `level ${s.level}+` : 'bite it'}</span>`);
     row.appendChild(el);
   });
+}
+
+/** Draw a Sprite Studio design (its first idle or move frame) crisply into a canvas, centered and fitted. */
+async function drawLook(c: HTMLCanvasElement, url: string): Promise<void> {
+  try {
+    const p = (await (await fetch(url)).json()) as StudioProject;
+    const pose = p.poses.find((x) => x.name === 'idle' && x.frames.length) ?? p.poses.find((x) => x.name === 'move');
+    if (!pose) return;
+    const px = decodeFrame(pose.frames[0], p.w * p.h);
+    // Crop to the drawn pixels, then scale by a whole number so every pixel stays square.
+    let x0 = p.w, y0 = p.h, x1 = 0, y1 = 0;
+    px.forEach((v, i) => {
+      if (v < 0) return;
+      const x = i % p.w, y = Math.floor(i / p.w);
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    });
+    if (x1 < x0) return;
+    const w = x1 - x0 + 1, h = y1 - y0 + 1;
+    const k = Math.max(1, Math.floor(Math.min((c.width - 8) / w, (c.height - 8) / h)));
+    const ox = Math.floor((c.width - w * k) / 2), oy = Math.floor((c.height - h * k) / 2);
+    const g = c.getContext('2d')!;
+    px.forEach((v, i) => {
+      if (v < 0) return;
+      g.fillStyle = p.palette[v];
+      g.fillRect(ox + ((i % p.w) - x0) * k, oy + (Math.floor(i / p.w) - y0) * k, k, k);
+    });
+  } catch {
+    /* decoration only */
+  }
 }
