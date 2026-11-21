@@ -1,0 +1,56 @@
+# Runs on every pull request. The "test" job is the required check for auto-merge:
+# a pull request merges itself only when it passes.
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Atlas build, type check, every unit test, then the production build.
+      - run: npm run build
+
+  browser:
+    name: browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # Plays the real build in headless Chrome: saves, stages, perks, areas, studio, round trip.
+      - name: Browser tests
+        run: |
+          npx vite preview --port 4173 --strictPort &
+          for i in $(seq 1 60); do curl -sf http://localhost:4173/ >/dev/null && break; sleep 1; done
+          fail=0
+          for t in stages framework roundtrip save_e2e perks areas studio_save; do
+            echo "::group::$t"
+            node tests/e2e/$t.mjs | tee /tmp/$t.log || fail=1
+            grep -q '^FAIL' /tmp/$t.log && fail=1
+            echo "::endgroup::"
+          done
+          exit $fail
