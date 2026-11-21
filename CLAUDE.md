@@ -64,6 +64,13 @@ bites) and pinch (`pinchHpFraction` of the player's health + stun) are set from 
 Defeating it sets `crabLevel` (saved in the checkpoint). After dying, SWIM AGAIN restarts at `crabLevel`
 (or level 1), with perks. This replaced the old "back to the start of your stage" rule.
 
+## Save slots
+`SaveManager` keeps `SLOT_COUNT` (3) checkpoint slots; the game writes to `saves.activeSlot`. Slot 1 uses the
+original key (`ce.save.checkpoint`), so older saves are slot 1; slots 2+ are `ce.save.checkpoint.N`, each with
+its own `.bak`. Slot names and the active slot live in the profile (`profile.slots`). Home screen: Saved games
+panel (Continue, New game, Rename, Delete with a confirm step); NEW RUN offers an empty slot first.
+Switch slots only from the home screen, never mid-run.
+
 ## Higher-level enemies
 Species with `unlockLevel` only join the reef once the player reaches that level (`spawnAmbientFish`
 skips them; `spawnUnlocked` adds them on level-up with a NEW banner and the species' `intro`).

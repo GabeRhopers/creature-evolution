@@ -78,7 +78,7 @@
       .best { font: 500 13px/1 var(--font-body); color: var(--muted); font-variant-numeric: tabular-nums; }
       .best b { color: var(--sun); font-weight: 600; }
 
-      .cards { display: grid; grid-template-columns: repeat(4, minmax(130px, 170px)); gap: 10px; }
+      .cards { display: grid; grid-template-columns: repeat(5, minmax(120px, 160px)); gap: 10px; }
       .card {
         display: grid; gap: 4px; justify-items: start; text-align: left; text-decoration: none;
         background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; color: var(--ink); cursor: pointer;
@@ -172,6 +172,14 @@
         #heroCroc { width: 220px; }
       }
       @media (prefers-reduced-motion: reduce) { .btn-play:active { transform: none; } }
+      .slots { display: grid; gap: 10px; }
+      .slot { border: 2px solid var(--line); border-radius: 4px; padding: 10px 12px; display: grid; gap: 6px; }
+      .slot.on { border-color: var(--kelp); }
+      .slot-head { display: flex; gap: 8px; align-items: center; }
+      .slot-name { font: 700 18px/1.1 var(--font-display); color: var(--ink); }
+      .slot .tag { font: 600 11px/1 var(--font-body); color: #062012; background: var(--kelp); border-radius: 3px; padding: 3px 6px; }
+      .slot-sub { font: 500 13px/1.3 var(--font-body); color: var(--muted); font-variant-numeric: tabular-nums; }
+      .slot-input { font: 600 16px/1 var(--font-body); color: var(--ink); background: #0b2238; border: 2px solid var(--line); border-radius: 4px; padding: 8px 10px; min-width: 0; flex: 1 1 160px; }
       /* Pixel art interface: square corners and hard pixel shadows (round toasts and rings stay round). */
       .btn, .btn-play, .seg, .seg button, .hero-btn, .card, .panel, .toggle, .toggle select { border-radius: 4px; }
       .btn-play { box-shadow: 0 6px 0 #a87a00, 0 0 0 3px #181425; }
@@ -208,6 +216,7 @@
         <div class="cards">
           <button class="card" id="cardHow"><span class="t">How to play</span><span class="d">Controls, eating, hiding, digesting</span></button>
           <a class="card studio" id="cardStudio" href="studio/index.html"><span class="t">Sprite Studio</span><span class="d">Draw your own creature poses</span></a>
+          <button class="card" id="cardSaves"><span class="t">Saved games</span><span class="d">Up to 3 games, rename or delete</span></button>
           <button class="card" id="cardOptions"><span class="t">Options</span><span class="d">Sound, music, records</span></button>
           <button class="card" id="cardCredits"><span class="t">Credits</span><span class="d">Who made what</span></button>
         </div>

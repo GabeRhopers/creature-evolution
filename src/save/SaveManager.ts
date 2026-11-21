@@ -1,8 +1,13 @@
 // Save system, format version 1.
 //
 // Two kinds of save live on the device:
-//   profile    settings, best record, lifetime stats (always kept)
-//   checkpoint the run in progress (cleared when the run ends)
+//   profile    settings, best record, lifetime stats, save slot names (always kept)
+//   checkpoint the run in progress (cleared when the run ends), one per save slot
+//
+// There are SLOT_COUNT save slots, each with its own name. Slot 1 uses the
+// original checkpoint key, so a save from before slots existed simply becomes
+// slot 1. The active slot is where the game writes; the others are only read
+// for the save list.
 //
 // Each kind uses two slots: the current save and the last good one. A write
 // first copies the current (valid) save into the backup slot, then writes the
@@ -15,6 +20,7 @@
 // unit-tested.
 
 export const SAVE_VERSION = 1;
+export const SLOT_COUNT = 3;
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type DeathCause = 'swallowed' | 'bitten' | 'starved';
@@ -37,6 +43,8 @@ export interface Profile {
   settings: Settings;
   best: Best;
   lifetime: { runs: number; deaths: Record<DeathCause, number> };
+  /** Save slots: which one the game uses, and the name of each (renameable). */
+  slots: { active: number; names: string[] };
 }
 export interface RunStats {
   plankton: number;
@@ -105,7 +113,18 @@ export const DEFAULT_PROFILE: Profile = {
   settings: { music: true, sfx: true, difficulty: 'normal', skin: null, hero: null },
   best: { level: 0, kills: 0, fish: 0 },
   lifetime: { runs: 0, deaths: { swallowed: 0, bitten: 0, starved: 0 } },
+  slots: { active: 1, names: defaultSlotNames() },
 };
+
+export function defaultSlotNames(): string[] {
+  return Array.from({ length: SLOT_COUNT }, (_, i) => `Game ${i + 1}`);
+}
+
+/** A slot name: trimmed, no control characters, 1 to 24 characters (empty = the default name). */
+export function cleanSlotName(v: unknown, slot: number): string {
+  const s = typeof v === 'string' ? v.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 24) : '';
+  return s || `Game ${slot}`;
+}
 
 const KEYS = {
   profile: 'ce.save.profile',
@@ -143,6 +162,8 @@ export function sanitizeProfile(raw: unknown): Profile {
   const b = obj(r.best);
   const l = obj(r.lifetime);
   const d = obj(l.deaths);
+  const sl = obj(r.slots);
+  const names = Array.isArray(sl.names) ? sl.names : [];
   return {
     settings: {
       music: bool(s.music, true),
@@ -155,6 +176,10 @@ export function sanitizeProfile(raw: unknown): Profile {
     lifetime: {
       runs: int(l.runs, 0, 1e7, 0),
       deaths: { swallowed: int(d.swallowed, 0, 1e7, 0), bitten: int(d.bitten, 0, 1e7, 0), starved: int(d.starved, 0, 1e7, 0) },
+    },
+    slots: {
+      active: int(sl.active, 1, SLOT_COUNT, 1),
+      names: Array.from({ length: SLOT_COUNT }, (_, i) => cleanSlotName(names[i], i + 1)),
     },
   };
 }
@@ -225,6 +250,8 @@ export class SaveManager {
   lastSavedAt = 0;
   /** False when the device refuses storage (private mode, blocked in an app view). */
   readonly persistent: boolean;
+  /** The save slot the game reads and writes (1 to SLOT_COUNT). */
+  private slot = 1;
 
   constructor(
     private store: KeyValueStore,
@@ -261,37 +288,56 @@ export class SaveManager {
     return this.write('profile', KEYS.profile, sanitizeProfile(p));
   }
 
+  // ---------------------------------------------------------------- save slots
+
+  get activeSlot(): number {
+    return this.slot;
+  }
+
+  /** Switch the slot the game reads and writes (only from the home screen, never mid-run). */
+  setSlot(n: number): void {
+    this.slot = Math.min(SLOT_COUNT, Math.max(1, Math.round(n) || 1));
+  }
+
+  /** Storage key of a slot's checkpoint. Slot 1 keeps the original key. */
+  static slotKey(n: number): string {
+    return n === 1 ? KEYS.checkpoint : `${KEYS.checkpoint}.${n}`;
+  }
+
   // ---------------------------------------------------------------- checkpoint
 
-  loadCheckpoint(): Loaded<Checkpoint | null> {
-    return this.read<Checkpoint | null>('checkpoint', KEYS.checkpoint, (d) => sanitizeCheckpoint(d, this.limits), null);
+  /** The run saved in the active slot (or in slot `n`, for the save list). */
+  loadCheckpoint(n = this.slot): Loaded<Checkpoint | null> {
+    return this.read<Checkpoint | null>('checkpoint', SaveManager.slotKey(n), (d) => sanitizeCheckpoint(d, this.limits), null);
   }
 
   saveCheckpoint(c: Checkpoint): boolean {
     const clean = sanitizeCheckpoint(c, this.limits);
     if (!clean) return false;
-    return this.write('checkpoint', KEYS.checkpoint, clean);
+    return this.write('checkpoint', SaveManager.slotKey(this.slot), clean);
   }
 
-  /** The run ended (death, new run): forget it, backup included. */
-  clearCheckpoint(): void {
-    this.safeRemove(KEYS.checkpoint);
-    this.safeRemove(KEYS.checkpoint + '.bak');
+  /** The run ended (death, new run) or the player deleted the slot: forget it, backup included. */
+  clearCheckpoint(n = this.slot): void {
+    this.safeRemove(SaveManager.slotKey(n));
+    this.safeRemove(SaveManager.slotKey(n) + '.bak');
   }
 
   /** Wipe everything this game stores (Options > Reset everything). */
   resetAll(): void {
-    for (const k of [KEYS.profile, KEYS.checkpoint, KEYS.legacyOptions, KEYS.legacyBest]) {
+    const slots = Array.from({ length: SLOT_COUNT }, (_, i) => SaveManager.slotKey(i + 1));
+    for (const k of [KEYS.profile, ...slots, KEYS.legacyOptions, KEYS.legacyBest]) {
       this.safeRemove(k);
       this.safeRemove(k + '.bak');
     }
   }
 
-  /** Export both saves as one text block (for a manual backup). */
+  /** Export every save as one text block (for a manual backup). */
   exportAll(): string {
     return JSON.stringify({
       profile: this.parse(this.safeGet(KEYS.profile)),
       checkpoint: this.parse(this.safeGet(KEYS.checkpoint)),
+      slots: Array.from({ length: SLOT_COUNT }, (_, i) => this.parse(this.safeGet(SaveManager.slotKey(i + 1)))),
     });
   }
 
