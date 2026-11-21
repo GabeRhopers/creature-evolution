@@ -19,7 +19,7 @@ const park = (id, around=false)=>G(([id,around])=>{const g=window.game.scene.get
 await p.goto('http://localhost:4173/'); await G(()=>localStorage.clear()); await p.reload(); await p.waitForTimeout(3500);
 await G(()=>window.addEventListener('ce:perk',()=>setTimeout(()=>document.querySelector('[data-perk]')?.click(),30)));
 const heroes = await G(()=>[...document.querySelectorAll('[data-hero]')].map(b=>b.dataset.hero+':'+b.getAttribute('aria-pressed')));
-ok(heroes.join()==='crocodile:true,mosa:false', 'home offers Croc (picked) and Mosa: '+heroes.join());
+ok(heroes.join().startsWith('crocodile:true,mosa:false'), 'home offers Croc (picked) and Mosa: '+heroes.join());
 await p.click('[data-hero="mosa"]');
 ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.profile')).data.settings.hero==='mosa'), 'the pick is remembered');
 await p.screenshot({path:'/home/claude/stages/mosa_home.png'});

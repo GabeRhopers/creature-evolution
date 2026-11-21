@@ -10,3 +10,6 @@ tools/fish/*.png
 tools/fish/fish-*.json
 tools/mosa/mosa-*.json
 tools/mosa/mosa_preview.png
+tools/heroes/white_shark-*.json
+tools/heroes/shark_preview.png
+tools/heroes/__pycache__/

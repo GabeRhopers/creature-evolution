@@ -59,6 +59,16 @@ describe('sprite framework', () => {
         expect(SEED_STAMPS).toContain(p.updatedAt);
         expect(p.seedVersion).toBeGreaterThanOrEqual(3);
       });
+      if (id.endsWith('-hatchling') && id !== 'croc-hatchling')
+        it('hatches from an egg: eggshell pixels in every drawn frame', () => {
+          // The eggshell color: white for Mosa, beige for the shark (its belly is already white).
+          const shell = new Set([id.startsWith('white_shark') ? '#ead4aa' : '#ffffff']);
+          for (const pose of p.poses)
+            pose.frames.forEach((s, i) => {
+              const px = decodeFrame(s, p.w * p.h);
+              expect(px.some((v) => v >= 0 && shell.has(p.palette[v])), `${pose.name}[${i}]`).toBe(true);
+            });
+        });
       it('has its mouth in front of the body center and inside the canvas', () => {
         const art = artFromProject(p)!;
         expect(p.mouth![0]).toBeGreaterThan(p.w / 2);

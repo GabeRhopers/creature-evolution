@@ -5,15 +5,23 @@ import { stageAt } from '../src/systems/growth';
 afterEach(() => setHero(DEFAULT_HERO));
 
 describe('heroes', () => {
-  it('offers the crocodile and Mosa, each with a species', () => {
-    expect(HEROES.map((h) => h.id)).toEqual(['crocodile', 'mosa']);
+  it('offers the crocodile, Mosa and the White Shark, each with a species', () => {
+    expect(HEROES.map((h) => h.id)).toEqual(['crocodile', 'mosa', 'white_shark']);
     for (const h of HEROES) expect(SPECIES[h.id], h.id).toBeDefined();
     expect(DEFAULT_HERO).toBe('crocodile');
     expect(isHero('mosa')).toBe(true);
     expect(isHero('grey_shark')).toBe(false);
   });
-  it('Mosa never spawns as a reef fish', () => {
-    expect(Object.keys(BALANCE.population)).not.toContain('mosa');
+  it('heroes never spawn as reef fish', () => {
+    for (const h of HEROES) expect(Object.keys(BALANCE.population)).not.toContain(h.id);
+  });
+  it('the White Shark has its own designs and abilities, ending with Feeding Frenzy', () => {
+    const shark = heroStages('white_shark');
+    expect(shark.map((s) => s.skin)).toEqual(['white_shark-hatchling', 'white_shark-juvenile', 'white_shark-adult']);
+    expect(shark.map((s) => s.ability)).toEqual(['dart', 'lunge', 'frenzy']);
+    expect(BALANCE.abilities.frenzy.biteMul).toBeGreaterThan(1);
+    expect(SPECIES.white_shark.baseBite).toBeGreaterThan(SPECIES.crocodile.baseBite);
+    expect(SPECIES.white_shark.armor ?? 0).toBeLessThan(SPECIES.mosa.armor ?? 0);
   });
   it('Mosa shares the stage levels and depths but has its own designs and abilities', () => {
     const croc = heroStages('crocodile');

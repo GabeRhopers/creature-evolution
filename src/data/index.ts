@@ -92,8 +92,8 @@ export function getSpecies(id: string): Species {
   return s;
 }
 
-/** Stage abilities. lunge and dart are dashes; roll and crush grab one fish; slam hits every fish around you. */
-export type AbilityId = 'shell' | 'lunge' | 'roll' | 'dart' | 'slam' | 'crush';
+/** Stage abilities. lunge and dart are dashes; roll and crush grab one fish; slam hits every fish around you; frenzy is a short power-up. */
+export type AbilityId = 'shell' | 'lunge' | 'roll' | 'dart' | 'slam' | 'crush' | 'frenzy';
 
 /** A growth stage of the player's creature (see balance.json "stages"). */
 export interface StageDef {
