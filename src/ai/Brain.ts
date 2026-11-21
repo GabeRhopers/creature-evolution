@@ -90,7 +90,7 @@ export class Brain {
   /** Called by GameScene when this fish is bitten or rammed. */
   onHurt(attacker: Creature): void {
     const me = this.fish;
-    if (attacker.fish.size > me.size * 0.8) {
+    if (attacker.fish.rank > me.rank * 0.8) {
       this.threat = attacker;
       this.sinceThreat = 0;
       this.setState('flee');
@@ -104,7 +104,7 @@ export class Brain {
   canBite(c: Creature): boolean {
     const cb = BALANCE.combat;
     const me = this.fish;
-    return me.species.behavior.aggression >= cb.aiBiteMinAggression && c.fish.size <= me.size * cb.aiBiteMaxSizeRatio;
+    return me.species.behavior.aggression >= cb.aiBiteMinAggression && c.fish.rank <= me.rank * cb.aiBiteMaxSizeRatio;
   }
 
   /** Is `c` dangerous to this fish? Swallowers always; big aggressive biters too. */
@@ -112,7 +112,7 @@ export class Brain {
     const me = this.fish;
     if (c.fish.canSwallow(me.size)) return true;
     const aggressive = c.isPlayer || c.fish.species.behavior.aggression >= BALANCE.combat.aiBiteMinAggression;
-    return aggressive && c.fish.size >= me.size * BALANCE.combat.threatSizeRatio;
+    return aggressive && c.fish.rank >= me.rank * BALANCE.combat.threatSizeRatio;
   }
 
   /** Forget a target that no longer exists (eaten by someone else, respawned). */

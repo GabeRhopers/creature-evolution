@@ -242,3 +242,37 @@ export function setActiveSkin(v: { id: string; project: StudioProject } | null):
 export function getActiveSkin() {
   return active;
 }
+
+// ------------------------------------------------------------------ stage looks
+//
+// Each growth stage has a look stored as a Sprite Studio project (for example
+// "croc-hatchling"). If the studio has that project (it may have been edited),
+// it is used; otherwise the design shipped with the game (studio/seeds).
+
+const stageLooks = new Map<string, StudioProject>();
+
+export async function loadStageLooks(stages: Array<{ id: string; skin: string }>): Promise<void> {
+  await Promise.all(
+    stages.map(async (s) => {
+      let project: StudioProject | null = null;
+      try {
+        project = await loadStudioProject(s.skin);
+      } catch {
+        project = null;
+      }
+      if (!project || validateProject(project).length) {
+        try {
+          const res = await fetch(`studio/seeds/${s.skin}.json`);
+          if (res.ok) project = (await res.json()) as StudioProject;
+        } catch {
+          project = null;
+        }
+      }
+      if (project && !validateProject(project).length) stageLooks.set(s.id, project);
+    }),
+  );
+}
+
+export function getStageLook(stageId: string): StudioProject | null {
+  return stageLooks.get(stageId) ?? null;
+}

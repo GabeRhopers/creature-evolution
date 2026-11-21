@@ -38,7 +38,7 @@ export class PlayerBot {
       if (c.isPlayer) continue;
       const f = c.fish;
       const d = Phaser.Math.Distance.Between(p.x, p.y, f.x, f.y);
-      const danger = f.canSwallow(p.size) || (f.species.behavior.aggression >= 0.5 && f.size >= p.size * 1.25);
+      const danger = f.canSwallow(p.size) || (f.species.behavior.aggression >= 0.5 && f.rank >= p.rank * 1.25);
       if (danger && d < 520 && d < threatD) {
         threat = c;
         threatD = d;
@@ -102,7 +102,7 @@ export class PlayerBot {
       const d = Phaser.Math.Distance.Between(p.x, p.y, f.x, f.y);
       if (d > 650) continue;
       const swallow = p.canSwallow(f.size);
-      const bite = !swallow && (f.wounded || f.size <= p.size * 1.1) && p.hp > p.maxHp * 0.5;
+      const bite = !swallow && (f.wounded || f.rank <= p.rank * 1.1) && p.hp > p.maxHp * 0.5;
       if (!swallow && !bite) continue;
       const value = f.species.xpValue * f.level * (swallow ? 1 : 0.5);
       const score = value - d * 0.08;

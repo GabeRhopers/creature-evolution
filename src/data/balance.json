@@ -126,7 +126,8 @@
     "metabolismPerSecond": 0.012,
     "starveDamagePerSecond": 0.01,
     "hpPerXp": 1.5,
-    "startFill": 0.3
+    "startFill": 0.3,
+    "metabolismLevelExponent": 0.9
   },
   "audio": {
     "musicVolume": 0.35,
@@ -143,5 +144,101 @@
   "joystick": {
     "radius": 70,
     "deadZone": 0.12
+  },
+  "stages": {
+    "_comment": "Player growth by stage. body = [size at the first level, size at the last level] (look, physics, what fits in the mouth). rank = how strong the reef thinks you are (who hunts, who flees, health and bite). Both grow a little inside a stage and jump when you evolve.",
+    "maxLevel": 30,
+    "list": [
+      {
+        "id": "hatchling",
+        "name": "Hatchling",
+        "from": 1,
+        "to": 10,
+        "body": [
+          15,
+          19
+        ],
+        "rank": [
+          15,
+          20
+        ],
+        "devourRatio": 0.8,
+        "skin": "croc-hatchling",
+        "art": {
+          "radius": 27,
+          "mouthReach": 1.9,
+          "mouthRadius": 0.55
+        },
+        "ability": "shell"
+      },
+      {
+        "id": "juvenile",
+        "name": "Juvenile",
+        "from": 11,
+        "to": 20,
+        "body": [
+          26,
+          34
+        ],
+        "rank": [
+          42,
+          58
+        ],
+        "devourRatio": 0.8,
+        "skin": "croc-juvenile",
+        "art": {
+          "radius": 18,
+          "mouthReach": 3.3,
+          "mouthRadius": 0.7
+        },
+        "ability": "lunge"
+      },
+      {
+        "id": "adult",
+        "name": "Adult",
+        "from": 21,
+        "to": 30,
+        "body": [
+          44,
+          56
+        ],
+        "rank": [
+          100,
+          135
+        ],
+        "devourRatio": 0.9,
+        "skin": "croc-adult",
+        "art": {
+          "radius": 18,
+          "mouthReach": 3.3,
+          "mouthRadius": 0.75
+        },
+        "ability": "roll"
+      }
+    ]
+  },
+  "abilities": {
+    "shell": {
+      "name": "Shell Guard",
+      "label": "SHELL",
+      "durationSeconds": 1.6,
+      "cooldownSeconds": 7,
+      "attackerStunSeconds": 0.6
+    },
+    "lunge": {
+      "name": "Lunge",
+      "label": "LUNGE"
+    },
+    "roll": {
+      "name": "Death Roll",
+      "label": "ROLL",
+      "damageMul": 3,
+      "spinSeconds": 0.6,
+      "cooldownSeconds": 6,
+      "stunSeconds": 1.2,
+      "reachMul": 1.3
+    },
+    "evolveLockSeconds": 1.0,
+    "evolveShieldSeconds": 2.5
   }
 }

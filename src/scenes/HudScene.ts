@@ -215,6 +215,8 @@ export class HudScene extends Phaser.Scene {
     this.deathStats.setText(
       `${how === 'starved' ? 'Keep your stomach from emptying.' : `It was level ${byLevel}.`}\nYou reached level ${stats.maxLevel}: swallowed ${stats.fish} fish, killed ${stats.kills}, ate ${stats.plankton} morsels.`,
     );
+    const from = this.game$.stageRestartLevel;
+    this.deathAgain.setText(from > 1 ? `SWIM AGAIN FROM LEVEL ${from}` : 'SWIM AGAIN');
     this.time.delayedCall(900, () => {
       const { width, height } = this.scale;
       // The shade blocks touches to the joystick / buttons underneath.
@@ -231,7 +233,15 @@ export class HudScene extends Phaser.Scene {
 
   private respawn(): void {
     this.hideDeath();
-    this.game$.restartRun();
+    this.game$.restartFromStage();
+  }
+
+  /** Big banner when the creature evolves into its next stage. */
+  evolved(stageName: string, sub: string): void {
+    this.banner.setText(`EVOLVED: ${stageName.toUpperCase()}!\n${sub}`).setAlpha(1).setScale(0.5);
+    this.tweens.killTweensOf(this.banner);
+    this.tweens.add({ targets: this.banner, scale: 1, duration: 350, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: this.banner, alpha: 0, delay: 2200, duration: 600 });
   }
 
   levelUp(level: number): void {
@@ -302,8 +312,8 @@ export class HudScene extends Phaser.Scene {
     this.joystick.layout(width, height, touch);
     this.hint.setText(
       touch
-        ? 'Left thumb: joystick to swim. EAT: green ring = swallow, orange = bite. DASH lunges and stuns.'
-        : 'WASD/arrows or mouse: swim | Shift: sprint | Space/right-click: eat (green swallow, orange bite) | E/Q: dash | R restart | ` tune | P hitboxes',
+        ? 'Left thumb: joystick to swim. EAT: green ring = swallow, orange = bite. The round button is your stage ability.'
+        : 'WASD/arrows or mouse: swim | Shift: sprint | Space/right-click: eat (green swallow, orange bite) | E/Q: ability | R restart | ` tune | P hitboxes',
     );
   }
 
@@ -332,7 +342,7 @@ export class HudScene extends Phaser.Scene {
     const starving = st.ratio < 0.1;
     this.stomachBack.setStrokeStyle(1, starving ? 0xff2020 : 0xc8e6c9, starving ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 0.6);
     this.info.setText(
-      `Level ${p.level}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
+      `${p.stage ? `${p.stage.name} · ` : ''}Level ${p.level}${p.atMaxLevel ? ' (MAX)' : ''}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
     );
     // Hidden while the home screen shows the ocean behind it.
     this.cameras.main.setVisible(!g.menuMode);
@@ -369,14 +379,16 @@ export class HudScene extends Phaser.Scene {
     this.eatBtn.setStrokeStyle(ready ? 5 : 3, ring, ready ? 1 : 0.65);
     this.eatLabel.setText(g.mouthState === 'canBite' ? 'BITE' : g.mouthState === 'full' ? 'FULL' : 'EAT');
 
-    // Dash cooldown pie.
-    const cd = p.dashCooldown / BALANCE.combat.dash.cooldownSeconds;
+    // Stage ability button (SHELL / LUNGE / ROLL) with its cooldown pie.
+    const ab = g.ability;
+    if (this.dashLabel.text !== ab.label) this.dashLabel.setText(ab.label);
+    const cd = Phaser.Math.Clamp(ab.ratio, 0, 1);
     this.dashCool.clear();
     if (cd > 0) {
       this.dashCool.fillStyle(0x0a2236, 0.65);
       this.dashCool.slice(this.dashBtn.x, this.dashBtn.y, 36, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cd, false);
       this.dashCool.fillPath();
     }
-    this.dashLabel.setAlpha(cd > 0 || p.stamina < BALANCE.combat.dash.staminaCost ? 0.5 : 1);
+    this.dashLabel.setAlpha(cd > 0 || !ab.usable ? 0.5 : 1);
   }
 }

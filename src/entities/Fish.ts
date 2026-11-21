@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { BALANCE, type Species } from '../data';
 import { ATLAS } from '../assets';
-import { sizeAt, speedFactor, turnFactor, maxHpAt, devourSizeAt, xpToNext, biteDamageAt } from '../systems/growth';
+import { formAt, clampLevel, xpToNext, type Form } from '../systems/growth';
+import { MAX_LEVEL, type StageDef } from '../data';
 
 /** What a controller (keyboard, touch or AI brain) asks the fish to do this frame. */
 export interface SwimIntent {
@@ -62,6 +63,12 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   private baseTint = 0xffffff;
   /** Seconds left showing the bite / open-jaw frame. */
   private biteAnim = 0;
+  /** Body, rank and strength for the current level. */
+  form!: Form;
+  /** True for the player: growth follows stages (capped size, level cap). */
+  staged = false;
+  /** Per-stage art geometry (overrides the species art). */
+  private artOverride: StageDef['art'] | null = null;
   private celebrateAnim = 0;
   /** Frames from a Sprite Studio drawing, replacing the species art (player only). */
   private skinFrames: NonNullable<NonNullable<Species['art']>['frames']> | null = null;
@@ -90,7 +97,34 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   }
 
   get artRadius(): number {
-    return this.species.art?.radius ?? DEFAULT_ART_RADIUS;
+    return this.artOverride?.radius ?? this.species.art?.radius ?? DEFAULT_ART_RADIUS;
+  }
+
+  /** How strong the reef thinks this creature is (AI fish: equal to size). */
+  get rank(): number {
+    return this.form.rank;
+  }
+
+  /** Switch to staged growth (the player). */
+  enableStages(): void {
+    this.staged = true;
+    this.setLevel(this.level);
+  }
+
+  get stage(): StageDef | null {
+    return this.form.stage;
+  }
+
+  get atMaxLevel(): boolean {
+    return this.staged && this.level >= MAX_LEVEL;
+  }
+
+  /** Use another stage's art geometry: re-fits the body circle and scale. */
+  setArt(art: StageDef['art'] | null): void {
+    this.artOverride = art;
+    const r = this.artRadius;
+    this.arcadeBody.setCircle(r, this.frame.realWidth / 2 - r, this.frame.realHeight / 2 - r);
+    this.setScale(this.size / r);
   }
 
   /** Show the open-jaw frame briefly (species with animation frames). */
@@ -110,6 +144,13 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     this.setTexture(texture, frames.swim[0]);
   }
 
+  /** Back to the species' own art. */
+  clearSkin(): void {
+    if (!this.skinFrames) return;
+    this.skinFrames = null;
+    this.setTexture(ATLAS, this.species.sprite);
+  }
+
   get arcadeBody(): Phaser.Physics.Arcade.Body {
     return this.body as Phaser.Physics.Arcade.Body;
   }
@@ -119,7 +160,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   }
 
   get devourSize(): number {
-    return devourSizeAt(this.species, this.level);
+    return this.size * this.form.devourRatio;
   }
 
   get xpNeeded(): number {
@@ -128,14 +169,14 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   /** Center of the mouth area in world space (just ahead of the head). */
   mouthPoint(): Phaser.Math.Vector2 {
-    const reach = this.size * (this.species.art?.mouthReach ?? BALANCE.eating.mouthReach);
+    const reach = this.size * (this.artOverride?.mouthReach ?? this.species.art?.mouthReach ?? BALANCE.eating.mouthReach);
     return new Phaser.Math.Vector2(this.x + Math.cos(this.heading) * reach, this.y + Math.sin(this.heading) * reach);
   }
 
   /** Radius of the mouth area; `suction` widens it while actively swallowing. */
   mouthRadius(suction = false): number {
     const e = BALANCE.eating;
-    return this.size * ((this.species.art?.mouthRadius ?? e.mouthRadius) + (suction ? e.suctionBonus : 0));
+    return this.size * ((this.artOverride?.mouthRadius ?? this.species.art?.mouthRadius ?? e.mouthRadius) + (suction ? e.suctionBonus : 0));
   }
 
   /** Can this fish swallow something of the given body radius whole? */
@@ -147,7 +188,11 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   addXp(amount: number): number {
     this.xp += amount;
     let gained = 0;
-    while (this.xp >= this.xpNeeded) {
+    if (this.atMaxLevel) {
+      this.xp = Math.min(this.xp, this.xpNeeded);
+      return 0;
+    }
+    while (this.xp >= this.xpNeeded && !this.atMaxLevel) {
       this.xp -= this.xpNeeded;
       gained++;
       this.setLevel(this.level + 1);
@@ -160,7 +205,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   }
 
   get biteDamage(): number {
-    return biteDamageAt(this.species, this.level);
+    return this.species.baseBite * Math.pow(this.form.power, BALANCE.growth.biteExponent);
   }
 
   get stunned(): boolean {
@@ -178,7 +223,15 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   /** Normal top speed right now (no sprint), used as the ramming reference. */
   get cruiseSpeed(): number {
-    return this.species.maxSpeed * speedFactor(this.species, this.level) * this.speedMul;
+    return this.species.maxSpeed * this.speedFactor * this.speedMul;
+  }
+
+  /** Bigger bodies swim a bit faster in absolute terms but turn more slowly. */
+  get speedFactor(): number {
+    return Math.pow(this.size / this.species.baseSize, BALANCE.growth.speedExponent);
+  }
+  get turnFactor(): number {
+    return Math.pow(this.size / this.species.baseSize, BALANCE.growth.turnExponent);
   }
 
   stun(seconds: number): void {
@@ -233,9 +286,10 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   setLevel(level: number): void {
     const hpRatio = this.maxHp > 1 ? this.hp / this.maxHp : 1;
-    this.level = Math.max(1, level);
-    this.size = sizeAt(this.species, this.level);
-    this.maxHp = maxHpAt(this.species, this.level);
+    this.level = this.staged ? clampLevel(level) : Math.max(1, level);
+    this.form = formAt(this.species, this.level, this.staged);
+    this.size = this.form.size;
+    this.maxHp = Math.round(this.species.baseHP * Math.pow(this.form.power, BALANCE.growth.hpExponent));
     this.hp = Math.max(1, Math.round(this.maxHp * hpRatio));
     this.setScale(this.size / this.artRadius);
   }
@@ -269,7 +323,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     // Turning: rotate heading toward the requested direction at a limited rate.
     if (thrust > 0) {
       const target = Math.atan2(intent.dirY, intent.dirX);
-      const maxTurn = sp.turnSpeed * turnFactor(sp, this.level) * dt;
+      const maxTurn = sp.turnSpeed * this.turnFactor * dt;
       this.heading = Phaser.Math.Angle.RotateTo(this.heading, target, maxTurn);
     }
 
@@ -291,8 +345,8 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     const woundMul = this.wounded ? c.woundedSpeedMul : 1;
     // While dashing, the cap is the dash speed so the lunge is not clipped.
     const dashMul = this.dashing ? c.dash.speedMul : 1;
-    const maxSpeed = sp.maxSpeed * speedFactor(sp, this.level) * Math.max(sprintMul * woundMul, dashMul) * this.speedMul;
-    const accel = sp.accel * speedFactor(sp, this.level) * (this.isSprinting ? 1.6 : 1) * this.speedMul;
+    const maxSpeed = sp.maxSpeed * this.speedFactor * Math.max(sprintMul * woundMul, dashMul) * this.speedMul;
+    const accel = sp.accel * this.speedFactor * (this.isSprinting ? 1.6 : 1) * this.speedMul;
 
     let vx = body.velocity.x;
     let vy = body.velocity.y;

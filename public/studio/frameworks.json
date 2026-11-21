@@ -1,0 +1,37 @@
+{
+  "_about": "Sprite framework: the shared rules every creature drawing follows, so the studio and the game agree on size, center and mouth. A species framework copies 'default' and overrides only what it needs.",
+  "default": {
+    "name": "Standard creature",
+    "canvas": [48, 32],
+    "pixelScale": 3,
+    "margin": 2,
+    "facing": "right",
+    "bodyRadius": 8,
+    "mouth": [40, 16],
+    "mouthRadius": 0.6,
+    "poses": ["idle", "move", "attack", "damage", "celebrate", "rest"],
+    "framesPerPose": 5,
+    "rules": [
+      "Face right. The game flips the drawing when the creature swims left.",
+      "The center of the canvas is the center of the body: the creature turns around this point and its hitbox circle sits here.",
+      "Keep the margin empty on every side, in every frame, so outlines, tail swings and open jaws never get cut off.",
+      "Put the mouth marker where the creature eats. The game uses it for eating and biting.",
+      "Draw at least one frame in idle or move. Empty poses fall back to idle."
+    ]
+  },
+  "crocodile": {
+    "extends": "default",
+    "name": "Crocodile",
+    "canvas": [64, 48],
+    "bodyRadius": 9,
+    "mouth": [58, 25],
+    "notes": "Wide and tall so the long snout, an open jaw and a tail curling up all fit, even at level 30. Every stage uses this same canvas: a small hatchling simply leaves more empty space."
+  },
+  "fish": {
+    "extends": "default",
+    "name": "Fish",
+    "canvas": [40, 32],
+    "bodyRadius": 10,
+    "mouth": [36, 16]
+  }
+}

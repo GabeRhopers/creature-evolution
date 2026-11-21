@@ -85,3 +85,22 @@ export function getSpecies(id: string): Species {
   if (!s) throw new Error(`Unknown species "${id}" (check src/data/species.json)`);
   return s;
 }
+
+/** A growth stage of the player's creature (see balance.json "stages"). */
+export interface StageDef {
+  id: string;
+  name: string;
+  from: number;
+  to: number;
+  /** Body radius at the first and last level of the stage. */
+  body: [number, number];
+  /** Food-chain rank at the first and last level of the stage. */
+  rank: [number, number];
+  devourRatio: number;
+  /** Sprite Studio project with this stage's look. */
+  skin: string;
+  art: { radius: number; mouthReach: number; mouthRadius: number };
+  ability: 'shell' | 'lunge' | 'roll';
+}
+export const STAGES = BALANCE.stages.list as StageDef[];
+export const MAX_LEVEL: number = BALANCE.stages.maxLevel;

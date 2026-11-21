@@ -87,7 +87,9 @@ export class Stomach {
     let startedDigest = false;
 
     // Metabolism: empty slowly, releasing the bank in proportion.
-    const burn = Math.min(this.fill, this.capacity * this.cfg.metabolismPerSecond * dt);
+    // Hunger grows more gently than the stomach, since the creature's mouth no longer grows without limit.
+    const rate = this.cfg.capacityBase * this.cfg.metabolismPerSecond * Math.pow(this.level, this.cfg.metabolismLevelExponent ?? this.cfg.capacityExponent);
+    const burn = Math.min(this.fill, rate * dt);
     if (burn > 0 && this.fill > 0) {
       const share = this.bank * (burn / this.fill);
       this.bank -= share;

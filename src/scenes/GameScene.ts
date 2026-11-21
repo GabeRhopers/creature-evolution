@@ -12,7 +12,8 @@ import { Stomach } from '../systems/Stomach';
 import { Sfx } from '../audio/Sfx';
 import { PlayerBot } from '../dev/PlayerBot';
 import { saves, type Checkpoint, type DeathCause } from '../save';
-import { buildSkinTexture, getActiveSkin } from '../skins';
+import { buildSkinTexture, getActiveSkin, getStageLook } from '../skins';
+import { stageIndex } from '../systems/growth';
 
 /** `?bot=1`: an automated playtester drives the player and metrics are recorded. */
 export const BOT_MODE = new URLSearchParams(window.location.search).has('bot');
@@ -39,6 +40,8 @@ let nextMenuMode = true;
 let pendingResume: Checkpoint | null = null;
 /** Test swim from Sprite Studio: nothing is saved or recorded. */
 let nextTestMode = false;
+/** Level a fresh run starts at (after a death: the start of the stage you reached). */
+let nextStartLevel = 1;
 
 /** Seconds of play between automatic checkpoints. */
 const AUTOSAVE_SECONDS = 20;
@@ -106,6 +109,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   private sampleTimer = 0;
   private heartbeatTimer = 0;
   private autosaveTimer = AUTOSAVE_SECONDS;
+  /** Stage ability state (player only). */
+  abilityCooldown = 0;
+  private shellTimer = 0;
+  private rollTimer = 0;
+  private rollBase = 0;
+  /** Controls locked for a moment while evolving. */
+  private evolveLock = 0;
+  private abilityGfx!: Phaser.GameObjects.Graphics;
   /** When the last checkpoint of this run was written (ms since epoch, 0 = never). */
   lastCheckpointAt = 0;
 
@@ -131,6 +142,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.sampleTimer = 0;
     this.autosaveTimer = AUTOSAVE_SECONDS;
     this.lastCheckpointAt = 0;
+    this.abilityCooldown = 0;
+    this.shellTimer = 0;
+    this.rollTimer = 0;
+    this.evolveLock = 0;
     if (pendingResume) currentDifficulty = pendingResume.difficulty;
     this.difficultyName = currentDifficulty;
     this.difficulty = DIFFICULTY[currentDifficulty];
@@ -157,6 +172,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const species = getSpecies(BALANCE.playerSpecies);
     const startY = swimTop + (this.seabedTop - swimTop) * BALANCE.playerStartDepth;
     this.player = new Fish(this, W / 2, startY, species, 1);
+    this.player.enableStages();
     this.player.setDepth(10);
     this.playerCreature = { fish: this.player, isPlayer: true };
     this.creatures.push(this.playerCreature);
@@ -172,10 +188,18 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       }
     });
     this.mouthGfx = this.add.graphics().setDepth(11);
+    this.abilityGfx = this.add.graphics().setDepth(12);
+    if (!this.menuMode && !pendingResume && nextStartLevel > 1) {
+      // Back at the start of the stage you reached, with full health.
+      this.player.setLevel(nextStartLevel);
+      this.player.hp = this.player.maxHp;
+      this.stats.maxLevel = nextStartLevel;
+    }
+    nextStartLevel = 1;
     this.stomach.reset(this.player.level);
     if (!this.menuMode && pendingResume) this.applyCheckpoint(pendingResume);
     pendingResume = null;
-    this.applySkin();
+    this.applyLook();
     this.sfx = new Sfx(this.sound);
     if (BOT_MODE) {
       this.bot = new PlayerBot(this);
@@ -216,8 +240,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
     if (!this.dead) {
       const intent = this.bot ? this.bot.read(dt) : this.controller.read();
+      // Tucked in the shell, or mid-evolution: hold still.
+      if (this.shellTimer > 0 || this.evolveLock > 0) {
+        intent.strength = 0;
+        intent.sprint = false;
+      }
       this.lastIntentStrength = intent.strength;
       this.player.swim(intent, dt);
+      this.updateAbility(dt);
     }
     this.updateBubbles(dt);
 
@@ -232,10 +262,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
     this.food.update(dt, this.cameras.main.worldView, time);
     if (!this.dead) {
-      if (this.controller.consumeDash() && this.player.tryDash()) {
-        this.burst(this.player.x, this.player.y, this.player.size * 0.5);
-        this.sfx.dash();
-      }
+      if (this.controller.consumeDash()) this.useAbility();
       this.updateStomach(dt);
       this.updatePlayerEating(dt);
       this.updateRams();
@@ -299,13 +326,30 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.restartRun();
   }
 
-  /** Start over: the current run ends and its checkpoint is dropped. */
+  /** Start over from level 1: the current run ends and its checkpoint is dropped. */
   restartRun(): void {
     this.reportRun(true);
     if (!BOT_MODE && !this.testMode) saves.clearCheckpoint();
     pendingResume = null;
     nextMenuMode = false;
+    nextTestMode = this.testMode;
     this.scene.restart();
+  }
+
+  /** After a death: swim again from the start of the stage you had reached. */
+  restartFromStage(): void {
+    const from = this.player?.stage?.from ?? 1;
+    this.reportRun(true);
+    pendingResume = null;
+    nextMenuMode = false;
+    nextTestMode = this.testMode;
+    nextStartLevel = from;
+    this.scene.restart();
+  }
+
+  /** Level SWIM AGAIN starts from after a death. */
+  get stageRestartLevel(): number {
+    return this.player?.stage?.from ?? 1;
   }
 
   /** Start a run from the home screen (a fresh one, or a saved one to continue). */
@@ -340,6 +384,177 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   }
 
   // ---------------------------------------------------------------- save / continue
+
+  /** After a death: keep a checkpoint at the start of the stage reached (or none for the first stage). */
+  private saveStageCheckpoint(): void {
+    const st = this.player.stage;
+    if (!st || st.from <= 1) {
+      saves.clearCheckpoint();
+      return;
+    }
+    const a = this.swimArea;
+    saves.saveCheckpoint({
+      species: this.player.species.id,
+      difficulty: this.difficultyName,
+      level: st.from,
+      xp: 0,
+      hpRatio: 1,
+      stamina: BALANCE.stamina.max,
+      stomachRatio: BALANCE.stomach.startFill,
+      stomachBank: 0,
+      x: a.centerX,
+      y: a.top + (this.seabedTop - a.top) * BALANCE.playerStartDepth,
+      runTime: 0,
+      stats: { plankton: 0, fish: 0, kills: 0, maxLevel: st.from },
+    });
+  }
+
+  // ---------------------------------------------------------------- stages: look, evolution, abilities
+
+  /** Dress the player for its stage (or the drawing chosen in Options / a test swim). */
+  private applyLook(): void {
+    if (this.menuMode) return;
+    const p = this.player;
+    const custom = getActiveSkin();
+    try {
+      if (custom) {
+        const key = 'skin_' + custom.id;
+        p.applySkin(key, buildSkinTexture(this, key, custom.project));
+        p.setArt(null);
+        return;
+      }
+      const st = p.stage;
+      const look = st ? getStageLook(st.id) : null;
+      if (st && look) {
+        const key = 'stage_' + st.id;
+        p.applySkin(key, buildSkinTexture(this, key, look));
+        p.setArt(st.art);
+        return;
+      }
+    } catch (err) {
+      console.warn('look not applied', err);
+      window.dispatchEvent(new CustomEvent('ce:skinfailed'));
+    }
+    p.clearSkin();
+    p.setArt(null);
+  }
+
+  /** Grew into the next stage: new look, full heal, a short safe moment, a new ability. */
+  private evolve(): void {
+    const p = this.player;
+    const st = p.stage!;
+    const ab = BALANCE.abilities;
+    this.applyLook();
+    p.hp = p.maxHp;
+    this.stomach.setLevel(p.level);
+    p.invulnTimer = Math.max(p.invulnTimer, ab.evolveShieldSeconds);
+    this.evolveLock = ab.evolveLockSeconds;
+    this.abilityCooldown = 0;
+    p.arcadeBody.setVelocity(0, 0);
+    this.cameras.main.flash(450, 255, 250, 220);
+    this.burst(p.x, p.y, p.size * 2.5);
+    this.burst(p.x, p.y, p.size * 1.5);
+    this.sfx.levelUp();
+    this.sfx.digest();
+    this.tweens.add({ targets: p, scaleX: p.scaleX * 1.25, scaleY: p.scaleY * 1.25, duration: 180, yoyo: true, repeat: 1 });
+    const ability = ab[st.ability];
+    this.hud.evolved(st.name, `New ability: ${ability.name}`);
+    window.dispatchEvent(new CustomEvent('ce:evolved', { detail: { stage: st.id } }));
+    this.checkpoint(true);
+  }
+
+  /** Label and readiness of the current stage ability (for the HUD). */
+  get ability(): { label: string; ratio: number; usable: boolean } {
+    const st = this.player?.stage;
+    const ab = BALANCE.abilities;
+    if (!st) return { label: '', ratio: 0, usable: false };
+    if (st.ability === 'lunge') {
+      const d = BALANCE.combat.dash;
+      return { label: ab.lunge.label, ratio: this.player.dashCooldown / d.cooldownSeconds, usable: this.player.stamina >= d.staminaCost };
+    }
+    const cfg = st.ability === 'shell' ? ab.shell : ab.roll;
+    return { label: cfg.label, ratio: this.abilityCooldown / cfg.cooldownSeconds, usable: this.abilityCooldown <= 0 };
+  }
+
+  get shellActive(): boolean {
+    return this.shellTimer > 0;
+  }
+
+  private useAbility(): void {
+    const p = this.player;
+    const st = p.stage;
+    if (!st || this.dead || this.evolveLock > 0) return;
+    const ab = BALANCE.abilities;
+    if (st.ability === 'lunge') {
+      if (p.tryDash()) {
+        this.burst(p.x, p.y, p.size * 0.5);
+        this.sfx.dash();
+      }
+      return;
+    }
+    if (this.abilityCooldown > 0 || p.stunned) return;
+    if (st.ability === 'shell') {
+      this.shellTimer = ab.shell.durationSeconds;
+      this.abilityCooldown = ab.shell.cooldownSeconds;
+      p.arcadeBody.setVelocity(0, 0);
+      this.sfx.stun();
+      this.hud.popup('Shell Guard!', p.x, p.y - p.size * 1.6, false, '#fff3c4');
+      return;
+    }
+    // Death Roll: grab the nearest fish in reach and spin.
+    const mouth = p.mouthPoint();
+    const reach = p.mouthRadius(true) * ab.roll.reachMul;
+    let best: Creature | null = null;
+    let bestD = Infinity;
+    for (const c of this.creatures) {
+      if (!c.brain || !c.fish.active) continue;
+      const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, c.fish.x, c.fish.y) - c.fish.size;
+      if (d < reach && d < bestD) {
+        best = c;
+        bestD = d;
+      }
+    }
+    if (!best) {
+      this.hud.popup('Get closer to roll', p.x, p.y - p.size * 1.4, false, '#cfe8ff');
+      return;
+    }
+    this.abilityCooldown = ab.roll.cooldownSeconds;
+    this.rollTimer = ab.roll.spinSeconds;
+    this.rollBase = p.rotation;
+    const t = best.fish;
+    const dmg = t.armored(p.biteDamage * ab.roll.damageMul);
+    const killed = t.takeDamage(dmg);
+    t.stun(ab.roll.stunSeconds);
+    p.playBite();
+    this.spawnChunks(t.x, t.y, p, dmg * BALANCE.combat.meatXpPerDamage, 3);
+    this.hud.popup(`DEATH ROLL -${Math.round(dmg)}`, t.x, t.y - t.size, true, '#ffb36b');
+    this.sfx.bite();
+    this.cameras.main.shake(260, 0.01);
+    best.brain?.onHurt(this.playerCreature);
+    if (killed) this.kill(best, this.playerCreature);
+  }
+
+  private updateAbility(dt: number): void {
+    const p = this.player;
+    this.abilityCooldown = Math.max(0, this.abilityCooldown - dt);
+    this.evolveLock = Math.max(0, this.evolveLock - dt);
+    this.shellTimer = Math.max(0, this.shellTimer - dt);
+    const g = this.abilityGfx;
+    g.clear();
+    if (this.shellTimer > 0) {
+      // A cream shell bubble around the hatchling.
+      const a = Math.min(1, this.shellTimer * 2);
+      g.fillStyle(0xf3ecd6, 0.25 * a);
+      g.fillCircle(p.x, p.y, p.size * 1.5);
+      g.lineStyle(3, 0xf3ecd6, 0.9 * a);
+      g.strokeCircle(p.x, p.y, p.size * 1.5);
+    }
+    if (this.rollTimer > 0) {
+      this.rollTimer = Math.max(0, this.rollTimer - dt);
+      const k = 1 - this.rollTimer / BALANCE.abilities.roll.spinSeconds;
+      p.rotation = this.rollBase + k * Math.PI * 4;
+    }
+  }
 
   /** A moment where continuing later would not drop you into danger. */
   isSafeToSave(): boolean {
@@ -376,20 +591,6 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       window.dispatchEvent(new CustomEvent('ce:savefailed'));
     }
     return ok;
-  }
-
-  /** Use the chosen Sprite Studio drawing for the player, if any (original art otherwise). */
-  private applySkin(): void {
-    const skin = getActiveSkin();
-    if (!skin || this.menuMode || skin.project.poses === undefined) return;
-    try {
-      const key = 'skin_' + skin.id;
-      const frames = buildSkinTexture(this, key, skin.project);
-      this.player.applySkin(key, frames);
-    } catch (err) {
-      console.warn('skin not applied', err);
-      window.dispatchEvent(new CustomEvent('ce:skinfailed'));
-    }
   }
 
   private applyCheckpoint(c: Checkpoint): void {
@@ -530,6 +731,17 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (this.dead || p.invulnerable) return;
     const def = BALANCE.playerDefense;
     const a = attacker.fish;
+    if (this.shellTimer > 0) {
+      // Shell Guard: the hit bounces off, and the attacker is dazed.
+      this.shellTimer = 0;
+      a.stun(BALANCE.abilities.shell.attackerStunSeconds);
+      const d0 = Phaser.Math.Distance.Between(a.x, a.y, p.x, p.y) || 1;
+      a.arcadeBody.setVelocity(((a.x - p.x) / d0) * 300, ((a.y - p.y) / d0) * 300);
+      p.invulnTimer = 0.6;
+      this.hud.popup('Blocked!', p.x, p.y - p.size * 1.5, true, '#fff3c4');
+      this.sfx.stun();
+      return;
+    }
     const chomp = a.canSwallow(p.size);
     const raw = a.biteDamage * damageMul * (chomp ? def.chompMultiplier : 1);
     const dmg = Math.min(p.armored(raw), p.maxHp * def.maxHitFraction);
@@ -623,13 +835,13 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (fast && !t.stunned) {
         const nx = (t.x - p.x) / (d || 1);
         const ny = (t.y - p.y) / (d || 1);
-        if (p.dashing && t.size > p.size * cb.dash.reboundSizeRatio) {
+        if (p.dashing && t.rank > p.rank * cb.dash.reboundSizeRatio) {
           p.arcadeBody.setVelocity(-nx * p.lastSpeed * 0.5, -ny * p.lastSpeed * 0.5);
           p.dashTimer = 0;
           p.stun(0.5);
           this.sfx.stun();
           this.cameras.main.shake(120, 0.005);
-        } else if (t.size <= p.size * cb.ramSizeRatio || p.dashing) {
+        } else if (t.rank <= p.rank * cb.ramSizeRatio || p.dashing) {
           t.stun(cb.ramStunSeconds);
           t.arcadeBody.setVelocity(nx * cb.dash.knockback, ny * cb.dash.knockback);
           p.arcadeBody.velocity.scale(0.5);
@@ -645,7 +857,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
       // An AI hunter ramming the player opens them up for a bite.
       const hunter = c.brain?.state === 'hunt' && c.brain.target === this.playerCreature;
-      if (hunter && !p.stunned && !p.invulnerable && t.lastSpeed > t.cruiseSpeed * cb.ramSpeedRatio && p.size <= t.size * cb.ramSizeRatio) {
+      if (hunter && !p.stunned && !p.invulnerable && this.shellTimer <= 0 && t.lastSpeed > t.cruiseSpeed * cb.ramSpeedRatio && p.rank <= t.rank * cb.ramSizeRatio) {
         p.stun(cb.ramStunSeconds * 0.7);
         this.sfx.stun();
         const nx = (p.x - t.x) / (d || 1);
@@ -700,7 +912,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.sfx.death();
     this.stats.maxLevel = Math.max(this.stats.maxLevel, this.player.level);
     this.reportRun(true, how);
-    if (!BOT_MODE && !this.testMode) saves.clearCheckpoint();
+    if (!BOT_MODE && !this.testMode) this.saveStageCheckpoint();
     if (BOT_MODE) {
       const log = playtestLog();
       log.deaths.push({
@@ -746,8 +958,13 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   private grantXp(xp: number): void {
     const p = this.player;
+    const stageBefore = stageIndex(p.level);
     const levels = p.addXp(xp);
-    if (levels > 0) {
+    if (levels > 0 && stageIndex(p.level) !== stageBefore) {
+      this.stomach.setLevel(p.level);
+      this.stats.maxLevel = Math.max(this.stats.maxLevel, p.level);
+      this.evolve();
+    } else if (levels > 0) {
       this.stomach.setLevel(p.level);
       this.stats.maxLevel = Math.max(this.stats.maxLevel, p.level);
       this.hud.levelUp(p.level);

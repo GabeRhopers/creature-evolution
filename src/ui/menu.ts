@@ -5,12 +5,12 @@
 // one; HOME (pause or death screen) returns here. Settings, records and the
 // run checkpoint go through the SaveManager (src/save).
 import type Phaser from 'phaser';
-import { BALANCE, SPECIES, type DifficultyName } from '../data';
-import { sizeAt } from '../systems/growth';
+import { SPECIES, STAGES, type DifficultyName } from '../data';
+import { levelToSwallow } from '../systems/growth';
 import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
 import { APP_VERSION, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
-import { listStudioProjects, loadStudioProject, setActiveSkin, validateProject } from '../skins';
+import { listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject } from '../skins';
 import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
 
 /** Sprite Studio lives in the same artifact, so both pages share saves. */
@@ -52,6 +52,8 @@ export function initMenu(game: Phaser.Game): void {
 
   // ---------------------------------------------------------------- creature look (Sprite Studio)
   let skinReady: Promise<void> = Promise.resolve();
+  // The three stage designs (hatchling, juvenile, adult): loaded in the background.
+  const looksReady = loadStageLooks(STAGES).catch(() => undefined);
   /** Load the chosen studio drawing in the background so PLAY starts instantly. */
   function prepareSkin(id: string | null, quiet = false): Promise<boolean> {
     let ok = true;
@@ -138,7 +140,8 @@ export function initMenu(game: Phaser.Game): void {
   }
   async function startRun(resume: Checkpoint | null, test = false): Promise<void> {
     closePanel();
-    await skinReady;
+    // Never keep the player waiting long: the original art is the fallback.
+    await Promise.race([Promise.all([skinReady, looksReady]), new Promise((r) => setTimeout(r, 4000))]);
     home.classList.remove('open');
     hud().hideDeath();
     hud().startMusic();
@@ -266,7 +269,7 @@ export function initMenu(game: Phaser.Game): void {
     const lt = profile.lifetime;
     openPanel(
       `<h3>Options</h3>${optionsHtml()}
-      <div class="toggle"><span>Your crocodile<br><span style="color:var(--muted);font-size:13px">Drawings from Sprite Studio</span></span><select id="oSkin" aria-label="Your crocodile"><option value="">Original</option></select></div>
+      <div class="toggle"><span>Your crocodile<br><span style="color:var(--muted);font-size:13px">Drawings from Sprite Studio</span></span><select id="oSkin" aria-label="Your crocodile"><option value="">Grows with each stage</option></select></div>
       <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${profile.best.level ? `Level ${profile.best.level} · ${lt.runs} runs played` : 'None yet'}</span></span><button class="btn" id="oReset" data-label="Reset">Reset</button></div>
       <div class="toggle"><span>Reset everything<br><span style="color:var(--muted);font-size:13px">Settings, records and the saved run</span></span><button class="btn" id="oResetAll" data-label="Reset all">Reset all</button></div>
       <p style="color:var(--muted);font-size:13px">${
@@ -317,7 +320,7 @@ export function initMenu(game: Phaser.Game): void {
         opts.skin = null;
         saveProfile();
         sel.value = '';
-      } else badge(id ? 'Your drawing will swim next run' : 'Original crocodile');
+      } else badge(id ? 'Your drawing will swim next run' : 'Stage designs: hatchling, juvenile, adult');
     };
   }
 
@@ -559,14 +562,8 @@ async function drawArt(): Promise<void> {
   drawHero();
   if (!reduce) setInterval(drawHero, 380);
 
-  // Food chain: what the crocodile can swallow at which level.
-  const croc = SPECIES[BALANCE.playerSpecies];
-  const levelToSwallow = (size: number) => {
-    let lv = 1;
-    while (sizeAt(croc, lv) * croc.devourRatio < size && lv < 99) lv++;
-    return lv;
-  };
-  const steps: Array<{ name: string; frame: string; level: number; tint?: string }> = [
+  // Food chain: what the crocodile can swallow at which level (bigger ones it can only bite).
+  const steps: Array<{ name: string; frame: string; level: number | null; tint?: string }> = [
     { name: 'Plankton', frame: 'bubble_b', level: 1, tint: '#9adc6c' },
     ...['blue_tang', 'reef_snapper', 'red_grouper', 'grey_shark'].map((id) => ({
       name: SPECIES[id].displayName,
@@ -603,7 +600,7 @@ async function drawArt(): Promise<void> {
       }
     }
     el.appendChild(c);
-    el.insertAdjacentHTML('beforeend', `<span class="n">${s.name}</span><span class="lv">${s.level === 1 ? 'from the start' : `level ${s.level}+`}</span>`);
+    el.insertAdjacentHTML('beforeend', `<span class="n">${s.name}</span><span class="lv">${s.level === 1 ? 'from the start' : s.level ? `level ${s.level}+` : 'bite it'}</span>`);
     row.appendChild(el);
   });
 }
