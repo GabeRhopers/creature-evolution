@@ -14,6 +14,7 @@ import { PlayerBot } from '../dev/PlayerBot';
 import { saves, type Checkpoint, type DeathCause } from '../save';
 import { buildSkinTexture, getActiveSkin, getStageLook } from '../skins';
 import { stageIndex } from '../systems/growth';
+import { offerPerks, perkById, perkMods, perksOwed } from '../systems/perks';
 
 /** `?bot=1`: an automated playtester drives the player and metrics are recorded. */
 export const BOT_MODE = new URLSearchParams(window.location.search).has('bot');
@@ -42,6 +43,8 @@ let pendingResume: Checkpoint | null = null;
 let nextTestMode = false;
 /** Level a fresh run starts at (after a death: the start of the stage you reached). */
 let nextStartLevel = 1;
+/** Perks carried into the next run (a stage restart keeps them). */
+let nextPerks: string[] = [];
 
 /** Seconds of play between automatic checkpoints. */
 const AUTOSAVE_SECONDS = 20;
@@ -114,6 +117,9 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   private shellTimer = 0;
   private rollTimer = 0;
   private rollBase = 0;
+  /** Perks picked this run, and whether a choice is on screen. */
+  perks: string[] = [];
+  private perkPending = false;
   /** Controls locked for a moment while evolving. */
   private evolveLock = 0;
   private abilityGfx!: Phaser.GameObjects.Graphics;
@@ -146,6 +152,9 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.shellTimer = 0;
     this.rollTimer = 0;
     this.evolveLock = 0;
+    this.perks = nextPerks;
+    nextPerks = [];
+    this.perkPending = false;
     if (pendingResume) currentDifficulty = pendingResume.difficulty;
     this.difficultyName = currentDifficulty;
     this.difficulty = DIFFICULTY[currentDifficulty];
@@ -199,7 +208,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.stomach.reset(this.player.level);
     if (!this.menuMode && pendingResume) this.applyCheckpoint(pendingResume);
     pendingResume = null;
+    this.applyPerks();
     this.applyLook();
+    // A pick earned before the game was closed is offered again.
+    if (!this.menuMode) this.time.delayedCall(700, () => this.checkPerks());
     this.sfx = new Sfx(this.sound);
     if (BOT_MODE) {
       this.bot = new PlayerBot(this);
@@ -328,6 +340,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   /** Start over from level 1: the current run ends and its checkpoint is dropped. */
   restartRun(): void {
+    nextPerks = [];
     this.reportRun(true);
     if (!BOT_MODE && !this.testMode) saves.clearCheckpoint();
     pendingResume = null;
@@ -339,6 +352,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** After a death: swim again from the start of the stage you had reached. */
   restartFromStage(): void {
     const from = this.player?.stage?.from ?? 1;
+    nextPerks = this.perks.slice();
     this.reportRun(true);
     pendingResume = null;
     nextMenuMode = false;
@@ -406,6 +420,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       y: a.top + (this.seabedTop - a.top) * BALANCE.playerStartDepth,
       runTime: 0,
       stats: { plankton: 0, fish: 0, kills: 0, maxLevel: st.from },
+      perks: this.perks.slice(),
     });
   }
 
@@ -472,10 +487,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (!st) return { label: '', ratio: 0, usable: false };
     if (st.ability === 'lunge') {
       const d = BALANCE.combat.dash;
-      return { label: ab.lunge.label, ratio: this.player.dashCooldown / d.cooldownSeconds, usable: this.player.stamina >= d.staminaCost };
+      return { label: ab.lunge.label, ratio: this.player.dashCooldown / (d.cooldownSeconds * this.player.mods.cooldown), usable: this.player.stamina >= d.staminaCost };
     }
     const cfg = st.ability === 'shell' ? ab.shell : ab.roll;
-    return { label: cfg.label, ratio: this.abilityCooldown / cfg.cooldownSeconds, usable: this.abilityCooldown <= 0 };
+    return { label: cfg.label, ratio: this.abilityCooldown / (cfg.cooldownSeconds * this.player.mods.cooldown), usable: this.abilityCooldown <= 0 };
   }
 
   get shellActive(): boolean {
@@ -497,7 +512,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (this.abilityCooldown > 0 || p.stunned) return;
     if (st.ability === 'shell') {
       this.shellTimer = ab.shell.durationSeconds;
-      this.abilityCooldown = ab.shell.cooldownSeconds;
+      this.abilityCooldown = ab.shell.cooldownSeconds * p.mods.cooldown;
       p.arcadeBody.setVelocity(0, 0);
       this.sfx.stun();
       this.hud.popup('Shell Guard!', p.x, p.y - p.size * 1.6, false, '#fff3c4');
@@ -520,7 +535,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.hud.popup('Get closer to roll', p.x, p.y - p.size * 1.4, false, '#cfe8ff');
       return;
     }
-    this.abilityCooldown = ab.roll.cooldownSeconds;
+    this.abilityCooldown = ab.roll.cooldownSeconds * p.mods.cooldown;
     this.rollTimer = ab.roll.spinSeconds;
     this.rollBase = p.rotation;
     const t = best.fish;
@@ -558,6 +573,40 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
   }
 
+  // ---------------------------------------------------------------- perks
+
+  private applyPerks(): void {
+    const m = perkMods(this.perks);
+    this.player.mods = m;
+    this.stomach.capacityMul = m.stomach;
+    this.stomach.hungerMul = m.hunger;
+  }
+
+  /** Offer a perk choice if one is earned (not in test swims; the bot picks at random). */
+  checkPerks(): void {
+    if (this.menuMode || this.dead || this.testMode || this.perkPending) return;
+    if (perksOwed(this.player.level, this.perks.length) <= 0) return;
+    const options = offerPerks();
+    if (BOT_MODE) return this.choosePerk(options[0].id);
+    this.perkPending = true;
+    window.dispatchEvent(new CustomEvent('ce:perk', { detail: { options, level: this.player.level } }));
+  }
+
+  /** The player picked a perk. */
+  choosePerk(id: string): void {
+    const perk = perkById(id);
+    this.perkPending = false;
+    if (!perk || this.dead) return;
+    this.perks.push(id);
+    this.applyPerks();
+    const p = this.player;
+    this.hud.popup(`${perk.icon} ${perk.name}!`, p.x, p.y - p.size * 1.6, true, '#ffd166');
+    this.sfx.levelUp();
+    this.checkpoint(true);
+    // Several levels at once can earn more than one pick.
+    this.time.delayedCall(400, () => this.checkPerks());
+  }
+
   /** A moment where continuing later would not drop you into danger. */
   isSafeToSave(): boolean {
     const p = this.player;
@@ -585,6 +634,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       y: p.y,
       runTime: this.runTime,
       stats: { ...this.stats, maxLevel: Math.max(this.stats.maxLevel, p.level) },
+      perks: this.perks.slice(),
     });
     if (ok) {
       this.lastCheckpointAt = saves.lastSavedAt;
@@ -608,6 +658,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.stomach.bank = c.stomachBank;
     this.runTime = c.runTime;
     this.stats = { ...c.stats };
+    this.perks = (c.perks ?? []).filter((id) => !!perkById(id));
     p.invulnTimer = RESUME_SHIELD_SECONDS;
     this.lastCheckpointAt = Date.now();
   }
@@ -966,6 +1017,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.stomach.setLevel(p.level);
       this.stats.maxLevel = Math.max(this.stats.maxLevel, p.level);
       this.evolve();
+      this.time.delayedCall(2600, () => this.checkPerks());
     } else if (levels > 0) {
       this.stomach.setLevel(p.level);
       this.stats.maxLevel = Math.max(this.stats.maxLevel, p.level);
@@ -974,6 +1026,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       p.playCelebrate();
       this.checkpoint(false);
       this.burst(p.x, p.y, p.size * 1.5);
+      // Let the level-up banner show first.
+      this.time.delayedCall(900, () => this.checkPerks());
     }
   }
 

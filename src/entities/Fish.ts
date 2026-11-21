@@ -3,6 +3,7 @@ import { BALANCE, type Species } from '../data';
 import { ATLAS } from '../assets';
 import { formAt, clampLevel, xpToNext, type Form } from '../systems/growth';
 import { MAX_LEVEL, type StageDef } from '../data';
+import { NO_MODS, type PerkMods } from '../systems/perks';
 
 /** What a controller (keyboard, touch or AI brain) asks the fish to do this frame. */
 export interface SwimIntent {
@@ -67,6 +68,8 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   private biteAnim = 0;
   /** Body, rank and strength for the current level. */
   form!: Form;
+  /** Perk effects (player only; AI fish keep 1.0 everywhere). */
+  mods: PerkMods = { ...NO_MODS };
   /** True for the player: growth follows stages (capped size, level cap). */
   staged = false;
   /** Per-stage art geometry (overrides the species art). */
@@ -207,7 +210,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   }
 
   get biteDamage(): number {
-    return this.species.baseBite * Math.pow(this.form.power, BALANCE.growth.biteExponent);
+    return this.species.baseBite * Math.pow(this.form.power, BALANCE.growth.biteExponent) * this.mods.bite;
   }
 
   get stunned(): boolean {
@@ -230,7 +233,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   /** Bigger bodies swim a bit faster in absolute terms but turn more slowly. */
   get speedFactor(): number {
-    return Math.pow(this.size / this.species.baseSize, BALANCE.growth.speedExponent);
+    return Math.pow(this.size / this.species.baseSize, BALANCE.growth.speedExponent) * this.mods.speed;
   }
   get turnFactor(): number {
     return Math.pow(this.size / this.species.baseSize, BALANCE.growth.turnExponent);
@@ -246,7 +249,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   /** Damage after this species' armor (thick hide). */
   armored(amount: number): number {
-    return amount * (1 - (this.species.armor ?? 0));
+    return amount * (1 - (this.species.armor ?? 0)) * this.mods.damageTaken;
   }
 
   /**
@@ -271,7 +274,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     if (this.dashCooldown > 0 || this.stunned || this.stamina < d.staminaCost) return false;
     this.stamina -= d.staminaCost;
     this.dashTimer = d.durationSeconds;
-    this.dashCooldown = d.cooldownSeconds;
+    this.dashCooldown = d.cooldownSeconds * this.mods.cooldown;
     const v = this.cruiseSpeed * d.speedMul;
     this.arcadeBody.setVelocity(Math.cos(this.heading) * v, Math.sin(this.heading) * v);
     return true;

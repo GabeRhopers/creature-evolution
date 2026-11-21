@@ -57,6 +57,8 @@ export interface Checkpoint {
   y: number;
   runTime: number;
   stats: RunStats;
+  /** Perks picked this run (ids, in order). Older saves have none. */
+  perks?: string[];
 }
 
 /** What is actually written: the payload plus a header. */
@@ -171,6 +173,7 @@ export function sanitizeCheckpoint(raw: unknown, lim: SaveLimits): Checkpoint | 
     x: num(r.x, 0, lim.worldWidth, lim.worldWidth / 2),
     y: num(r.y, 0, lim.worldHeight, lim.worldHeight / 2),
     runTime: num(r.runTime, 0, 1e7, 0),
+    perks: Array.isArray(r.perks) ? r.perks.filter((x): x is string => typeof x === 'string' && /^[a-z]{2,16}$/.test(x)).slice(0, 30) : [],
     stats: {
       plankton: int(st.plankton, 0, 1e7, 0),
       fish: int(st.fish, 0, 1e7, 0),

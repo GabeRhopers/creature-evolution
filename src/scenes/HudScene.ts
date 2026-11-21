@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { saves } from '../save';
+import { perkById } from '../systems/perks';
 import { BALANCE } from '../data';
 import type { GameScene } from './GameScene';
 import { toggleTuningPanel } from '../ui/tuning';
@@ -342,7 +343,7 @@ export class HudScene extends Phaser.Scene {
     const starving = st.ratio < 0.1;
     this.stomachBack.setStrokeStyle(1, starving ? 0xff2020 : 0xc8e6c9, starving ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 0.6);
     this.info.setText(
-      `${p.stage ? `${p.stage.name} · ` : ''}Level ${p.level}${p.atMaxLevel ? ' (MAX)' : ''}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
+      `${p.stage ? `${p.stage.name} · ` : ''}Level ${p.level}${p.atMaxLevel ? ' (MAX)' : ''}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}${g.perks.length ? `  |  ${g.perks.map((id) => perkById(id)?.icon ?? '').join('')}` : ''}`,
     );
     // Hidden while the home screen shows the ocean behind it.
     this.cameras.main.setVisible(!g.menuMode);

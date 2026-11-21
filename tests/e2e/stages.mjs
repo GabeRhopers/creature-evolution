@@ -8,6 +8,7 @@ const S=()=>G(()=>{const g=window.game.scene.getScene('Game'),pl=g.player;return
 const shot=async(n,z=2)=>{await G((z)=>{const g=window.game.scene.getScene('Game');g.cameras.main.setZoom(z)},z); await p.waitForTimeout(300); await p.screenshot({path:'/home/claude/stages/'+n+'.png'});};
 await p.goto('http://localhost:4173/'); await G(()=>localStorage.clear()); await p.reload(); await p.waitForTimeout(3500);
 ok((await p.textContent('#chain')).includes('bite it'), 'food chain on home shows sharks as bite-only: '+(await p.textContent('#chain')).replace(/\s+/g,' '));
+await G(()=>window.addEventListener('ce:perk',()=>setTimeout(()=>document.querySelector('[data-perk]')?.click(),30))); // this test skips through levels: pick perks automatically
 await p.click('#btnPlay'); await p.waitForTimeout(1500);
 let s=await S(); console.log(JSON.stringify(s));
 ok(s.stage==='hatchling' && s.tex==='stage_hatchling' && s.ability==='SHELL', 'starts as a hatchling in its egg, ability SHELL');
@@ -43,7 +44,7 @@ await p.waitForTimeout(200);
 const after = await G((i)=>{const g=window.game.scene.getScene('Game'); const t=g.creatures[i]; return {hp:t.fish.hp, alive:t.fish.active, stunned:t.fish.stunned, cd:g.abilityCooldown, kills:g.stats.kills};}, roll.ref);
 ok(after.cd>0 && (after.hp<roll.hp || after.kills>roll.kills), `Death Roll hits the ${roll.id} (kills ${roll.kills} -> ${after.kills})`);
 // reef reacts: sharks do not hunt the adult, they hunted the juvenile
-const reacts = await G(()=>{const g=window.game.scene.getScene('Game'); const sh=g.creatures.find(c=>c.fish.species.id==='grey_shark'); const pc=g.playerCreature;
+const reacts = await G(()=>{const g=window.game.scene.getScene('Game'); const sh=g.creatures.find(c=>c.fish.species.id==='grey_shark'); sh.fish.setLevel(1); const pc=g.playerCreature;
   const adult = sh.brain.isThreat ? null : null;
   g.player.setLevel(15); const juvThreat = sh.brain['isThreat'](pc) , juvBite = sh.brain.canBite(pc);
   g.player.setLevel(30); const adultBite = sh.brain.canBite(pc); const sharkFears = sh.brain['isThreat'].call(sh.brain, pc);

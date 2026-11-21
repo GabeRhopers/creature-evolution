@@ -23,6 +23,9 @@ export class Stomach {
   /** Seconds left in the current digestion animation (0 = not digesting). */
   digestTimer = 0;
   private level = 1;
+  /** Perk multipliers: bigger stomach, slower hunger. */
+  capacityMul = 1;
+  hungerMul = 1;
 
   get cfg() {
     return BALANCE.stomach;
@@ -33,7 +36,7 @@ export class Stomach {
   }
 
   get capacity(): number {
-    return this.cfg.capacityBase * Math.pow(this.level, this.cfg.capacityExponent);
+    return this.cfg.capacityBase * Math.pow(this.level, this.cfg.capacityExponent) * this.capacityMul;
   }
 
   get ratio(): number {
@@ -89,7 +92,7 @@ export class Stomach {
     // Metabolism: empty slowly, releasing the bank in proportion.
     // Hunger grows more gently than the stomach, since the creature's mouth no longer grows without limit.
     const rate = this.cfg.capacityBase * this.cfg.metabolismPerSecond * Math.pow(this.level, this.cfg.metabolismLevelExponent ?? this.cfg.capacityExponent);
-    const burn = Math.min(this.fill, rate * dt);
+    const burn = Math.min(this.fill, rate * this.hungerMul * dt);
     if (burn > 0 && this.fill > 0) {
       const share = this.bank * (burn / this.fill);
       this.bank -= share;

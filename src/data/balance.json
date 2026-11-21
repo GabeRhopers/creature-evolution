@@ -240,5 +240,54 @@
     },
     "evolveLockSeconds": 1.0,
     "evolveShieldSeconds": 2.5
+  },
+  "perks": {
+    "_comment": "Pick 1 of 3 perks at these levels (twice per stage, never on an evolution level). Perks stack.",
+    "levels": [
+      4,
+      7,
+      14,
+      17,
+      24,
+      27
+    ],
+    "list": [
+      {
+        "id": "swift",
+        "icon": "💨",
+        "name": "Swift Tail",
+        "desc": "Swim 10% faster.",
+        "speed": 1.1
+      },
+      {
+        "id": "hide",
+        "icon": "🛡️",
+        "name": "Thick Hide",
+        "desc": "Bites hurt you 12% less.",
+        "damageTaken": 0.88
+      },
+      {
+        "id": "jaws",
+        "icon": "🦷",
+        "name": "Strong Jaws",
+        "desc": "Your bites hit 15% harder.",
+        "bite": 1.15
+      },
+      {
+        "id": "belly",
+        "icon": "🍖",
+        "name": "Big Belly",
+        "desc": "Stomach holds 25% more and empties 10% slower.",
+        "stomach": 1.25,
+        "hunger": 0.9
+      },
+      {
+        "id": "focus",
+        "icon": "⚡",
+        "name": "Quick Recovery",
+        "desc": "Your stage ability recharges 20% faster.",
+        "cooldown": 0.8
+      }
+    ]
   }
 }

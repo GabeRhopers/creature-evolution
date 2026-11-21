@@ -11,6 +11,7 @@ import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
 import { APP_VERSION, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
 import { listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject } from '../skins';
+import type { PerkDef } from '../systems/perks';
 import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
 
 /** Sprite Studio lives in the same artifact, so both pages share saves. */
@@ -432,8 +433,37 @@ export function initMenu(game: Phaser.Game): void {
     game.scene.resume('Game');
   }
   window.addEventListener('ce:pause', pause);
+
+  // ---------------------------------------------------------------- perk choice
+  let choosingPerk = false;
+  window.addEventListener('ce:perk', (e) => {
+    const { options, level } = (e as CustomEvent<{ options: PerkDef[]; level: number }>).detail;
+    if (!playing() || paused) return;
+    choosingPerk = true;
+    paused = true;
+    game.scene.pause('Game');
+    const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    openPanel(
+      `<h3>Level ${level}: choose a perk</h3>
+      <p class="saved-line">Pick one. Perks add up, and they stay with you if you swim again from your stage.</p>
+      <div class="perks">${options
+        .map((o) => `<button class="btn perk" data-perk="${esc(o.id)}"><span class="pi" aria-hidden="true">${o.icon}</span><span class="pn">${esc(o.name)}</span><span class="pd">${esc(o.desc)}</span></button>`)
+        .join('')}</div>`,
+      () =>
+        panel.querySelectorAll<HTMLButtonElement>('[data-perk]').forEach((b) => {
+          b.onclick = () => {
+            choosingPerk = false;
+            paused = false;
+            wrap.classList.remove('open');
+            game.scene.resume('Game');
+            scene()?.choosePerk(b.dataset.perk!);
+          };
+        }),
+    );
+  });
+
   window.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
+    if (e.key !== 'Escape' || choosingPerk) return;
     if (wrap.classList.contains('open')) closePanel();
     else if (!home.classList.contains('open')) pause();
   });

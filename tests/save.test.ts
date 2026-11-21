@@ -144,6 +144,10 @@ describe('checkpoint checks', () => {
     expect(sanitizeCheckpoint({ ...CP, species: 'dragon' }, LIM)).toBeNull();
     expect(sanitizeCheckpoint({ ...CP, level: 'seven' }, LIM)).toBeNull();
   });
+  it('keeps valid perks, drops junk, and treats old saves as having none', () => {
+    expect(sanitizeCheckpoint({ ...CP, perks: ['swift', 'jaws', 7, '<x>'] }, LIM)!.perks).toEqual(['swift', 'jaws']);
+    expect(sanitizeCheckpoint({ ...CP }, LIM)!.perks).toEqual([]);
+  });
   it('never resumes with zero health', () => {
     expect(sanitizeCheckpoint({ ...CP, hpRatio: 0 }, LIM)!.hpRatio).toBeGreaterThan(0);
   });
