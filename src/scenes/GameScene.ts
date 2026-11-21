@@ -123,6 +123,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   private shellTimer = 0;
   private rollTimer = 0;
   private slamFx: { x: number; y: number; r: number; t: number } | null = null;
+  private frenzyTimer = 0;
   private rollBase = 0;
   /** Perks picked this run, and whether a choice is on screen. */
   perks: string[] = [];
@@ -163,6 +164,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.shellTimer = 0;
     this.rollTimer = 0;
     this.slamFx = null;
+    this.frenzyTimer = 0;
     this.evolveLock = 0;
     this.perks = nextPerks;
     nextPerks = [];
@@ -547,6 +549,16 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.tailSlam();
       return;
     }
+    if (st.ability === 'frenzy') {
+      const f = ab.frenzy;
+      this.abilityCooldown = f.cooldownSeconds * p.mods.cooldown;
+      this.frenzyTimer = f.durationSeconds;
+      this.applyPerks();
+      this.sfx.dash();
+      this.cameras.main.shake(160, 0.006);
+      this.hud.popup('FEEDING FRENZY!', p.x, p.y - p.size * 1.6, true, '#ff6b6b');
+      return;
+    }
     // Death Roll (spins) or Crushing Bite (no spin): grab the nearest fish in reach.
     const grab = st.ability === 'crush' ? ab.crush : ab.roll;
     const mouth = p.mouthPoint();
@@ -624,6 +636,13 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       g.lineStyle(3, 0xf3ecd6, 0.9 * a);
       g.strokeCircle(p.x, p.y, p.size * 1.5);
     }
+    if (this.frenzyTimer > 0) {
+      // A pulsing red ring while the frenzy lasts; when it ends, the perks alone apply again.
+      this.frenzyTimer = Math.max(0, this.frenzyTimer - dt);
+      g.lineStyle(3, 0xe43b44, 0.5 + 0.4 * Math.sin(this.time.now / 70));
+      g.strokeCircle(p.x, p.y, p.size * 1.35);
+      if (this.frenzyTimer === 0) this.applyPerks();
+    }
     if (this.slamFx) {
       // A widening shock ring from the tail slam.
       const f = this.slamFx;
@@ -697,6 +716,12 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   private applyPerks(): void {
     const m = perkMods(this.perks);
+    // Feeding Frenzy (the shark's adult ability) adds to the perks while it lasts.
+    if (this.frenzyTimer > 0) {
+      const f = BALANCE.abilities.frenzy;
+      m.bite *= f.biteMul;
+      m.speed *= f.speedMul;
+    }
     this.player.mods = m;
     this.stomach.capacityMul = m.stomach;
     this.stomach.hungerMul = m.hunger;

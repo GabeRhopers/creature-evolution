@@ -18,3 +18,6 @@ and the trash.
 `mosa.mjs` picks Mosa on the home screen, grows it through all three stages, uses Dart,
 Tail Slam and Crushing Bite, then checks that Continue brings back a Mosa run and that a new
 run with Croc picked is a crocodile again.
+
+`shark.mjs` picks the White Shark, grows it through all three stages and checks that Feeding
+Frenzy boosts bite and speed, then wears off and recharges.

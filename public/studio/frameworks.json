@@ -101,5 +101,19 @@
       22
     ],
     "notes": "Mike's long sea reptile. Wide for the long snout and tail, tall so the tail can curl up or down while swimming. Every stage uses this canvas; the eye stays in the same place in every frame so the mouth does not jump."
+  },
+  "white_shark": {
+    "extends": "default",
+    "name": "White Shark",
+    "canvas": [
+      64,
+      48
+    ],
+    "bodyRadius": 8,
+    "mouth": [
+      56,
+      22
+    ],
+    "notes": "The third playable hero, drawn in the same style as Mike's Croc and Mosa. Tall enough for the dorsal fin, the crescent tail swinging up and down, and the eggshell and cap on the hatchling. The eye stays in the same place in every frame so the mouth does not jump."
   }
 }

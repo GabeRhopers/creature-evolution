@@ -47,7 +47,13 @@ Heroes live in `balance.json` "heroes": each is a species id that reuses the sha
 sizes and depths and swaps in its own stage designs and abilities (`heroStages`, `setHero` in
 `src/data/index.ts`; `setHero` swaps the shared `STAGES` array in place). The hero is picked on
 the home screen (`settings.hero`); a saved run keeps the hero it was played with (checkpoint `species`).
-Abilities: croc Shell Guard / Lunge / Death Roll; Mosa Dart / Tail Slam / Crushing Bite.
+**White Shark** is the third hero, drawn in the same style as Mike's two (`tools/heroes/draw_shark.py`:
+polygon shapes, grey back, white belly, tooth row, yellow eye; framework `white_shark`). Shared hero drawing
+helpers (eye-anchored placement, bite frames, blink, egg) live in `tools/heroes/heroart.py`.
+**Every hero's hatchling hatches from an egg**: it sits in a broken shell and wears a shell cap
+(`heroart.egg`; the shark's shell is beige so it stands out from its white belly).
+Abilities: croc Shell Guard / Lunge / Death Roll; Mosa Dart / Tail Slam / Crushing Bite;
+White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks).
 
 ## Player damage rules (`GameScene.attackPlayer`)
 AI never swallows the player. Predators that could swallow you "chomp" (x1.5 damage);
