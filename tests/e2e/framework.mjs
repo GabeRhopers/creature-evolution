@@ -11,7 +11,10 @@ await p.goto(base+'studio/index.html'); await G(()=>{localStorage.clear();
   localStorage.setItem('spritestudio:croc-hatchling', JSON.stringify(old));
   localStorage.setItem('spritestudio:croc-adult', JSON.stringify({...old, name:'Crocodile 3: Adult', rev:5, updatedAt:'2026-11-21T10:12:00.000Z'})); // edited: saving replaced the starter timestamp
   localStorage.setItem('spritestudio.seeded', JSON.stringify(['croc-hatchling','croc-juvenile','croc-adult']));});
-await p.reload(); await p.waitForTimeout(11500);
+await p.reload();
+// Seeding runs in the background and loads every starter design; slow runners need longer, so poll (up to 40 s).
+for (let t=0; t<40000; t+=500) { if (await G(()=>!!localStorage.getItem('spritestudio:croc-adult-v3') && JSON.parse(localStorage.getItem('spritestudio:croc-hatchling')||'{}').framework==='crocodile')) break; await p.waitForTimeout(500); }
+await p.waitForTimeout(1000);
 const ids = await G(()=>Object.keys(localStorage).filter(k=>k.startsWith('spritestudio:croc')).map(k=>k.slice(13)).sort());
 console.log('projects:', ids.join(', '));
 ok(await G(()=>JSON.parse(localStorage.getItem('spritestudio:croc-hatchling')).framework==='crocodile'), 'untouched old hatchling upgraded to the framework design');
