@@ -309,5 +309,108 @@
       "weight": 0
     },
     "armor": 0.35
+  },
+  "lionfish": {
+    "displayName": "Lionfish",
+    "sprite": "fish_orange",
+    "look": "fish-lionfish",
+    "tier": 2,
+    "baseSize": 13,
+    "baseHP": 26,
+    "baseBite": 4,
+    "accel": 320,
+    "maxSpeed": 130,
+    "sprintMultiplier": 1.4,
+    "drag": 0.96,
+    "turnSpeed": 3.5,
+    "devourRatio": 0.5,
+    "xpValue": 55,
+    "diet": [
+      "food"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0,
+      "visionRange": 260,
+      "fleeRatio": 1.6
+    },
+    "spawn": {
+      "depthMin": 0.2,
+      "depthMax": 0.55,
+      "weight": 0
+    },
+    "unlockLevel": 6,
+    "venom": 0.06,
+    "intro": "Its spines sting when you bite or swallow it"
+  },
+  "moray_eel": {
+    "displayName": "Moray Eel",
+    "sprite": "fish_grey",
+    "look": "fish-moray_eel",
+    "tier": 3,
+    "baseSize": 40,
+    "rankMul": 2.0,
+    "baseHP": 180,
+    "baseBite": 16,
+    "accel": 420,
+    "maxSpeed": 180,
+    "sprintMultiplier": 1.6,
+    "drag": 0.97,
+    "turnSpeed": 3.0,
+    "devourRatio": 0.6,
+    "xpValue": 160,
+    "diet": [
+      "tier1",
+      "tier2"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 1.0,
+      "visionRange": 230,
+      "fleeRatio": 2.0,
+      "ambush": true
+    },
+    "spawn": {
+      "depthMin": 0.5,
+      "depthMax": 0.7,
+      "weight": 0
+    },
+    "unlockLevel": 14,
+    "intro": "It hides near the bottom of the Reef and lunges at anything passing by"
+  },
+  "barracuda": {
+    "displayName": "Barracuda",
+    "sprite": "fish_grey",
+    "look": "fish-barracuda",
+    "tier": 3,
+    "baseSize": 30,
+    "rankMul": 4.0,
+    "baseHP": 160,
+    "baseBite": 20,
+    "accel": 560,
+    "maxSpeed": 290,
+    "sprintMultiplier": 1.8,
+    "drag": 0.975,
+    "turnSpeed": 3.4,
+    "devourRatio": 0.5,
+    "xpValue": 220,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3"
+    ],
+    "behavior": {
+      "schooling": true,
+      "aggression": 1.0,
+      "visionRange": 520,
+      "fleeRatio": 2.0
+    },
+    "spawn": {
+      "depthMin": 0.65,
+      "depthMax": 1.0,
+      "weight": 0
+    },
+    "unlockLevel": 22,
+    "intro": "Fast hunters in packs. Keep moving, or hide in kelp"
   }
 }

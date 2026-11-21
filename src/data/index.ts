@@ -10,6 +10,8 @@ export interface SpeciesBehavior {
   aggression: number;
   visionRange: number;
   fleeRatio: number;
+  /** Lurks almost still, then lunges at prey that comes close (moray eel). */
+  ambush?: boolean;
 }
 
 export interface SpeciesSpawn {
@@ -71,6 +73,14 @@ export interface Species {
   look?: string;
   /** Never tilts with its heading (the front-view crab): only turns left and right. */
   upright?: boolean;
+  /** Only appears once the player reaches this level (a new enemy). */
+  unlockLevel?: number;
+  /** Short line shown when it first appears. */
+  intro?: string;
+  /** Venomous: biting or swallowing it costs the player this share of max health (lionfish). */
+  venom?: number;
+  /** AI strength = size x rankMul (a slim fish that fights above its size). Default 1. */
+  rankMul?: number;
   /** Damage reduction 0..1 (thick hide). */
   armor?: number;
 }

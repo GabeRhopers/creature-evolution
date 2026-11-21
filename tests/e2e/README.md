@@ -25,3 +25,7 @@ Frenzy boosts bite and speed, then wears off and recharges.
 `crab.mjs` covers the Checkpoint Crab: appears at level 10 with a banner and an arrow, can't be
 swallowed, takes about 14 bites, pinches, saves level 10, and after dying the run restarts at
 level 10 with its perks; Continue keeps the crab level and a new run clears it.
+
+`enemies.mjs` checks the higher-level enemies: none on the home screen or at the start, lionfish at
+level 6 (with a banner and venom), moray eels at 14 (they lunge), barracuda at 22, and a run
+continued at level 15 starts with the enemies it has unlocked.

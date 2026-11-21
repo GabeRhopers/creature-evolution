@@ -59,7 +59,10 @@
     "blue_tang": 45,
     "reef_snapper": 14,
     "red_grouper": 7,
-    "grey_shark": 2
+    "grey_shark": 2,
+    "lionfish": 10,
+    "moray_eel": 5,
+    "barracuda": 9
   },
   "ai": {
     "hungerDrainPerSecond": 0.014,
@@ -76,7 +79,9 @@
     "desperateVisionMul": 1.5,
     "stalkSecondsBeforeChasingPlayer": 1.2,
     "predatorLeash": 250,
-    "leashFromTier": 3
+    "leashFromTier": 3,
+    "ambushChaseSeconds": 3.0,
+    "ambushLurkStrength": 0.06
   },
   "respawnLevelKeep": 0,
   "playerStartDepth": 0.18,

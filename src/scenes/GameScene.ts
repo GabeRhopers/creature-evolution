@@ -898,6 +898,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
           this.sfx.gulp(t.size);
           p.playBite();
           this.gainXp(xp, t.x, t.y, true);
+          if (t.species.venom) this.sting(swallowTarget);
           this.respawnAmbient(swallowTarget);
         }
       } else if (biteTarget && p.biteCooldown <= 0) {
@@ -931,6 +932,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (attacker.isPlayer) {
       this.hud.popup(`-${Math.round(dmg)}`, t.x, t.y - t.size, false, '#ff9a8a');
       this.sfx.bite();
+      if (t.species.venom) this.sting(target);
     }
     target.brain?.onHurt(attacker);
     if (killed) this.kill(target, attacker);
@@ -1012,6 +1014,18 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       return;
     }
     this.respawnAmbient(victim);
+  }
+
+  /** Venomous spines (lionfish): biting or swallowing one costs a little health. */
+  private sting(by: Creature): void {
+    const p = this.player;
+    if (this.dead) return;
+    const dmg = p.maxHp * (by.fish.species.venom ?? 0);
+    const killed = p.takeDamage(dmg, false);
+    this.hud.popup(`Ouch, spines! -${Math.round(dmg)}`, p.x, p.y - p.size * 1.4, true, '#f6757a');
+    this.hud.hurt();
+    this.sfx.hurt();
+    if (killed) this.playerDied(by, 'bitten');
   }
 
   // ---------------------------------------------------------------- Checkpoint Crab
@@ -1279,6 +1293,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const p = this.player;
     const stageBefore = stageIndex(p.level);
     const levels = p.addXp(xp);
+    if (levels > 0) this.spawnUnlocked();
     if (levels > 0 && stageIndex(p.level) !== stageBefore) {
       this.stomach.setLevel(p.level);
       this.stats.maxLevel = Math.max(this.stats.maxLevel, p.level);
@@ -1526,11 +1541,19 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.trailBubbles.update(dt, surfaceY);
   }
 
-  private spawnAmbientFish(W: number): void {
+  /** Species already swimming in this run (new enemies join once you reach their level). */
+  private spawnedSpecies = new Set<string>();
+
+  /** Spawn the reef's fish: every unlocked species, or `only` these (new enemies joining mid-run). */
+  private spawnAmbientFish(W: number, only: string[] | null = null): void {
+    if (!only) this.spawnedSpecies = new Set();
+    const level = this.menuMode ? 1 : this.player.level;
     const surfaceY = BALANCE.world.surfaceY;
     const waterH = this.seabedTop - surfaceY;
     for (const [id, baseCount] of Object.entries(BALANCE.population)) {
       const sp = SPECIES[id];
+      if (only ? !only.includes(id) : (sp.unlockLevel ?? 1) > level) continue;
+      this.spawnedSpecies.add(id);
       // Difficulty: more predators on Hard, more small prey on Easy.
       const mul = sp.tier >= 3 ? this.difficulty.predatorDensity : sp.tier <= 1 ? this.difficulty.preySpawnRate : 1;
       const count = Math.max(1, Math.round(baseCount * mul));
@@ -1556,6 +1579,19 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         this.creatures.push(c);
       }
     }
+  }
+
+  /** New enemies: species whose unlock level you just reached join the reef, with a banner. */
+  private spawnUnlocked(): void {
+    if (this.menuMode) return;
+    const level = this.player.level;
+    const fresh = Object.keys(BALANCE.population).filter(
+      (id) => !this.spawnedSpecies.has(id) && (SPECIES[id].unlockLevel ?? 1) <= level,
+    );
+    if (!fresh.length) return;
+    this.spawnAmbientFish(BALANCE.world.width, fresh);
+    const sp = SPECIES[fresh[0]];
+    this.time.delayedCall(1600, () => this.hud.newCreature(sp.displayName, sp.intro ?? ''));
   }
 
   // ---------------------------------------------------------------- dev tools
