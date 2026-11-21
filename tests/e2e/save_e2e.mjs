@@ -23,7 +23,9 @@ await p.reload(); await p.waitForTimeout(3500);
 ok(!(await G(()=>document.getElementById('btnContinue').hidden)), 'Continue shown after reload');
 console.log('continue sub:', await p.textContent('#continueSub'), '| play:', await p.textContent('#btnPlay'));
 await p.click('#btnContinue'); await p.waitForTimeout(250);
-const after = await st(); console.log('after ', JSON.stringify(after));
+// Slow runners: poll (up to 5 s) until the run is back in play.
+let after = await st();
+for (let i=0;i<100 && (after.menu || after.level!==6);i++){ await p.waitForTimeout(50); after = await st(); } console.log('after ', JSON.stringify(after));
 ok(after.level===6 && Math.abs(after.hp-before.hp)<=2 && Math.abs(after.stomach-before.stomach)<0.03 && after.kills===3 && after.diff==='hard', 'level, health, stomach, kills, difficulty restored');
 ok(Math.abs(after.x-1500)<40 && Math.abs(after.y-900)<40, 'position restored');
 ok(after.invuln>1, 'resume shield active');

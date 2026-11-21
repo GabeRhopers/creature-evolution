@@ -52,7 +52,9 @@ invulnerability. Armor per species (`armor` in species.json).
 - **Pixel art direction** (plan in the Game Design Plan doc): every sprite uses the Endesga 32 palette
   (`public/studio/palette-endesga32.json`) plus at most 3 signature colors per creature; textures hold
   1 pixel per art pixel and use smooth pixel art (`texture.setSmoothPixelArt(true)`); small effects
-  (bubbles, food) come from `src/systems/pixelTextures.ts`. Camera zoom changes only per stage.
+  (bubbles, food) come from `src/systems/pixelTextures.ts`. The world (water bands, sand, rocks, kelp,
+  light rays, far silhouettes) is generated in `src/systems/worldTextures.ts` and drawn at
+  `WORLD_PX` = 4 world px per art px; rock collision circles and kelp zones keep their old sizes. Camera zoom changes only per stage.
   Reef fish looks are Sprite Studio starter designs (`public/studio/seeds/fish-*.json`, drawn by
   `tools/fish/draw_fish.py`), linked by `look` in species.json, loaded by Boot, built once per scene.
   Target pixel density: about 3.5 world pixels per art pixel (size / bodyRadius).
