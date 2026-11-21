@@ -241,6 +241,27 @@
       "stunSeconds": 1.2,
       "reachMul": 1.3
     },
+    "dart": {
+      "name": "Dart",
+      "label": "DART",
+      "_comment": "Mosa's hatchling dash: the same as Lunge."
+    },
+    "slam": {
+      "name": "Tail Slam",
+      "label": "SLAM",
+      "radiusMul": 3.2,
+      "damageMul": 1.2,
+      "stunSeconds": 1.0,
+      "cooldownSeconds": 6
+    },
+    "crush": {
+      "name": "Crushing Bite",
+      "label": "CRUSH",
+      "damageMul": 3.5,
+      "cooldownSeconds": 6,
+      "stunSeconds": 1.4,
+      "reachMul": 1.3
+    },
     "evolveLockSeconds": 1.0,
     "evolveShieldSeconds": 2.5
   },
@@ -317,5 +338,46 @@
     ],
     "currentStrength": 7,
     "maxPushSpeed": 260
+  },
+  "heroes": {
+    "_comment": "Playable heroes. Each one shares the stage levels, sizes, ranks and depths in 'stages' and swaps in its own species (speed, armor), stage designs and abilities.",
+    "crocodile": {
+      "name": "Croc",
+      "blurb": "Tough hide. Shell Guard, Lunge, Death Roll.",
+      "stages": {}
+    },
+    "mosa": {
+      "name": "Mosa",
+      "blurb": "Fast swimmer, thinner hide. Dart, Tail Slam, Crushing Bite.",
+      "stages": {
+        "hatchling": {
+          "skin": "mosa-hatchling",
+          "ability": "dart",
+          "art": {
+            "radius": 4,
+            "mouthReach": 3.9,
+            "mouthRadius": 0.6
+          }
+        },
+        "juvenile": {
+          "skin": "mosa-juvenile",
+          "ability": "slam",
+          "art": {
+            "radius": 5,
+            "mouthReach": 3.9,
+            "mouthRadius": 0.6
+          }
+        },
+        "adult": {
+          "skin": "mosa-adult",
+          "ability": "crush",
+          "art": {
+            "radius": 8,
+            "mouthReach": 3.2,
+            "mouthRadius": 0.7
+          }
+        }
+      }
+    }
   }
 }

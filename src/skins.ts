@@ -305,9 +305,11 @@ const stageLooks = new Map<string, StudioProject>();
 /** Timestamps of the starter designs shipped with the game; saving any edit replaces them. */
 export const SEED_STAMPS = ['2026-11-21T08:45:00.000Z', '2026-11-21T09:30:00.000Z', '2026-11-21T11:30:00.000Z', '2026-11-21T12:00:00.000Z'];
 
-export async function loadStageLooks(stages: Array<{ id: string; skin: string }>): Promise<void> {
+/** Load stage designs by their project id (for example "croc-adult" or "mosa-hatchling"). */
+export async function loadStageLooks(skins: string[]): Promise<void> {
   await Promise.all(
-    stages.map(async (s) => {
+    skins.map(async (skin) => {
+      const s = { skin };
       let project: StudioProject | null = null;
       try {
         project = await loadStudioProject(s.skin);
@@ -326,11 +328,11 @@ export async function loadStageLooks(stages: Array<{ id: string; skin: string }>
       const outdatedSeed =
         !!project && !!shipped && project.updatedAt !== undefined && SEED_STAMPS.includes(project.updatedAt) && (project.seedVersion ?? 1) < (shipped.seedVersion ?? 1);
       if (!project || outdatedSeed || validateProject(project).length) project = shipped;
-      if (project && !validateProject(project).length) stageLooks.set(s.id, project);
+      if (project && !validateProject(project).length) stageLooks.set(s.skin, project);
     }),
   );
 }
 
-export function getStageLook(stageId: string): StudioProject | null {
-  return stageLooks.get(stageId) ?? null;
+export function getStageLook(skin: string): StudioProject | null {
+  return stageLooks.get(skin) ?? null;
 }

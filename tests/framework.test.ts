@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { SEED_STAMPS, artFromProject, decodeFrame, isFramed, validateProject, type StudioProject } from '../src/skins';
-import { STAGES } from '../src/data';
+import { ALL_STAGE_SKINS } from '../src/data';
 
 const FW = JSON.parse(fs.readFileSync('public/studio/frameworks.json', 'utf8'));
 /** A framework with its 'extends' chain resolved. */
@@ -11,7 +11,7 @@ function framework(name: string): Record<string, unknown> {
 }
 const E32: string[] = JSON.parse(fs.readFileSync('public/studio/palette-endesga32.json', 'utf8')).colors;
 /** Signature colors a creature may add on top of the shared palette (at most 3 each). */
-const SIGNATURE: Record<string, string[]> = { crocodile: ['#aad678'] };
+const SIGNATURE: Record<string, string[]> = { crocodile: ['#aad678'], mosa: ['#429698', '#58c2c2', '#fefeb4'] };
 const seeds = fs.readdirSync('public/studio/seeds').map((f) => ({ id: f.replace('.json', ''), p: JSON.parse(fs.readFileSync('public/studio/seeds/' + f, 'utf8')) as StudioProject }));
 
 describe('sprite framework', () => {
@@ -26,8 +26,8 @@ describe('sprite framework', () => {
     expect(c[0]).toBeGreaterThanOrEqual(80);
     expect(c[1]).toBeGreaterThanOrEqual(56);
   });
-  it('every stage has a shipped design', () => {
-    for (const s of STAGES) expect(seeds.map((x) => x.id)).toContain(s.skin);
+  it('every stage of every hero has a shipped design', () => {
+    for (const skin of ALL_STAGE_SKINS) expect(seeds.map((x) => x.id)).toContain(skin);
   });
   for (const { id, p } of seeds) {
     describe(id, () => {

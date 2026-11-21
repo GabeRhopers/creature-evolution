@@ -69,6 +69,12 @@
       .seg button { font: 600 14px/1 var(--font-body); color: var(--muted); background: none; border: 0; border-radius: 9px; padding: 10px 16px; min-height: 40px; cursor: pointer; }
       .seg button[aria-pressed="true"] { background: var(--kelp); color: #062012; }
       .seg button:focus-visible { outline: 2px solid var(--sun); }
+      .heroes { display: flex; gap: 8px; justify-content: center; }
+      .hero-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 128px; padding: 6px 10px 8px; background: var(--panel); border: 2px solid var(--line); border-radius: 12px; color: var(--muted); font: 700 15px/1.1 var(--font-body); cursor: pointer; }
+      .hero-btn canvas { width: 112px; height: 44px; image-rendering: pixelated; }
+      .hero-btn .d { font: 500 11px/1.2 var(--font-body); max-width: 150px; text-align: center; }
+      .hero-btn[aria-pressed="true"] { border-color: var(--kelp); color: #fff; }
+      .hero-btn:focus-visible { outline: 2px solid var(--sun); }
       .best { font: 500 13px/1 var(--font-body); color: var(--muted); font-variant-numeric: tabular-nums; }
       .best b { color: var(--sun); font-weight: 600; }
 
@@ -183,6 +189,7 @@
 
         <div class="play-block">
           <button id="btnContinue" class="btn btn-play btn-continue" hidden><span>CONTINUE</span><span class="sub" id="continueSub"></span></button>
+          <div class="heroes" id="heroPick" role="group" aria-label="Play as"></div>
           <button id="btnPlay" class="btn btn-play">PLAY</button>
           <div class="seg" role="group" aria-label="Difficulty">
             <button data-diff="easy" aria-pressed="false">Easy</button>

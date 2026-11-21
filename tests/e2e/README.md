@@ -14,3 +14,7 @@ hiding, a damaged save, the error panel, death, and blocked storage.
 `studio_save.mjs` uses a mock cloud database to cover the instant device copy,
 revisions and the conflict dialog, offline retry, startup recovery, history
 and the trash.
+
+`mosa.mjs` picks Mosa on the home screen, grows it through all three stages, uses Dart,
+Tail Slam and Crushing Bite, then checks that Continue brings back a Mosa run and that a new
+run with Croc picked is a crocodile again.
