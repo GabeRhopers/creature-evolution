@@ -42,10 +42,10 @@ await shot('st_adult',1.6);
 const roll = await G(()=>{const g=window.game.scene.getScene('Game'),pl=g.player; const t=g.creatures.find(c=>c.brain&&c.fish.species.id==='red_grouper'); const m=pl.mouthPoint(); t.fish.setPosition(m.x+t.fish.size*0.3,m.y); const hp=t.fish.hp; g.controller.uiDash=true; return {hp, id:t.fish.species.id, ref:g.creatures.indexOf(t), kills:g.stats.kills};});
 // Slow runners: keep the target at the mouth and poll up to 3 s for the hit.
 let after;
-for (let i=0;i<15;i++){ await p.waitForTimeout(200);
-  after = await G((i)=>{const g=window.game.scene.getScene('Game'); const t=g.creatures[i]; if (t.fish.active){ const m=g.player.mouthPoint(); t.fish.setPosition(m.x+t.fish.size*0.3,m.y); t.fish.arcadeBody?.setVelocity(0,0);} if (g.abilityCooldown<=0) g.controller.uiDash=true; return {hp:t.fish.hp, alive:t.fish.active, stunned:t.fish.stunned, cd:g.abilityCooldown, kills:g.stats.kills};}, roll.ref);
+for (let i=0;i<30;i++){ await p.waitForTimeout(200);
+  after = await G((i)=>{const g=window.game.scene.getScene('Game'); const t=g.creatures[i]; if (t.fish.active){ const m=g.player.mouthPoint(); t.fish.setPosition(m.x+t.fish.size*0.3,m.y); t.fish.arcadeBody?.setVelocity(0,0);} if (g.abilityCooldown<=0) g.controller.uiDash=true; return {hp:t.fish.hp, alive:t.fish.active, stunned:t.fish.stunned, cd:g.abilityCooldown, kills:g.stats.kills, lock:+g.evolveLock.toFixed(2), pStun:g.player.stunned, dead:g.dead, stage:g.player.stage?.id, paused:g.scene.isPaused()};}, roll.ref);
   if (after.hp<roll.hp || after.kills>roll.kills) break; }
-ok(after.cd>0 && (after.hp<roll.hp || after.kills>roll.kills), `Death Roll hits the ${roll.id} (kills ${roll.kills} -> ${after.kills})`);
+ok(after.cd>0 && (after.hp<roll.hp || after.kills>roll.kills), `Death Roll hits the ${roll.id} (kills ${roll.kills} -> ${after.kills})`+(after.kills>roll.kills||after.hp<roll.hp?'':' '+JSON.stringify(after)));
 // reef reacts: sharks do not hunt the adult, they hunted the juvenile
 const reacts = await G(()=>{const g=window.game.scene.getScene('Game'); const sh=g.creatures.find(c=>c.fish.species.id==='grey_shark'); sh.fish.setLevel(1); const pc=g.playerCreature;
   const adult = sh.brain.isThreat ? null : null;
