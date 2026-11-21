@@ -4,6 +4,10 @@ import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Bubbles } from '../systems/Bubbles';
+import { C, makeKelp, makeRay, makeRock, makeSand, makeSilhouette, makeWater } from '../systems/worldTextures';
+
+/** World px per art px for the seabed, water and plants. */
+const WORLD_PX = 4;
 import { ATLAS } from '../assets';
 import { FoodField } from '../entities/Food';
 import { Brain, type AIWorld, type Creature } from '../ai/Brain';
@@ -1188,84 +1192,75 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   private drawWater(W: number, H: number): void {
     const surfaceY = BALANCE.world.surfaceY;
-    const g = this.add.graphics().setDepth(-100);
+    const P = WORLD_PX;
 
     // Sky strip above the surface.
-    g.fillStyle(0xbfe9f7, 1);
-    g.fillRect(0, 0, W, surfaceY);
+    this.add.rectangle(0, 0, W, surfaceY, 0xc0cbdc).setOrigin(0, 0).setDepth(-100);
 
-    // Water: light near the surface, deep blue at the bottom.
-    g.fillGradientStyle(0x3fa9d6, 0x3fa9d6, 0x062038, 0x062038, 1);
-    g.fillRect(0, surfaceY, W, H - surfaceY);
+    // Water: flat pixel bands (Shallows, Reef, Deep) with dithered edges.
+    const rows = Math.ceil((this.seabedTop - surfaceY) / P);
+    makeWater(this, 'w_water', rows);
+    this.add.tileSprite(0, surfaceY, W, H - surfaceY, 'w_water').setOrigin(0, 0).setTileScale(P).setDepth(-100);
 
-    // Surface highlight band.
-    g.fillStyle(0xffffff, 0.35);
-    g.fillRect(0, surfaceY - 3, W, 6);
+    // Surface line: two art pixels of light.
+    this.add.rectangle(0, surfaceY - P, W, P, 0xffffff, 0.6).setOrigin(0, 0).setDepth(-99);
+    this.add.rectangle(0, surfaceY, W, P, 0x2ce8f5, 0.5).setOrigin(0, 0).setDepth(-99);
 
-    // Soft light rays from the surface.
-    const rays = this.add.graphics().setDepth(-90);
+    // Stepped, dithered light rays from the surface.
+    makeRay(this, 'w_ray_a', 18, 150, 40);
+    makeRay(this, 'w_ray_b', 30, 180, 70);
     for (let x = 200; x < W; x += Phaser.Math.Between(350, 700)) {
-      const w = Phaser.Math.Between(60, 160);
-      const lean = Phaser.Math.Between(150, 400);
-      rays.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.035, 0.07));
-      rays.fillTriangle(x, surfaceY, x + w, surfaceY, x + lean, H * 0.7);
+      this.add
+        .image(Math.round(x / P) * P, surfaceY, Math.random() < 0.5 ? 'w_ray_a' : 'w_ray_b')
+        .setOrigin(0, 0)
+        .setScale(P)
+        .setAlpha(Phaser.Math.FloatBetween(0.04, 0.07))
+        .setDepth(-90);
     }
+
+    // One far silhouette layer that scrolls slower than the world (parallax).
+    makeSilhouette(this, 'w_far', 360, 90);
+    this.add
+      .tileSprite(0, this.seabedTop + 10, W * 1.2, 90 * P, 'w_far')
+      .setOrigin(0, 1)
+      .setTileScale(P)
+      .setScrollFactor(0.75, 1)
+      .setAlpha(0.55)
+      .setDepth(-70);
   }
 
   private drawSeabed(W: number, H: number): void {
-    const tile = 192; // 128px art drawn at 1.5x
-    const scale = tile / 128;
-    const tops = ['terrain_sand_top_a', 'terrain_sand_top_b', 'terrain_sand_top_c'];
-
-    // Distant background decor (darker, behind everything).
-    for (let x = 0; x < W; x += Phaser.Math.Between(80, 220)) {
-      const key = Phaser.Utils.Array.GetRandom([
-        'background_seaweed_a', 'background_seaweed_b', 'background_seaweed_c',
-        'background_seaweed_d', 'background_seaweed_e', 'background_rock_a', 'background_rock_b',
-      ]);
-      this.add
-        .image(x, this.seabedTop + 30, ATLAS, key)
-        .setOrigin(0.5, 1)
-        .setScale(Phaser.Math.FloatBetween(1.2, 2.6))
-        .setTint(0x2b6f99)
-        .setAlpha(0.55)
-        .setDepth(-60);
-    }
-
-    for (let x = 0; x < W; x += tile) {
-      this.add
-        .image(x, this.seabedTop - 20, ATLAS, Phaser.Utils.Array.GetRandom(tops))
-        .setOrigin(0, 0)
-        .setScale(scale)
-        .setDepth(-20);
-      for (let y = this.seabedTop - 20 + tile; y < H; y += tile) {
-        this.add
-          .image(x, y, ATLAS, Phaser.Utils.Array.GetRandom(['terrain_sand_a', 'terrain_sand_b']))
-          .setOrigin(0, 0)
-          .setScale(scale)
-          .setDepth(-20);
-      }
-    }
+    makeSand(this, 'w_sand');
+    this.add
+      .tileSprite(0, this.seabedTop - 20, W, H - this.seabedTop + 20, 'w_sand')
+      .setOrigin(0, 0)
+      .setTileScale(WORLD_PX)
+      .setDepth(-20);
   }
 
   private placeRocks(W: number): void {
     this.rocks = this.physics.add.staticGroup();
+    // Rock art in four sizes (two shapes each), always at the same pixel density.
+    const sizes = [1.0, 1.7, 2.4, 3.2];
+    sizes.forEach((s, i) => {
+      for (let v = 0; v < 2; v++) makeRock(this, `w_rock_${i}_${v}`, 100 + i * 10 + v, Math.round(26 * s), Math.round(16 * s));
+    });
     for (let i = 0; i < BALANCE.world.rockCount; i++) {
       const x = Phaser.Math.Between(150, W - 150);
-      const s = Phaser.Math.FloatBetween(1.0, 3.2);
+      const si = Phaser.Math.Between(0, sizes.length - 1);
+      const s = sizes[si];
       const baseY = this.seabedTop + 50;
       this.add
-        .image(x, baseY, ATLAS, Phaser.Utils.Array.GetRandom(['rock_a', 'rock_b']))
+        .image(x, baseY, `w_rock_${si}_${Phaser.Math.Between(0, 1)}`)
         .setOrigin(0.5, 1)
-        .setScale(s)
+        .setScale(WORLD_PX)
         .setFlipX(Math.random() < 0.5)
         .setDepth(-15);
 
-      // Collision: an invisible circle zone. The rock art fills roughly
-      // x 12..116, y 66..128 of its 128px frame, so a circle of radius 42
-      // centered at (64, 108) covers it, with the bottom buried in the sand.
+      // Collision: an invisible circle zone, the same size as before
+      // (radius 42*s, centered 20*s above the base, bottom buried in sand).
       const r = 42 * s;
-      const cy = baseY - (128 - 108) * s;
+      const cy = baseY - 20 * s;
       const zone = this.add.zone(x, cy, r * 2, r * 2);
       this.physics.add.existing(zone, true);
       (zone.body as Phaser.Physics.Arcade.StaticBody).setCircle(r);
@@ -1274,30 +1269,39 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   }
 
   private placeKelp(W: number): void {
-    const keys = [
-      'seaweed_green_a', 'seaweed_green_b', 'seaweed_green_c', 'seaweed_green_d',
-      'seaweed_grass_a', 'seaweed_grass_b', 'seaweed_orange_a', 'seaweed_orange_b',
-      'seaweed_pink_a', 'seaweed_pink_b', 'seaweed_pink_c', 'seaweed_pink_d',
+    // Kelp strands: green ones in several heights plus a few coral and pink ones.
+    const variants: Array<[number, string, string, string]> = [
+      [50, C.leafDark, C.leaf, C.leafLight],
+      [70, C.leafDark, C.leaf, C.leafLight],
+      [90, C.leafDark, C.leaf, C.leafLight],
+      [110, C.leafDark, C.leaf, C.leafLight],
+      [55, C.clay, C.coral, C.coralLight],
+      [65, C.pink, C.pinkLight, C.white],
     ];
+    const keys = variants.map(([h, d, m, l], i) => {
+      const key = `w_kelp_${i}`;
+      makeKelp(this, key, 30 + i, h, d, m, l);
+      return { key, h };
+    });
     for (let p = 0; p < BALANCE.world.kelpPatches; p++) {
       const cx = Phaser.Math.Between(200, W - 200);
       const count = Phaser.Math.Between(4, 9);
       const spread = count * 40;
       let tallest = 0;
       for (let i = 0; i < count; i++) {
-        const s = Phaser.Math.FloatBetween(1.6, 4.2);
-        tallest = Math.max(tallest, 128 * s);
+        const k = Phaser.Utils.Array.GetRandom(keys);
+        tallest = Math.max(tallest, k.h * WORLD_PX);
         const front = Math.random() < 0.45;
         const kelp = this.add
-          .image(cx + Phaser.Math.Between(-spread / 2, spread / 2), this.seabedTop + 40,
-            ATLAS, Phaser.Utils.Array.GetRandom(keys))
+          .image(cx + Phaser.Math.Between(-spread / 2, spread / 2), this.seabedTop + 40, k.key)
           .setOrigin(0.5, 1)
-          .setScale(s)
+          .setScale(WORLD_PX)
+          .setFlipX(Math.random() < 0.5)
           .setDepth(front ? 20 : -10)
           .setAlpha(front ? 0.92 : 1);
         this.tweens.add({
           targets: kelp,
-          angle: { from: -4, to: 4 },
+          angle: { from: -3, to: 3 },
           duration: Phaser.Math.Between(1800, 3200),
           yoyo: true,
           repeat: -1,
