@@ -84,10 +84,17 @@ function add(scene: Phaser.Scene, key: string, c: HTMLCanvasElement): void {
   scene.textures.addCanvas(key, c)!.setSmoothPixelArt(true);
 }
 
-/** Water: a 4-pixel-wide strip, tiled across the world. `rows` = art pixels from surface to seabed. */
-export function makeWater(scene: Phaser.Scene, key: string, rows: number): void {
-  const [c, g] = canvas(4, rows);
-  for (let y = 0; y < rows; y++) for (let x = 0; x < 4; x++) px(g, x, y, waterColor(y / (rows - 1), x, y));
+/** Water: `cols` x `rows` art pixels from surface to seabed (a plain image draws faster than a tile). */
+export function makeWater(scene: Phaser.Scene, key: string, cols: number, rows: number): void {
+  if (scene.textures.exists(key)) return;
+  const [c, g] = canvas(cols, rows);
+  // Each row is one band color, or a 4-pixel dither pattern repeated along the row.
+  for (let y = 0; y < rows; y++) {
+    const d = y / (rows - 1);
+    const row = [0, 1, 2, 3].map((x) => waterColor(d, x, y));
+    if (row.every((col) => col === row[0])) { g.fillStyle = row[0]; g.fillRect(0, y, cols, 1); continue; }
+    for (let x = 0; x < cols; x++) px(g, x, y, row[x & 3]);
+  }
   add(scene, key, c);
 }
 

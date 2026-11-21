@@ -44,6 +44,9 @@ jobs:
       # Plays the real build in headless Chrome: saves, stages, perks, areas, studio, round trip.
       - name: Browser tests
         run: |
+          set -o pipefail
+          # The suites save screenshots here; without the folders they stop early.
+          sudo mkdir -p /home/claude/stages /home/claude/tools && sudo chmod 777 /home/claude/stages /home/claude/tools
           npx vite preview --port 4173 --strictPort &
           for i in $(seq 1 60); do curl -sf http://localhost:4173/ >/dev/null && break; sleep 1; done
           fail=0

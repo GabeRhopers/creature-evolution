@@ -1198,9 +1198,9 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.add.rectangle(0, 0, W, surfaceY, 0xc0cbdc).setOrigin(0, 0).setDepth(-100);
 
     // Water: flat pixel bands (Shallows, Reef, Deep) with dithered edges.
-    const rows = Math.ceil((this.seabedTop - surfaceY) / P);
-    makeWater(this, 'w_water', rows);
-    this.add.tileSprite(0, surfaceY, W, H - surfaceY, 'w_water').setOrigin(0, 0).setTileScale(P).setDepth(-100);
+    const rows = Math.ceil((H - surfaceY) / P);
+    makeWater(this, 'w_water', Math.ceil(W / P), rows);
+    this.add.image(0, surfaceY, 'w_water').setOrigin(0, 0).setScale(P).setDepth(-100);
 
     // Surface line: two art pixels of light.
     this.add.rectangle(0, surfaceY - P, W, P, 0xffffff, 0.6).setOrigin(0, 0).setDepth(-99);
