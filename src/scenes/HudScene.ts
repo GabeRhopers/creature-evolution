@@ -1,12 +1,17 @@
 import Phaser from 'phaser';
 import { saves } from '../save';
-import { perkById } from '../systems/perks';
+import { PERK_ICONS, perkIconCanvas } from '../ui/perkIcons';
 import { BALANCE } from '../data';
 import type { GameScene } from './GameScene';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Joystick } from '../ui/Joystick';
 
-const FONT = 'system-ui, sans-serif';
+/** Pixel font for labels, numbers and banners (loaded in index.html). */
+const FONT = '"Pixelify Sans", "Courier New", monospace';
+/** Plain font for longer help text, so it stays easy to read. */
+const BODY = 'system-ui, sans-serif';
+/** HUD colors (Endesga 32). */
+const HUD = { ink: 0x181425, edge: 0x3a4466, hp: 0xe43b44, stamina: 0x2ce8f5, sprint: 0xfee761, tired: 0xf77622, food: 0x63c74d, digest: 0x2ce8f5, full: 0xf77622, xp: 0xfee761 };
 
 /**
  * Screen-space overlay (not affected by the game camera's zoom):
@@ -58,35 +63,43 @@ export class HudScene extends Phaser.Scene {
 
   create(): void {
     this.game$ = this.scene.get('Game') as GameScene;
-    const style = { fontFamily: FONT, fontSize: '15px', color: '#e6f6ff' };
-    const small = { ...style, fontSize: '11px', color: '#9fd3ff' };
+    const style = { fontFamily: FONT, fontSize: '16px', color: '#ffffff', stroke: '#181425', strokeThickness: 4 };
+    const small = { ...style, fontSize: '12px', color: '#c0cbdc', strokeThickness: 3 };
 
     // Red screen-edge flash when the player is hurt.
     this.hurtFlash = this.add.rectangle(0, 0, 10, 10, 0xff2020, 0).setOrigin(0, 0).setStrokeStyle(24, 0xff2020, 0.5).setAlpha(0);
 
+    // A dark pixel panel behind the bars keeps them readable over bright water and sky.
+    this.add.rectangle(8, 6, 238, 140, HUD.ink, 0.55).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 0.9);
     this.add.text(16, 10, 'HEALTH', small);
-    this.hpBack = this.add.rectangle(16, 26, 220, 12, 0x0a2236, 0.8).setOrigin(0, 0).setStrokeStyle(1, 0xff8a80, 0.6);
-    this.hpFill = this.add.rectangle(18, 28, 216, 8, 0xff6b6b).setOrigin(0, 0);
+    this.hpBack = this.add.rectangle(16, 26, 220, 12, HUD.ink, 0.9).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 1);
+    this.hpFill = this.add.rectangle(18, 28, 216, 8, HUD.hp).setOrigin(0, 0);
 
     this.add.text(16, 44, 'STAMINA', small);
-    this.staminaBack = this.add.rectangle(16, 60, 220, 12, 0x0a2236, 0.8).setOrigin(0, 0).setStrokeStyle(1, 0x9fd3ff, 0.6);
-    this.staminaFill = this.add.rectangle(18, 62, 216, 8, 0x5fe0a8).setOrigin(0, 0);
+    this.staminaBack = this.add.rectangle(16, 60, 220, 12, HUD.ink, 0.9).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 1);
+    this.staminaFill = this.add.rectangle(18, 62, 216, 8, HUD.stamina).setOrigin(0, 0);
 
     this.add.text(16, 78, 'STOMACH', small);
-    this.stomachBack = this.add.rectangle(16, 94, 220, 12, 0x0a2236, 0.8).setOrigin(0, 0).setStrokeStyle(1, 0xc8e6c9, 0.6);
-    this.stomachFill = this.add.rectangle(18, 96, 0, 8, 0x8bc34a).setOrigin(0, 0);
+    this.stomachBack = this.add.rectangle(16, 94, 220, 12, HUD.ink, 0.9).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 1);
+    this.stomachFill = this.add.rectangle(18, 96, 0, 8, HUD.food).setOrigin(0, 0);
     // Markers: 75% (rest to digest) and 95% (full).
     this.add.rectangle(18 + 216 * 0.75, 93, 2, 14, 0xffffff, 0.8).setOrigin(0.5, 0);
     this.add.rectangle(18 + 216 * 0.95, 93, 2, 14, 0xff8a80, 0.8).setOrigin(0.5, 0);
 
     this.add.text(16, 112, 'GROWTH', small);
-    this.add.rectangle(16, 128, 220, 12, 0x0a2236, 0.8).setOrigin(0, 0).setStrokeStyle(1, 0xffd166, 0.6);
+    this.add.rectangle(16, 128, 220, 12, HUD.ink, 0.9).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 1);
     // Banked XP (still in the stomach) shows as a pale segment after the real XP.
-    this.bankFill = this.add.rectangle(18, 130, 0, 8, 0xffd166, 0.35).setOrigin(0, 0);
-    this.xpFill = this.add.rectangle(18, 130, 0, 8, 0xffd166).setOrigin(0, 0);
+    this.bankFill = this.add.rectangle(18, 130, 0, 8, HUD.xp, 0.35).setOrigin(0, 0);
+    this.xpFill = this.add.rectangle(18, 130, 0, 8, HUD.xp).setOrigin(0, 0);
+    // Pixel notches every 10% on each bar.
+    for (const y of [28, 62, 96, 130]) for (let i = 1; i < 10; i++) this.add.rectangle(18 + 21.6 * i, y, 2, 8, HUD.ink, 0.45).setOrigin(0.5, 0);
 
     this.info = this.add.text(16, 148, '', style);
-    this.hint = this.add.text(16, 0, '', { ...style, fontSize: '12px', color: '#bfe3ff' }).setAlpha(0.85);
+    this.hint = this.add.text(16, 0, '', { fontFamily: BODY, fontSize: '12px', color: '#c0cbdc', stroke: '#181425', strokeThickness: 3 }).setAlpha(0.9);
+    // Perk icons (16x16 pixel art) in a row under the info line.
+    for (const id of Object.keys(PERK_ICONS)) {
+      if (!this.textures.exists('perk_' + id)) this.textures.addCanvas('perk_' + id, perkIconCanvas(id, 1)!)?.setSmoothPixelArt(true);
+    }
     this.banner = this.add
       .text(0, 0, '', { fontFamily: FONT, fontSize: '42px', fontStyle: 'bold', color: '#ffd166', stroke: '#0a2236', strokeThickness: 6 })
       .setOrigin(0.5)
@@ -297,6 +310,19 @@ export class HudScene extends Phaser.Scene {
     return btn;
   }
 
+  /** The perks picked this run, as a row of pixel icons under the info line. */
+  private perkIcons: Phaser.GameObjects.Image[] = [];
+  private perkKey = '';
+  private renderPerkIcons(perks: string[]): void {
+    const key = perks.join(',');
+    if (key === this.perkKey) return;
+    this.perkKey = key;
+    this.perkIcons.forEach((i) => i.destroy());
+    this.perkIcons = perks
+      .filter((id) => this.textures.exists('perk_' + id))
+      .map((id, i) => this.add.image(16 + i * 28, 172, 'perk_' + id).setOrigin(0, 0).setScale(1.5));
+  }
+
   private layout(): void {
     const { width, height } = this.scale;
     this.sprintBtn.setPosition(width - 70, height - 70);
@@ -336,23 +362,24 @@ export class HudScene extends Phaser.Scene {
     c.y = this.joystick.y;
     c.strength = this.joystick.strength;
     this.hpFill.width = 216 * Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
-    this.hpBack.setStrokeStyle(1, p.wounded ? 0xff2020 : 0xff8a80, p.wounded ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 0.6);
+    this.hpBack.setStrokeStyle(2, p.wounded ? HUD.hp : HUD.edge, p.wounded ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 1);
     const ratio = p.stamina / BALANCE.stamina.max;
     this.staminaFill.width = 216 * ratio;
-    this.staminaFill.fillColor = p.exhausted ? 0xe0675f : p.isSprinting ? 0xffd166 : 0x5fe0a8;
-    this.staminaBack.setStrokeStyle(1, p.exhausted ? 0xe0675f : 0x9fd3ff, 0.6);
+    this.staminaFill.fillColor = p.exhausted ? HUD.tired : p.isSprinting ? HUD.sprint : HUD.stamina;
+    this.staminaBack.setStrokeStyle(2, p.exhausted ? HUD.tired : HUD.edge, 1);
     const xpRatio = Phaser.Math.Clamp(p.xp / p.xpNeeded, 0, 1);
     this.xpFill.width = 216 * xpRatio;
     this.bankFill.width = 216 * Phaser.Math.Clamp((p.xp + g.stomach.bank) / p.xpNeeded, 0, 1);
 
     const st = g.stomach;
     this.stomachFill.width = 216 * Phaser.Math.Clamp(st.ratio, 0, 1);
-    this.stomachFill.fillColor = st.digesting ? 0x9fe8ff : st.full ? 0xffa53a : st.readyToDigest ? 0xffffff : 0x8bc34a;
+    this.stomachFill.fillColor = st.digesting ? HUD.digest : st.full ? HUD.full : st.readyToDigest ? 0xffffff : HUD.food;
     const starving = st.ratio < 0.1;
-    this.stomachBack.setStrokeStyle(1, starving ? 0xff2020 : 0xc8e6c9, starving ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 0.6);
+    this.stomachBack.setStrokeStyle(2, starving ? HUD.hp : HUD.edge, starving ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 1);
     this.info.setText(
-      `${p.stage ? `${p.stage.name} · ` : ''}Level ${p.level}${p.atMaxLevel ? ' (MAX)' : ''}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}${g.perks.length ? `  |  ${g.perks.map((id) => perkById(id)?.icon ?? '').join('')}` : ''}`,
+      `${p.stage ? `${p.stage.name} · ` : ''}Level ${p.level}${p.atMaxLevel ? ' (MAX)' : ''}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
     );
+    this.renderPerkIcons(g.perks);
     // Hidden while the home screen shows the ocean behind it.
     this.cameras.main.setVisible(!g.menuMode);
     if (!g.dead && this.deathLayer.visible) this.hideDeath(); // run restarted elsewhere (R key, bot)

@@ -10,6 +10,7 @@ import { levelToSwallow } from '../systems/growth';
 import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
 import { APP_VERSION, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
+import { perkIconUrl } from './perkIcons';
 import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
 import type { PerkDef } from '../systems/perks';
 import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
@@ -127,6 +128,7 @@ export function initMenu(game: Phaser.Game): void {
   }
   function renderHeroes(): void {
     heroPick.querySelectorAll<HTMLButtonElement>('[data-hero]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.hero === opts.hero)));
+    void showHeroLogo(opts.hero ?? DEFAULT_HERO);
   }
   renderHeroes();
 
@@ -469,7 +471,7 @@ export function initMenu(game: Phaser.Game): void {
       `<h3>Level ${level}: choose a perk</h3>
       <p class="saved-line">Pick one. Perks add up, and they stay with you if you swim again from your stage.</p>
       <div class="perks">${options
-        .map((o) => `<button class="btn perk" data-perk="${esc(o.id)}"><span class="pi" aria-hidden="true">${o.icon}</span><span class="pn">${esc(o.name)}</span><span class="pd">${esc(o.desc)}</span></button>`)
+        .map((o) => `<button class="btn perk" data-perk="${esc(o.id)}"><img class="pi" alt="" width="32" height="32" src="${perkIconUrl(o.id, 2)}"><span class="pn">${esc(o.name)}</span><span class="pd">${esc(o.desc)}</span></button>`)
         .join('')}</div>`,
       () =>
         panel.querySelectorAll<HTMLButtonElement>('[data-perk]').forEach((b) => {
@@ -579,48 +581,14 @@ export function initMenu(game: Phaser.Game): void {
   });
 }
 
-// ---------------------------------------------------------------- artwork from the atlas
-interface AtlasFrame {
-  frame: { x: number; y: number; w: number; h: number };
-}
-
+// ---------------------------------------------------------------- home screen artwork (pixel designs)
 async function drawArt(): Promise<void> {
-  let frames: Record<string, AtlasFrame>;
-  const img = new Image();
-  try {
-    const res = await fetch('assets/atlas.json');
-    frames = (await res.json()).frames;
-    img.src = 'assets/atlas.png';
-    await img.decode();
-  } catch {
-    return; // art is decoration: the menu works without it
-  }
-
-  // Animated crocodile: idle loop with a blink, like in the game.
-  const hero = $('heroCroc') as HTMLCanvasElement;
-  const hctx = hero.getContext('2d')!;
-  hctx.imageSmoothingEnabled = false;
-  const seq = ['croc_idle1', 'croc_idle2', 'croc_idle1', 'croc_idle2', 'croc_idle1', 'croc_idle_blink'];
-  let i = 0;
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const drawHero = () => {
-    const f = frames[seq[i % seq.length]]?.frame;
-    if (f) {
-      hctx.clearRect(0, 0, hero.width, hero.height);
-      hctx.drawImage(img, f.x, f.y, f.w, f.h, 0, 0, hero.width, hero.height);
-    }
-    i++;
-  };
-  drawHero();
-  if (!reduce) setInterval(drawHero, 380);
-
   // Food chain: what the crocodile can swallow at which level (bigger ones it can only bite).
-  const steps: Array<{ id?: string; name: string; frame: string; level: number | null; tint?: string }> = [
-    { name: 'Plankton', frame: 'bubble_b', level: 1, tint: '#63c74d' },
+  const steps: Array<{ id?: string; name: string; level: number | null; tint?: string }> = [
+    { name: 'Plankton', level: 1, tint: '#63c74d' },
     ...['blue_tang', 'reef_snapper', 'red_grouper', 'grey_shark'].map((id) => ({
       id,
       name: SPECIES[id].displayName,
-      frame: SPECIES[id].sprite,
       level: levelToSwallow(SPECIES[id].baseSize),
     })),
   ];
@@ -652,6 +620,55 @@ async function drawArt(): Promise<void> {
     el.insertAdjacentHTML('beforeend', `<span class="n">${s.name}</span><span class="lv">${s.level === 1 ? 'from the start' : s.level ? `level ${s.level}+` : 'bite it'}</span>`);
     row.appendChild(el);
   });
+}
+
+/** The home screen's big creature: the picked hero's adult design, animating its idle pose (with the blink). */
+let logoTimer: number | undefined;
+let logoToken = 0;
+async function showHeroLogo(heroId: string): Promise<void> {
+  const c = document.getElementById('heroCroc') as HTMLCanvasElement | null;
+  if (!c) return;
+  const token = ++logoToken;
+  const adult = heroStages(heroId).at(-1)!;
+  let p: StudioProject;
+  try {
+    p = (await (await fetch(`studio/seeds/${adult.skin}.json`)).json()) as StudioProject;
+  } catch {
+    return; // decoration only
+  }
+  if (token !== logoToken) return; // another hero was picked meanwhile
+  const pose = p.poses.find((x) => x.name === 'idle' && x.frames.length) ?? p.poses.find((x) => x.frames.length);
+  if (!pose) return;
+  const frames = pose.frames.map((f) => decodeFrame(f, p.w * p.h));
+  // One crop box for all frames, so the creature does not jump; whole-number scale keeps pixels square.
+  let x0 = p.w, y0 = p.h, x1 = 0, y1 = 0;
+  for (const px of frames)
+    px.forEach((v, i) => {
+      if (v < 0) return;
+      const x = i % p.w, y = Math.floor(i / p.w);
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    });
+  if (x1 < x0) return;
+  const w = x1 - x0 + 1, h = y1 - y0 + 1;
+  const k = Math.max(1, Math.floor(Math.min(c.width / w, c.height / h)));
+  const ox = Math.floor((c.width - w * k) / 2), oy = Math.floor((c.height - h * k) / 2);
+  const g = c.getContext('2d')!;
+  let i = 0;
+  const draw = () => {
+    const px = frames[i % frames.length];
+    g.clearRect(0, 0, c.width, c.height);
+    px.forEach((v, n) => {
+      if (v < 0) return;
+      g.fillStyle = p.palette[v];
+      g.fillRect(ox + ((n % p.w) - x0) * k, oy + (Math.floor(n / p.w) - y0) * k, k, k);
+    });
+    i++;
+  };
+  window.clearInterval(logoTimer);
+  draw();
+  c.setAttribute('aria-label', `The ${SPECIES[heroId]?.displayName ?? 'hero'}`);
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduce && frames.length > 1) logoTimer = window.setInterval(draw, Math.round(1000 / Math.max(1, pose.fps || 3)));
 }
 
 /** Draw a Sprite Studio design (its first idle or move frame) crisply into a canvas, centered and fitted. */

@@ -720,7 +720,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.perks.push(id);
     this.applyPerks();
     const p = this.player;
-    this.hud.popup(`${perk.icon} ${perk.name}!`, p.x, p.y - p.size * 1.6, true, '#ffd166');
+    this.hud.popup(`${perk.name}!`, p.x, p.y - p.size * 1.6, true, '#ffd166');
     this.sfx.levelUp();
     this.checkpoint(true);
     // Several levels at once can earn more than one pick.

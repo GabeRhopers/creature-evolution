@@ -32,8 +32,14 @@ export class BootScene extends Phaser.Scene {
       showLoadFailure();
       return;
     }
-    this.scene.start('Game');
-    this.scene.launch('Hud');
+    // The HUD draws text in the pixel font: wait for it briefly (offline, the fallback font is used).
+    const font = document.fonts?.load('700 16px "Pixelify Sans"') ?? Promise.resolve();
+    void Promise.race([font, new Promise((r) => setTimeout(r, 2500))])
+      .catch(() => undefined)
+      .then(() => {
+        this.scene.start('Game');
+        this.scene.launch('Hud');
+      });
   }
 }
 
