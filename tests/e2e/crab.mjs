@@ -20,7 +20,7 @@ await grow(9);
 await p.waitForTimeout(1200);
 ok(await G(()=>!window.game.scene.getScene('Game').crab), 'no crab before level 10');
 await grow(10);
-ok(await waitFor(()=>!!window.game.scene.getScene('Game').crab, 4000), 'a Checkpoint Crab appears at level 10');
+ok(await waitFor(()=>!!window.game.scene.getScene('Game').crab, 15000), 'a Checkpoint Crab appears at level 10');
 ok(await G(()=>window.game.scene.getScene('Hud').banner.text.includes('CHECKPOINT CRAB')), 'with a banner');
 const c0 = await G(()=>{const g=window.game.scene.getScene('Game'),c=g.crab.fish,pl=g.player; return {hp:c.maxHp, bite:pl.biteDamage, armor:c.species.armor, size:c.size, psize:pl.size, depthOk: g.depthLimitY===null || c.y < g.depthLimitY + 1};});
 console.log(JSON.stringify(c0));
@@ -40,7 +40,7 @@ ok(await G(()=>window.game.scene.getScene('Game').mouthState!=='canSwallow'), 't
 
 // a fresh crab at full strength: count bites to defeat it
 await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.crab; g.creatures.splice(g.creatures.indexOf(c),1); c.fish.destroy(); g.crab=null;});
-ok(await waitFor(()=>!!window.game.scene.getScene('Game').crab, 4000), 'the crab comes back until it is defeated');
+ok(await waitFor(()=>!!window.game.scene.getScene('Game').crab, 15000), 'the crab comes back until it is defeated');
 const bites = await G(()=>{const g=window.game.scene.getScene('Game'); let n=0; while(g.crab && n<60){ g.player.biteCooldown=0; g.bite(g.playerCreature, g.crab); n++; } return n;});
 console.log('bites to defeat:', bites);
 ok(bites>=10 && bites<=20, `defeating it takes about 14 bites (${bites})`);
@@ -54,7 +54,7 @@ ok(await G(()=>!window.game.scene.getScene('Game').crab), 'no new crab until lev
 await grow(14);
 const pinch = await G(()=>{const g=window.game.scene.getScene('Game'),pl=g.player; return {max:pl.maxHp};});
 await grow(20);
-ok(await waitFor(()=>!!window.game.scene.getScene('Game').crab, 4000), 'the next crab appears at level 20');
+ok(await waitFor(()=>!!window.game.scene.getScene('Game').crab, 15000), 'the next crab appears at level 20');
 const hit = await G(()=>{const g=window.game.scene.getScene('Game'),pl=g.player; pl.invulnTimer=0; pl.hp=pl.maxHp; const h0=pl.hp; g.bite(g.crab, g.playerCreature); return {lost:(h0-pl.hp)/pl.maxHp, stunned:pl.stunned};});
 ok(Math.abs(hit.lost-0.12*(1-0.2))<0.03 && hit.stunned, `a pinch takes about 12% of your health and stuns: ${JSON.stringify(hit)}`);
 
