@@ -29,8 +29,7 @@ ok(c0.depthOk, 'it waits inside the water you may swim in');
 
 // out of view: the HUD arrow points to it
 await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setPosition(g.crab.fish.x+1400, g.crab.fish.y-300); g.player.arcadeBody.setVelocity(0,0);});
-await p.waitForTimeout(600);
-ok(await G(()=>window.game.scene.getScene('Hud').crabLabel.visible), 'an arrow points to the crab when it is off screen');
+ok(await waitFor(()=>window.game.scene.getScene('Hud').crabLabel.visible, 10000), 'an arrow points to the crab when it is off screen');
 
 // it can't be swallowed, only bitten
 await G(()=>{const g=window.game.scene.getScene('Game'),c=g.crab.fish; c.setLevel(1); c.maxHp=1e6; c.hp=1e6;}); // tiny: would be swallowable
