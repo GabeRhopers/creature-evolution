@@ -150,11 +150,13 @@ footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: gri
     <button data-tool="replace" title="Replace a color everywhere in the frame (C)">🎨</button>
     <button data-tool="select" title="Select / move (M)">⬚</button>
     <button data-tool="hand" title="Pan (H or hold Space)">✋</button>
+    <button data-tool="mouth" title="Mouth marker: tap where the creature eats (M)">👄</button>
     <div class="sep"></div>
     <button id="mirX" title="Mirror drawing left/right">⇆</button>
     <button id="mirY" title="Mirror drawing up/down">⇅</button>
     <button id="btnOnion" title="Show previous frame faintly (onion skin)">🧅</button>
     <button id="btnGrid" title="Pixel grid">#</button>
+    <button id="btnGuides" title="Framework guides: margin, body center, mouth">⊕</button>
   </nav>
 
   <div class="stage" id="stage">
@@ -281,6 +283,23 @@ footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: gri
 const SLOTS = 5;                                   // frames per pose
 const DEFAULT_POSES = ['idle', 'move', 'attack', 'damage', 'celebrate'];
 const ALPH = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'; // palette index -> char
+
+// Sprite frameworks (frameworks.json): canvas, pixel scale, margin, body center, mouth.
+let FRAMEWORKS = null;
+fetch('frameworks.json').then((r) => r.json()).then((j) => { FRAMEWORKS = j; try { render(); } catch {} }).catch(() => {});
+function fwResolve(name) {
+  if (!FRAMEWORKS || !name || !FRAMEWORKS[name]) return null;
+  const f = FRAMEWORKS[name];
+  return f.extends ? { ...fwResolve(f.extends), ...f } : { ...f };
+}
+function fwNames() { return FRAMEWORKS ? Object.keys(FRAMEWORKS).filter((k) => !k.startsWith('_')) : []; }
+/** Put the framework's markers on a project (keeps markers it already has unless `reset`). */
+function applyFramework(p, name, reset) {
+  const f = fwResolve(name); if (!f) return;
+  p.framework = name; p.pixelScale = f.pixelScale;
+  if (reset || !p.bodyRadius) p.bodyRadius = f.bodyRadius;
+  if (reset || !p.mouth) p.mouth = f.mouth.slice();
+}
 const MAX_COLORS = ALPH.length;
 const PRESETS = {
   croc: ['#0e1a10', '#105e22', '#248e2c', '#68c452', '#aad678', '#ffe23a', '#f7ecc8', '#b2262b', '#e87a7a'],
@@ -298,7 +317,7 @@ const S = {
   pose: 0, frame: 0,
   color: 1,                 // palette index; -1 = transparent
   tool: 'pencil', rectFill: false,
-  zoom: 12, grid: true, onion: true, mirX: false, mirY: false,
+  zoom: 12, grid: true, onion: true, mirX: false, mirY: false, guides: true,
   sel: null,                // {x,y,w,h}
   float: null,              // {x,y,w,h,data:Int16Array} movable piece
   clip: null,               // {w,h,data}
@@ -332,19 +351,33 @@ function decodeFrame(s, n) {
   for (let i = 0; i < Math.min(n, s.length); i++) { const c = s[i]; f[i] = c === '.' ? -1 : ALPH.indexOf(c); }
   return f;
 }
+const FW_FIELDS = ['framework', 'bodyRadius', 'mouth', 'pixelScale', 'mouthRadius', 'seedVersion'];
 function serialize(p) {
-  return { name: p.name, w: p.w, h: p.h, palette: p.palette.slice(),
+  const out = { name: p.name, w: p.w, h: p.h, palette: p.palette.slice(),
     poses: p.poses.map((po) => ({ name: po.name, fps: po.fps, frames: po.frames.map(encodeFrame) })) };
+  for (const k of FW_FIELDS) if (p[k] !== undefined && p[k] !== null) out[k] = Array.isArray(p[k]) ? p[k].slice() : p[k];
+  return out;
 }
 function deserialize(d) {
   const w = d.w | 0, h = d.h | 0;
-  return { name: String(d.name || 'Untitled'), w, h, palette: (d.palette || []).slice(0, MAX_COLORS),
+  const p = { name: String(d.name || 'Untitled'), w, h, palette: (d.palette || []).slice(0, MAX_COLORS),
     poses: (d.poses || []).map((po) => ({ name: String(po.name), fps: po.fps || 6,
       frames: (po.frames || []).slice(0, SLOTS).map((s) => decodeFrame(String(s), w * h)) })) };
+  if (typeof d.framework === 'string') p.framework = d.framework;
+  if (d.bodyRadius > 0) p.bodyRadius = +d.bodyRadius;
+  if (Array.isArray(d.mouth) && d.mouth.length === 2) p.mouth = [d.mouth[0] | 0, d.mouth[1] | 0];
+  if (d.pixelScale > 0) p.pixelScale = +d.pixelScale;
+  if (d.mouthRadius > 0) p.mouthRadius = +d.mouthRadius;
+  if (d.seedVersion > 0) p.seedVersion = +d.seedVersion;
+  return p;
 }
-function newProject(name, w, h) {
-  return { name, w, h, palette: PRESETS.croc.slice(),
+function newProject(name, w, h, fwName) {
+  const f = fwResolve(fwName);
+  if (f) { w = f.canvas[0]; h = f.canvas[1]; }
+  const p = { name, w, h, palette: PRESETS.croc.slice(),
     poses: DEFAULT_POSES.map((n) => ({ name: n, fps: 6, frames: n === 'idle' ? [new Int16Array(w * h).fill(-1)] : [] })) };
+  if (f) applyFramework(p, fwName, true);
+  return p;
 }
 
 // ------------------------------------------------------------------ undo
@@ -472,11 +505,30 @@ function render() {
   if (box) { ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
     ctx.strokeRect(box.x * z + 1, box.y * z + 1, box.w * z - 2, box.h * z - 2); }
   ctx.setLineDash([]);
+  // Framework guides: safe margin, body center and hitbox, mouth marker.
+  let marginHits = 0;
+  const fw = fwResolve(p.framework);
+  if (fw && S.guides) {
+    const m = fw.margin;
+    ctx.setLineDash([6, 4]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,110,110,.75)';
+    ctx.strokeRect(m * z + 1, m * z + 1, (p.w - 2 * m) * z - 2, (p.h - 2 * m) * z - 2);
+    ctx.setLineDash([]);
+    const cx = (p.w / 2) * z, cy = (p.h / 2) * z, r = (p.bodyRadius || fw.bodyRadius) * z;
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 8, cy); ctx.lineTo(cx + 8, cy); ctx.moveTo(cx, cy - 8); ctx.lineTo(cx, cy + 8); ctx.stroke();
+    const mo = p.mouth || fw.mouth;
+    ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc((mo[0] + 0.5) * z, (mo[1] + 0.5) * z, Math.max(6, z * 0.9), 0, Math.PI * 2); ctx.stroke();
+    if (f) for (let i = 0; i < f.length; i++) if (f[i] >= 0) { const x = i % p.w, y = (i / p.w) | 0;
+      if (x < m || y < m || x >= p.w - m || y >= p.h - m) { marginHits++; ctx.fillStyle = 'rgba(255,60,60,.55)'; ctx.fillRect(x * z, y * z, z, z); } }
+  }
   // Hover cursor.
   if (hover && inside(hover.x, hover.y) && S.tool !== 'hand' && S.tool !== 'select') {
     ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1; ctx.strokeRect(hover.x * z + 0.5, hover.y * z + 0.5, z - 1, z - 1);
   }
-  $('coords').textContent = `${p.w}×${p.h}` + (hover && inside(hover.x, hover.y) ? `  x ${hover.x}  y ${hover.y}` : '') + `  ·  ${S.zoom}×`;
+  $('coords').textContent = (fw ? `${fw.name} · ` : '') + `${p.w}×${p.h}` + (hover && inside(hover.x, hover.y) ? `  x ${hover.x}  y ${hover.y}` : '') + `  ·  ${S.zoom}×`
+    + (marginHits ? `  ·  ⚠ ${marginHits} px in the margin` : '');
 }
 
 function drawThumb(c, f) {
@@ -539,7 +591,7 @@ function renderButtons() {
   document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === S.tool));
   const rb = document.querySelector('[data-tool=rect]'); rb.textContent = S.rectFill ? '■' : '▭';
   $('mirX').classList.toggle('on', S.mirX); $('mirY').classList.toggle('on', S.mirY);
-  $('btnOnion').classList.toggle('on', S.onion); $('btnGrid').classList.toggle('on', S.grid);
+  $('btnOnion').classList.toggle('on', S.onion); $('btnGrid').classList.toggle('on', S.grid); $('btnGuides').classList.toggle('on', S.guides);
   $('btnUndo').disabled = !S.undo.length; $('btnRedo').disabled = !S.redo.length;
   $('applyBtn').disabled = !S.float; $('pasteBtn').disabled = !S.clip;
   $('rot').disabled = !(S.float || S.sel || P().w === P().h);
@@ -588,6 +640,12 @@ cv.addEventListener('pointerdown', (e) => {
   drag = { tool, x0: x, y0: y, last: { x, y }, cx: e.clientX, cy: e.clientY, sx: stage.scrollLeft, sy: stage.scrollTop };
   const color = tool === 'eraser' ? -1 : S.color;
   if (tool === 'hand') return;
+  if (tool === 'mouth') {
+    drag = null;
+    if (!P().framework) { toast('Choose a framework in Canvas first'); return; }
+    if (inside(x, y)) { pushUndo(); P().mouth = [x, y]; changed(true); toast('Mouth marker moved'); }
+    return;
+  }
   if (tool === 'picker') { if (inside(x, y)) { const f = curFrame(); if (f) { S.color = f[idx(x, y)]; setTool('pencil'); renderPalette(); } } drag = null; return; }
   if (tool === 'select') {
     if (S.float && inBox(S.float, x, y)) { drag.mode = 'moveFloat'; drag.fx = S.float.x; drag.fy = S.float.y; return; }
@@ -849,8 +907,8 @@ async function loadProject(id, opts = {}) {
   return true;
 }
 
-function startNew(name, w, h) {
-  S.id = 'p' + Date.now().toString(36); S.rev = 0; S.project = newProject(name, w, h);
+function startNew(name, w, h, fwName) {
+  S.id = 'p' + Date.now().toString(36); S.rev = 0; S.project = newProject(name, w, h, fwName);
   S.pose = 0; S.frame = 0; S.sel = null; S.float = null; S.undo = []; S.redo = []; S.color = 1;
   $('projName').value = name; fitZoom(); S.dirty = true; changed(true);
 }
@@ -888,7 +946,8 @@ async function openProjects() {
   openModal(`<h3>Projects</h3><div class="plist">${items || '<p class="label">No saved projects yet.</p>'}</div>
     <div class="row"><button id="npHist" ${db && S.id ? '' : 'disabled'}>History of this project</button></div>
     <h3>New project</h3>
-    <div class="row"><input type="text" id="npName" value="My character" aria-label="Name"><input type="number" id="npW" value="48" min="4" max="128" aria-label="Width" style="width:74px"><span class="label">×</span><input type="number" id="npH" value="24" min="4" max="128" aria-label="Height" style="width:74px"></div>
+    <div class="row"><input type="text" id="npName" value="My character" aria-label="Name"><select id="npF" aria-label="Sprite framework">${fwOptions('default')}</select></div>
+    <div class="row"><span class="label">Free size:</span><input type="number" id="npW" value="48" min="4" max="128" aria-label="Width" style="width:74px"><span class="label">×</span><input type="number" id="npH" value="24" min="4" max="128" aria-label="Height" style="width:74px"></div>
     <div class="row"><button id="npGo" class="on">Create</button><button id="npDup">Duplicate current</button><button id="npClose">Close</button></div>
     ${trashItems ? `<h3>Recently deleted</h3><p class="label">Kept for ${TRASH_DAYS} days.</p><div class="plist">${trashItems}</div>` : ''}
     <p class="label">${db ? 'Projects are saved to the cloud with the game. Tap Try in game to swim with one. Every change is also kept on this device right away.' : 'Cloud saving is not available here, so projects are kept on this device only.'}</p>`, () => {
@@ -900,7 +959,7 @@ async function openProjects() {
       try { await restoreFromTrash(it); closeModal(); await save(); await loadProject(it.id); toast('Project restored'); } catch { toast('Could not restore right now'); } });
     $('npHist').onclick = openHistory;
     $('npGo').onclick = async () => { const w = Math.max(4, Math.min(128, +$('npW').value | 0)), h = Math.max(4, Math.min(128, +$('npH').value | 0));
-      const n = $('npName').value.trim() || 'My character'; await save(); closeModal(); startNew(n, w, h); };
+      const n = $('npName').value.trim() || 'My character'; const fwName = $('npF').value; await save(); closeModal(); startNew(n, w, h, fwName); };
     $('npDup').onclick = async () => { await save(); const copyP = deserialize(serialize(P())); copyP.name = P().name + ' copy';
       S.id = 'p' + Date.now().toString(36); S.rev = 0; S.project = copyP; $('projName').value = copyP.name; S.dirty = true; closeModal(); changed(true); toast('Duplicated'); };
     $('npClose').onclick = closeModal;
@@ -925,21 +984,36 @@ async function openHistory() {
   });
 }
 
+function fwOptions(sel) {
+  return '<option value="">None (free size)</option>' + fwNames().map((n) => `<option value="${n}" ${n === sel ? 'selected' : ''}>${fwResolve(n).name} · ${fwResolve(n).canvas.join('×')}</option>`).join('');
+}
 function openCanvasSettings() {
-  openModal(`<h3>Canvas size</h3><p class="label">Resizing keeps the art anchored to the chosen spot. Pixels outside the new size are cut.</p>
+  const fw = fwResolve(P().framework);
+  openModal(`<h3>Canvas</h3>
+    <div class="row"><label class="label" for="csF">Sprite framework</label><select id="csF">${fwOptions(P().framework)}</select></div>
+    <p class="label">A framework sets the canvas size, a safe margin (red), the body center and hitbox (white) and the mouth marker (yellow, move it with the 👄 tool), so the drawing fits the game.</p>
+    <div class="row"><label class="label" for="csR">Hitbox radius</label><input type="number" id="csR" value="${P().bodyRadius || (fw ? fw.bodyRadius : 8)}" min="2" max="40" style="width:80px"></div>
+    <h3>Canvas size</h3><p class="label">Resizing keeps the art anchored to the chosen spot. Pixels outside the new size are cut.</p>
     <div class="row"><label class="label" for="csW">Width</label><input type="number" id="csW" value="${P().w}" min="4" max="128" style="width:80px">
     <label class="label" for="csH">Height</label><input type="number" id="csH" value="${P().h}" min="4" max="128" style="width:80px"></div>
     <div class="row"><label class="label" for="csA">Anchor</label><select id="csA"><option value="c">Center</option><option value="bl">Bottom left</option><option value="b">Bottom center</option><option value="tl">Top left</option></select></div>
     <div class="row"><button id="csOk" class="on">Apply</button><button id="csNo">Cancel</button></div>`, () => {
     $('csNo').onclick = closeModal;
+    $('csF').onchange = () => { const f = fwResolve($('csF').value); if (f) { $('csW').value = f.canvas[0]; $('csH').value = f.canvas[1]; $('csA').value = 'c'; $('csR').value = f.bodyRadius; } };
     $('csOk').onclick = () => {
+      const fwName = $('csF').value;
       const nw = Math.max(4, Math.min(128, +$('csW').value | 0)), nh = Math.max(4, Math.min(128, +$('csH').value | 0)); const a = $('csA').value;
       const ow = P().w, oh = P().h; pushUndo();
       const ox = a === 'c' || a === 'b' ? Math.floor((nw - ow) / 2) : 0;
       const oy = a === 'c' ? Math.floor((nh - oh) / 2) : (a === 'bl' || a === 'b') ? nh - oh : 0;
       for (const po of P().poses) po.frames = po.frames.map((f) => { const n = new Int16Array(nw * nh).fill(-1);
         for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) { const X = x + ox, Y = y + oy; if (X >= 0 && Y >= 0 && X < nw && Y < nh) n[Y * nw + X] = f[y * ow + x]; } return n; });
-      P().w = nw; P().h = nh; S.sel = null; S.float = null; closeModal(); fitZoom(); changed(true);
+      P().w = nw; P().h = nh;
+      if (fwName) { const switched = P().framework !== fwName; applyFramework(P(), fwName, switched);
+        if (P().mouth && !switched) P().mouth = [Math.min(nw - 1, P().mouth[0] + ox), Math.min(nh - 1, P().mouth[1] + oy)];
+        P().bodyRadius = Math.max(2, Math.min(40, +$('csR').value || P().bodyRadius)); }
+      else { delete P().framework; delete P().bodyRadius; delete P().mouth; delete P().pixelScale; }
+      S.sel = null; S.float = null; closeModal(); fitZoom(); changed(true);
     };
   });
 }
@@ -1032,6 +1106,7 @@ $('mirX').onclick = () => { S.mirX = !S.mirX; changed(false); };
 $('mirY').onclick = () => { S.mirY = !S.mirY; changed(false); };
 $('btnOnion').onclick = () => { S.onion = !S.onion; changed(false); };
 $('btnGrid').onclick = () => { S.grid = !S.grid; changed(false); };
+$('btnGuides').onclick = () => { S.guides = !S.guides; changed(false); };
 $('zoomIn').onclick = () => { S.zoom = Math.min(64, S.zoom + (S.zoom < 8 ? 1 : 2)); render(); };
 $('zoomOut').onclick = () => { S.zoom = Math.max(2, S.zoom - (S.zoom <= 8 ? 1 : 2)); render(); };
 $('zoomFit').onclick = fitZoom;
@@ -1111,28 +1186,32 @@ window.addEventListener('online', () => { if (S.dirty) save(); });
 // New designs shipped with the game (seeds/*.json) are added once to the
 // project list, so they can be opened and edited like any other project.
 // Deleting one later does not bring it back.
-const SEEDS = ['croc-hatchling', 'croc-juvenile', 'croc-adult'];
+const SEEDS = { 'croc-hatchling': 2, 'croc-juvenile': 2, 'croc-adult': 2 };   // id -> design version
 async function seedStarters() {
-  let done = [];
-  try { done = JSON.parse(localStorage.getItem('spritestudio.seeded') || '[]'); } catch {}
-  if (db) { try { const m = await db.doc('meta/seeds').get(); if (m.exists) done = [...new Set([...done, ...(m.data().ids || [])])]; } catch {} }
-  const todo = SEEDS.filter((id) => !done.includes(id));
-  if (!todo.length) return;
-  for (const id of todo) {
+  let done = {};
+  try { const v = JSON.parse(localStorage.getItem('spritestudio.seeded') || '{}'); done = Array.isArray(v) ? Object.fromEntries(v.map((id) => [id, 1])) : v; } catch {}
+  if (db) { try { const m = await db.doc('meta/seeds').get(); if (m.exists) { const d = m.data();
+    if (d.versions) for (const [k, v] of Object.entries(d.versions)) done[k] = Math.max(done[k] || 0, v);
+    else (d.ids || []).forEach((id) => { done[id] = Math.max(done[id] || 0, 1); }); } } catch {} }
+  let changedAny = false;
+  for (const [id, ver] of Object.entries(SEEDS)) {
+    if ((done[id] || 0) >= ver) continue;
     try {
       const res = await fetch('seeds/' + id + '.json'); if (!res.ok) continue;
       const data = await res.json();
-      let exists = !!readLocal(id);
-      if (db) { try { exists = exists || (await db.doc('projects/' + id).get()).exists; } catch {} }
-      if (!exists) {
-        if (db) await db.doc('projects/' + id).set({ ...data, rev: 1, device: DEVICE });
-        try { localStorage.setItem(LOCAL + id, JSON.stringify({ ...data, rev: db ? 1 : 0, pending: false })); } catch {}
-      }
-      done.push(id);
+      let existing = readLocal(id);
+      if (db) { try { const d = await db.doc('projects/' + id).get(); if (d.exists) existing = d.data(); } catch {} }
+      // Never overwrite someone's drawing: an edited older design stays, and the new one arrives as a copy.
+      const untouched = existing && !existing.framework && (existing.rev || 0) <= 1;
+      const target = !existing || untouched ? id : id + '-v' + ver;
+      const body = { ...data, name: target === id ? data.name : data.name + ' (new design)', rev: (existing && target === id ? (existing.rev || 0) : 0) + 1, device: DEVICE };
+      if (db) await db.doc('projects/' + target).set(body);
+      try { localStorage.setItem(LOCAL + target, JSON.stringify({ ...body, pending: !db })); } catch {}
+      done[id] = ver; changedAny = true;
     } catch {}
   }
   try { localStorage.setItem('spritestudio.seeded', JSON.stringify(done)); } catch {}
-  if (db) { try { await db.doc('meta/seeds').set({ ids: done }); } catch {} }
+  if (db && changedAny) { try { await db.doc('meta/seeds').set({ versions: done }); } catch {} }
 }
 
 // ------------------------------------------------------------------ boot

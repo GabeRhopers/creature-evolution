@@ -20,6 +20,8 @@ export const NO_INTENT: SwimIntent = { dirX: 0, dirY: 0, strength: 0, sprint: fa
 // around the frame center. Scaling the sprite by size/artRadius makes the
 // visible fish match the physics circle. Species can override this with `art`
 // (e.g. the long crocodile frames).
+/** A multi-frame bite (Sprite Studio attack pose) plays over this long. */
+const BITE_SEQ_SECONDS = 0.36;
 const DEFAULT_ART_RADIUS = 36;
 
 /**
@@ -129,7 +131,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   /** Show the open-jaw frame briefly (species with animation frames). */
   playBite(): void {
-    this.biteAnim = 0.25;
+    this.biteAnim = this.skinFrames?.biteSeq && this.skinFrames.biteSeq.length > 1 ? BITE_SEQ_SECONDS : 0.25;
   }
 
   /** Play the celebrate animation (level-up), if the art has one. */
@@ -138,7 +140,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   }
 
   /** Use frames from another texture (a Sprite Studio drawing). Same frame size as the original art. */
-  applySkin(texture: string, frames: { swim: string[]; idle?: string[]; bite?: string; rest?: string; damage?: string; celebrate?: string[] }): void {
+  applySkin(texture: string, frames: { swim: string[]; idle?: string[]; bite?: string; biteSeq?: string[]; rest?: string; damage?: string; celebrate?: string[] }): void {
     if (!frames.swim.length) return;
     this.skinFrames = { ...frames, celebrate: frames.celebrate?.length ? frames.celebrate : undefined };
     this.setTexture(texture, frames.swim[0]);
@@ -410,7 +412,10 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     let frame: string;
     const speed = this.arcadeBody.velocity.length();
     const still = speed < this.cruiseSpeed * 0.12 && !this.stunned;
-    if (this.biteAnim > 0 && frames.bite) {
+    if (this.biteAnim > 0 && frames.biteSeq && frames.biteSeq.length > 1) {
+      const k = Math.min(frames.biteSeq.length - 1, Math.floor((1 - this.biteAnim / BITE_SEQ_SECONDS) * frames.biteSeq.length));
+      frame = frames.biteSeq[Math.max(0, k)];
+    } else if (this.biteAnim > 0 && frames.bite) {
       frame = frames.bite;
     } else if (this.sinceHurt < 0.35 && frames.damage) {
       frame = frames.damage;

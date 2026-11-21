@@ -24,6 +24,24 @@ export interface StudioProject {
   palette: string[];
   poses: StudioPose[];
   updatedAt?: string;
+  /** Sprite framework fields (see studio/frameworks.json). */
+  framework?: string;
+  /** Hitbox radius in canvas pixels, around the canvas center. */
+  bodyRadius?: number;
+  /** Where the creature eats, in canvas pixels. */
+  mouth?: [number, number];
+  /** Game pixels per canvas pixel. */
+  pixelScale?: number;
+  mouthRadius?: number;
+  rev?: number;
+  seedVersion?: number;
+}
+
+/** Art geometry for the game, derived from a framework drawing. */
+export interface SkinArt {
+  radius: number;
+  mouthReach: number;
+  mouthRadius: number;
 }
 export interface StudioSummary {
   id: string;
@@ -35,6 +53,8 @@ export interface PoseMap {
   swim: Array<[string, number]>;
   idle: Array<[string, number]>;
   bite?: [string, number];
+  /** Every attack frame, played in order as one quick bite. */
+  biteSeq: Array<[string, number]>;
   rest?: [string, number];
   damage?: [string, number];
   celebrate: Array<[string, number]>;
@@ -85,6 +105,7 @@ export function poseMap(p: StudioProject): PoseMap {
     swim: move.length ? move : idle,
     idle: idle.length ? idle : move.slice(0, 1),
     bite: frames('attack')[0],
+    biteSeq: frames('attack'),
     rest: frames('rest')[0],
     damage: frames('damage')[0],
     celebrate: frames('celebrate'),
@@ -96,6 +117,7 @@ export interface SkinFrames {
   swim: string[];
   idle?: string[];
   bite?: string;
+  biteSeq?: string[];
   rest?: string;
   damage?: string;
   celebrate?: string[];
@@ -113,7 +135,7 @@ interface TextureHost {
  * Draw every used frame into one canvas texture (frames side by side, 144x72
  * each, pixel art scaled up crisply and centered) and return the frame names.
  */
-export function buildSkinTexture(host: TextureHost, key: string, p: StudioProject): SkinFrames {
+export function buildSkinTexture(host: TextureHost, key: string, p: StudioProject): SkinFrames & { art: SkinArt | null } {
   const map = poseMap(p);
   const used = new Map<string, string>(); // "pose:i" -> frame name
   const order: Array<[string, number]> = [];
@@ -130,17 +152,23 @@ export function buildSkinTexture(host: TextureHost, key: string, p: StudioProjec
     swim: map.swim.map((f) => want(f)!),
     idle: map.idle.map((f) => want(f)!),
     bite: want(map.bite),
+    biteSeq: map.biteSeq.map((f) => want(f)!),
     rest: want(map.rest),
     damage: want(map.damage),
     celebrate: map.celebrate.map((f) => want(f)!),
   };
 
-  const k = Math.max(1, Math.floor(Math.min(SKIN_FRAME_W / p.w, SKIN_FRAME_H / p.h)));
-  const ox = Math.floor((SKIN_FRAME_W - p.w * k) / 2);
-  const oy = Math.floor((SKIN_FRAME_H - p.h * k) / 2);
+  // Framework drawings keep their own canvas at their pixel scale (the canvas center is the
+  // body center). Older drawings are fitted into the original 144x72 crocodile frame.
+  const framed = isFramed(p);
+  const k = framed ? Math.max(1, Math.round(p.pixelScale!)) : Math.max(1, Math.floor(Math.min(SKIN_FRAME_W / p.w, SKIN_FRAME_H / p.h)));
+  const fw = framed ? p.w * k : SKIN_FRAME_W;
+  const fh = framed ? p.h * k : SKIN_FRAME_H;
+  const ox = Math.floor((fw - p.w * k) / 2);
+  const oy = Math.floor((fh - p.h * k) / 2);
   const canvas = document.createElement('canvas');
-  canvas.width = SKIN_FRAME_W * Math.max(1, order.length);
-  canvas.height = SKIN_FRAME_H;
+  canvas.width = fw * Math.max(1, order.length);
+  canvas.height = fh;
   const g = canvas.getContext('2d')!;
   order.forEach(([pose, i], slot) => {
     const src = p.poses.find((x) => x.name.toLowerCase() === pose)!.frames[i];
@@ -150,14 +178,31 @@ export function buildSkinTexture(host: TextureHost, key: string, p: StudioProjec
         const c = px[y * p.w + x];
         if (c < 0 || c >= p.palette.length) continue;
         g.fillStyle = p.palette[c];
-        g.fillRect(slot * SKIN_FRAME_W + ox + x * k, oy + y * k, k, k);
+        g.fillRect(slot * fw + ox + x * k, oy + y * k, k, k);
       }
     }
   });
   if (host.textures.exists(key)) host.textures.remove(key);
   const tex = host.textures.addCanvas(key, canvas)!;
-  order.forEach((_, slot) => tex.add(`${key}_${slot}`, 0, slot * SKIN_FRAME_W, 0, SKIN_FRAME_W, SKIN_FRAME_H));
-  return result;
+  order.forEach((_, slot) => tex.add(`${key}_${slot}`, 0, slot * fw, 0, fw, fh));
+  return { ...result, art: framed ? artFromProject(p) : null };
+}
+
+/** A drawing made on a sprite framework (it knows its body radius, mouth and scale). */
+export function isFramed(p: StudioProject): boolean {
+  return !!(p.framework && p.bodyRadius && p.bodyRadius > 0 && p.pixelScale && p.mouth);
+}
+
+/** Hitbox and mouth for the game, from the drawing's framework markers. */
+export function artFromProject(p: StudioProject): SkinArt | null {
+  if (!isFramed(p)) return null;
+  const k = Math.max(1, Math.round(p.pixelScale!));
+  const r = p.bodyRadius!;
+  return {
+    radius: r * k,
+    mouthReach: Math.max(0.5, (p.mouth![0] + 0.5 - p.w / 2) / r),
+    mouthRadius: p.mouthRadius ?? 0.6,
+  };
 }
 
 // ------------------------------------------------------------------ loading
@@ -260,7 +305,9 @@ export async function loadStageLooks(stages: Array<{ id: string; skin: string }>
       } catch {
         project = null;
       }
-      if (!project || validateProject(project).length) {
+      // A starter design nobody edited, saved before the sprite framework: use the newer one.
+      const outdatedSeed = !!project && !isFramed(project) && (project.rev ?? 0) <= 1;
+      if (!project || outdatedSeed || validateProject(project).length) {
         try {
           const res = await fetch(`studio/seeds/${s.skin}.json`);
           if (res.ok) project = (await res.json()) as StudioProject;

@@ -38,6 +38,8 @@ export interface SpeciesArt {
     blink?: string;
     /** Shown for a moment after being hit. */
     damage?: string;
+    /** Several bite frames played in order. */
+    biteSeq?: string[];
     /** Played on level-up. */
     celebrate?: string[];
   };

@@ -419,16 +419,18 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     try {
       if (custom) {
         const key = 'skin_' + custom.id;
-        p.applySkin(key, buildSkinTexture(this, key, custom.project));
-        p.setArt(null);
+        const built = buildSkinTexture(this, key, custom.project);
+        p.applySkin(key, built);
+        p.setArt(built.art);
         return;
       }
       const st = p.stage;
       const look = st ? getStageLook(st.id) : null;
       if (st && look) {
         const key = 'stage_' + st.id;
-        p.applySkin(key, buildSkinTexture(this, key, look));
-        p.setArt(st.art);
+        const built = buildSkinTexture(this, key, look);
+        p.applySkin(key, built);
+        p.setArt(built.art ?? st.art);
         return;
       }
     } catch (err) {
