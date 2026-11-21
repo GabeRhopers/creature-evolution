@@ -82,7 +82,8 @@ function across(range: [number, number], s: StageDef, level: number): number {
 export function formAt(species: Species, level: number, staged: boolean): Form {
   if (!staged) {
     const size = sizeAt(species, level);
-    return { stage: null, size, rank: size, power: size / species.baseSize, devourRatio: species.devourRatio };
+    const rank = size * (species.rankMul ?? 1);
+    return { stage: null, size, rank, power: rank / species.baseSize, devourRatio: species.devourRatio };
   }
   const s = stageAt(level);
   const size = across(s.body, s, level);

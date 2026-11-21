@@ -23,7 +23,7 @@ class Grid:
         for x, y in add: s.g[y][x] = color
 
 def fish(w, h, rx, ry, top, mid, belly, fin, tail_len, tail_spread=0.7, flex=0, fork=True, dorsal=4,
-         dorsal_color=None, pattern=None, bite=False, teeth=False, eye=(0.55, -0.3), front_taper=0.85, lip=None):
+         dorsal_color=None, pattern=None, bite=False, teeth=False, eye=(0.55, -0.3), front_taper=0.85, lip=None, spines=0, long_fin=False):
     g = Grid(w, h)
     cx, cy = w / 2 - 0.5, h / 2 - 0.5
     rxf = rx * front_taper
@@ -37,6 +37,19 @@ def fish(w, h, rx, ry, top, mid, belly, fin, tail_len, tail_spread=0.7, flex=0, 
             if abs(y - c) <= half:
                 if fork and d > tail_len * 0.55 and abs(y - c) < (d - tail_len * 0.55) * 0.9: continue
                 g.px(x, y, fin)
+    # venomous spines (lionfish): thin spikes standing up from the back and fanning out below
+    if spines:
+        for k, x in enumerate(range(int(cx - rx * 0.7), int(cx + rx * 0.45), 2)):
+            hgt = spines - (k % 2)
+            for i in range(1, hgt + 1):
+                g.px(x - i * 0.3, cy - ry * 0.85 - i, fin if i < hgt else '#ead4aa')
+        for k, x in enumerate(range(int(cx - rx * 0.3), int(cx + rx * 0.3), 2)):
+            for i in range(1, spines // 2 + 2):
+                g.px(x - i * 0.6, cy + ry * 0.85 + i, fin)
+    # one long fin along the whole back (moray eel)
+    if long_fin:
+        for x in range(int(cx - rx - 1), int(cx + rx * 0.4)):
+            g.px(x, cy - ry * 0.95 - 1, fin)
     # dorsal fin (leans back)
     for i in range(dorsal):
         for x in range(int(cx - rx * 0.35 - i), int(cx + rx * 0.2 - i * 1.6)):
@@ -148,6 +161,21 @@ def grouper_spots(x, y, cx, cy, rx, ry, col):
 def shark_pattern(x, y, cx, cy, rx, ry, col):
     return col
 
+def lionfish_stripes(x, y, cx, cy, rx, ry, col):
+    # wide red and cream vertical bands
+    return '#be4a2f' if int(x - cx + 40) % 4 < 2 else '#ead4aa'
+
+def barracuda_bars(x, y, cx, cy, rx, ry, col):
+    # dark bars across the back, leaning back
+    if y < cy - ry * 0.1 and int(x + (cy - y) * 0.6 - cx + 60) % 6 < 2 and abs(x - cx) < rx * 0.7: return '#262b44'
+    return col
+
+EEL_SPOTS = [(-26, -2), (-20, 1), (-14, -2), (-8, 2), (-2, -1), (4, 2), (10, -2), (16, 1), (-23, 3), (-11, 3), (1, -3), (13, 3)]
+def eel_spots(x, y, cx, cy, rx, ry, col):
+    for sx, sy in EEL_SPOTS:
+        if x == int(cx + sx) and y == int(cy + sy): return '#63c74d'
+    return col
+
 SPECS = {
   'fish-blue_tang': dict(name='Blue Tang', fw='fish', w=40, h=32, radius=5, rx=10, ry=6,
       top='#124e89', mid='#0099db', belly='#2ce8f5', fin='#feae34', tail_len=6, dorsal=2, dorsal_color='#124e89', pattern=tang_pattern, bites=False),
@@ -157,11 +185,18 @@ SPECS = {
       top='#a22633', mid='#e43b44', belly='#f6757a', fin='#a22633', tail_len=10, tail_spread=0.8, fork=False, dorsal=5, pattern=grouper_spots, bites=True, front_taper=0.95, lip='#733e39'),
   'fish-grey_shark': dict(name='Grey Hunter', fw='shark', w=112, h=56, radius=24, rx=37, ry=12,
       top='#5a6988', mid='#8b9bb4', belly='#c0cbdc', fin='#5a6988', tail_len=12, tail_spread=1.0, dorsal=10, dorsal_color='#3a4466', bites=True, teeth=True, front_taper=0.75, eye=(0.6, -0.35)),
+  # higher-level enemies (they appear once you reach their level)
+  'fish-lionfish': dict(name='Lionfish', fw='fish', w=40, h=32, radius=6, rx=10, ry=6,
+      top='#be4a2f', mid='#ead4aa', belly='#ead4aa', fin='#e43b44', tail_len=5, dorsal=0, pattern=lionfish_stripes, spines=6, bites=False),
+  'fish-barracuda': dict(name='Barracuda', fw='bigfish', w=80, h=48, radius=13, rx=27, ry=5,
+      top='#3a4466', mid='#8b9bb4', belly='#c0cbdc', fin='#5a6988', tail_len=8, tail_spread=0.9, dorsal=3, dorsal_color='#3a4466', pattern=barracuda_bars, bites=True, teeth=True, front_taper=0.7, eye=(0.62, -0.35)),
+  'fish-moray_eel': dict(name='Moray Eel', fw='bigfish', w=80, h=48, radius=12, rx=31, ry=5,
+      top='#193c3e', mid='#265c42', belly='#3e8948', fin='#193c3e', tail_len=4, tail_spread=0.6, fork=False, dorsal=0, pattern=eel_spots, long_fin=True, bites=True, teeth=True, front_taper=0.9, eye=(0.7, -0.4)),
 }
 FW = {'fish': 2, 'bigfish': 2, 'shark': 2}
 out = {}
 for pid, sp in SPECS.items():
-    kw = {k: v for k, v in sp.items() if k in ('rx','ry','top','mid','belly','fin','tail_len','tail_spread','fork','dorsal','dorsal_color','pattern','teeth','eye','front_taper','lip')}
+    kw = {k: v for k, v in sp.items() if k in ('rx','ry','top','mid','belly','fin','tail_len','tail_spread','fork','dorsal','dorsal_color','pattern','teeth','eye','front_taper','lip','spines','long_fin')}
     w, h = sp['w'], sp['h']
     swim = [fish(w, h, flex=-1, **kw), fish(w, h, flex=1, **kw)]
     poses = [("idle", 3, [swim[0]]), ("move", 6, swim)]

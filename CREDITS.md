@@ -8,6 +8,7 @@
 | Mosa | Original pixel-art design and five swim poses by the developer's son; sampled cell by cell, hatchling and bite frames derived from it | Family original | `tools/mosa/` (drawings: `reference-*.jpg`) | Second playable hero |
 | White Shark | Original pixel-art design in the style of the developer's son's Croc and Mosa, generated in code | Original | `tools/heroes/draw_shark.py` | Third playable hero |
 | Checkpoint Crab | Original pixel-art starter design in the style of the heroes, generated in code (Mike can redraw it in Sprite Studio) | Original | `tools/heroes/draw_crab.py` | Checkpoint mini-boss |
+| Lionfish, Moray Eel, Barracuda | Original pixel-art designs generated in code, like the other reef fish | Original | `tools/fish/draw_fish.py` | Higher-level enemies |
 | Sound effects | generated in code (`src/audio/Sfx.ts`) | n/a | | All SFX |
 
 CC0 means no attribution is required; we credit anyway. Before adding any asset,

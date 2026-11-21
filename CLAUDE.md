@@ -64,6 +64,13 @@ bites) and pinch (`pinchHpFraction` of the player's health + stun) are set from 
 Defeating it sets `crabLevel` (saved in the checkpoint). After dying, SWIM AGAIN restarts at `crabLevel`
 (or level 1), with perks. This replaced the old "back to the start of your stage" rule.
 
+## Higher-level enemies
+Species with `unlockLevel` only join the reef once the player reaches that level (`spawnAmbientFish`
+skips them; `spawnUnlocked` adds them on level-up with a NEW banner and the species' `intro`).
+Lionfish (6, `venom`: biting or swallowing it costs the player health), Moray Eel (14, `behavior.ambush`:
+lurks, one lunge per hunt, short chase), Barracuda (22, pack hunter). `rankMul` lets a slim fish fight
+above its size (AI rank and power = size x rankMul). Looks drawn by `tools/fish/draw_fish.py`.
+
 ## Player damage rules (`GameScene.attackPlayer`)
 AI never swallows the player. Predators that could swallow you "chomp" (x1.5 damage);
 every hit is capped at `playerDefense.maxHitFraction` of max HP, then knockback +

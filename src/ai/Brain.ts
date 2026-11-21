@@ -58,6 +58,8 @@ export class Brain {
   private wanderX = 0;
   private wanderY = 0;
   private wanderTimer = 0;
+  /** Ambushers lunge once per hunt. */
+  private lunged = false;
 
   constructor(
     private self: Creature,
@@ -265,6 +267,7 @@ export class Brain {
   private setState(s: BrainState): void {
     this.state = s;
     this.stateTime = 0;
+    this.lunged = false;
   }
 
   // ------------------------------------------------------------ steering
@@ -291,6 +294,18 @@ export class Brain {
       this.target = null;
       this.setState('wander');
       return this.wanderIntent(0);
+    }
+    // Ambushers (moray eel): one fast lunge at the start, then a short chase, then back to lurking.
+    if (me.species.behavior.ambush) {
+      if (!this.lunged) {
+        this.lunged = true;
+        me.heading = Math.atan2(t.y - me.y, t.x - me.x);
+        me.tryDash();
+      } else if (this.stateTime > BALANCE.ai.ambushChaseSeconds) {
+        this.target = null;
+        this.setState('rest');
+        return { ...this.wanderIntent(0), strength: 0 };
+      }
     }
     // Lead the target a little.
     const v = t.arcadeBody.velocity;
@@ -380,7 +395,8 @@ export class Brain {
         dy = dy * 0.35 + (hy / n) * 0.35 + (ty / tl) * 0.2 + sy * 0.6;
       }
     }
-    return { dirX: dx, dirY: dy, strength: ai.wanderStrength, sprint: false };
+    // Ambushers barely move while they wait.
+    return { dirX: dx, dirY: dy, strength: me.species.behavior.ambush ? ai.ambushLurkStrength : ai.wanderStrength, sprint: false };
   }
 
   private pickWanderPoint(): void {
