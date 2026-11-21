@@ -92,6 +92,9 @@ export function getSpecies(id: string): Species {
   return s;
 }
 
+/** Stage abilities. lunge and dart are dashes; roll and crush grab one fish; slam hits every fish around you. */
+export type AbilityId = 'shell' | 'lunge' | 'roll' | 'dart' | 'slam' | 'crush';
+
 /** A growth stage of the player's creature (see balance.json "stages"). */
 export interface StageDef {
   id: string;
@@ -106,7 +109,7 @@ export interface StageDef {
   /** Sprite Studio project with this stage's look. */
   skin: string;
   art: { radius: number; mouthReach: number; mouthRadius: number };
-  ability: 'shell' | 'lunge' | 'roll';
+  ability: AbilityId;
   /** Deepest the stage can swim, as a share of the water (1 = the seabed). */
   maxDepth: number;
 }
@@ -123,5 +126,45 @@ export const AREAS = BALANCE.areas.list as AreaDef[];
 export function areaAt(depth: number): AreaDef {
   return AREAS.find((a) => depth >= a.from && depth < a.to) ?? AREAS[AREAS.length - 1];
 }
-export const STAGES = BALANCE.stages.list as StageDef[];
+/** The crocodile's stages, as written in balance.json. */
+const BASE_STAGES = BALANCE.stages.list as StageDef[];
+
+/** A playable hero (balance.json "heroes"): its species id is the key. */
+export interface HeroDef {
+  id: string;
+  name: string;
+  blurb: string;
+  /** Per-stage changes on top of the shared stages (design, ability, art geometry). */
+  stages: Record<string, Partial<Pick<StageDef, 'skin' | 'ability' | 'art'>>>;
+}
+export const HEROES: HeroDef[] = Object.entries(BALANCE.heroes as Record<string, unknown>)
+  .filter(([k]) => !k.startsWith('_'))
+  .map(([id, h]) => ({ id, ...(h as Omit<HeroDef, 'id'>) }));
+export const DEFAULT_HERO = BALANCE.playerSpecies as string;
+
+export function isHero(id: unknown): id is string {
+  return typeof id === 'string' && HEROES.some((h) => h.id === id);
+}
+
+/** A hero's stages: the shared levels, sizes and depths with its own designs and abilities. */
+export function heroStages(heroId: string): StageDef[] {
+  const hero = HEROES.find((h) => h.id === heroId);
+  return BASE_STAGES.map((s) => ({ ...s, ...(hero?.stages[s.id] ?? {}) }));
+}
+
+/**
+ * The stages of the hero being played. Growth code reads this array, so
+ * setHero() swaps its contents in place (the array itself never changes).
+ */
+export const STAGES: StageDef[] = heroStages(DEFAULT_HERO);
+let activeHero = DEFAULT_HERO;
+export function setHero(heroId: string): void {
+  activeHero = isHero(heroId) ? heroId : DEFAULT_HERO;
+  STAGES.splice(0, STAGES.length, ...heroStages(activeHero));
+}
+export function getHero(): string {
+  return activeHero;
+}
+/** Every stage design of every hero (to preload them all). */
+export const ALL_STAGE_SKINS: string[] = [...new Set(HEROES.flatMap((h) => heroStages(h.id).map((s) => s.skin)))];
 export const MAX_LEVEL: number = BALANCE.stages.maxLevel;

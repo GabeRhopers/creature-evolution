@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BALANCE, DIFFICULTY, SPECIES, areaAt, getSpecies, type Difficulty, type DifficultyName } from '../data';
+import { BALANCE, DEFAULT_HERO, DIFFICULTY, SPECIES, areaAt, getSpecies, isHero, setHero, type Difficulty, type DifficultyName } from '../data';
 import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
 import { toggleTuningPanel } from '../ui/tuning';
@@ -41,6 +41,8 @@ type MouthState = 'idle' | 'canSwallow' | 'canBite' | 'full';
 let currentDifficulty: DifficultyName = readDifficultyFromUrl();
 /** Whether the next (re)start shows the home screen's attract mode instead of a run. */
 let nextMenuMode = true;
+/** The hero for the next run (chosen on the home screen; a saved run brings its own). */
+let currentHero: string = DEFAULT_HERO;
 /** A saved run to continue on the next start (set by Continue on the home screen). */
 let pendingResume: Checkpoint | null = null;
 /** Test swim from Sprite Studio: nothing is saved or recorded. */
@@ -120,6 +122,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   abilityCooldown = 0;
   private shellTimer = 0;
   private rollTimer = 0;
+  private slamFx: { x: number; y: number; r: number; t: number } | null = null;
   private rollBase = 0;
   /** Perks picked this run, and whether a choice is on screen. */
   perks: string[] = [];
@@ -159,6 +162,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.abilityCooldown = 0;
     this.shellTimer = 0;
     this.rollTimer = 0;
+    this.slamFx = null;
     this.evolveLock = 0;
     this.perks = nextPerks;
     nextPerks = [];
@@ -189,7 +193,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.trailBubbles = new Bubbles(this, 'bubble', 9);
 
     // Player.
-    const species = getSpecies(BALANCE.playerSpecies);
+    // A saved run keeps the hero it was played with.
+    if (pendingResume && isHero(pendingResume.species)) currentHero = pendingResume.species;
+    setHero(currentHero);
+    const species = getSpecies(currentHero);
     const startY = swimTop + (this.seabedTop - swimTop) * BALANCE.playerStartDepth;
     this.player = new Fish(this, W / 2, startY, species, 1);
     this.player.enableStages();
@@ -382,8 +389,9 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   }
 
   /** Start a run from the home screen (a fresh one, or a saved one to continue). */
-  startPlay(difficulty: DifficultyName, resume: Checkpoint | null = null, test = false): void {
+  startPlay(difficulty: DifficultyName, resume: Checkpoint | null = null, test = false, hero?: string): void {
     currentDifficulty = difficulty;
+    if (hero && isHero(hero)) currentHero = hero;
     pendingResume = test ? null : resume;
     nextTestMode = test;
     if (!resume && !test && !BOT_MODE) saves.clearCheckpoint();
@@ -455,9 +463,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         return;
       }
       const st = p.stage;
-      const look = st ? getStageLook(st.id) : null;
+      const look = st ? getStageLook(st.skin) : null;
       if (st && look) {
-        const key = 'stage_' + st.id;
+        // The crocodile keeps its old texture names (stage_adult); other heroes add their id.
+        const hero = p.species.id;
+        const key = hero === DEFAULT_HERO ? 'stage_' + st.id : `stage_${hero}_${st.id}`;
         const built = buildSkinTexture(this, key, look);
         p.applySkin(key, built);
         p.setArt(built.art ?? st.art);
@@ -500,11 +510,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const st = this.player?.stage;
     const ab = BALANCE.abilities;
     if (!st) return { label: '', ratio: 0, usable: false };
-    if (st.ability === 'lunge') {
+    if (st.ability === 'lunge' || st.ability === 'dart') {
       const d = BALANCE.combat.dash;
-      return { label: ab.lunge.label, ratio: this.player.dashCooldown / (d.cooldownSeconds * this.player.mods.cooldown), usable: this.player.stamina >= d.staminaCost };
+      return { label: ab[st.ability].label, ratio: this.player.dashCooldown / (d.cooldownSeconds * this.player.mods.cooldown), usable: this.player.stamina >= d.staminaCost };
     }
-    const cfg = st.ability === 'shell' ? ab.shell : ab.roll;
+    const cfg = ab[st.ability];
     return { label: cfg.label, ratio: this.abilityCooldown / (cfg.cooldownSeconds * this.player.mods.cooldown), usable: this.abilityCooldown <= 0 };
   }
 
@@ -517,7 +527,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const st = p.stage;
     if (!st || this.dead || this.evolveLock > 0) return;
     const ab = BALANCE.abilities;
-    if (st.ability === 'lunge') {
+    if (st.ability === 'lunge' || st.ability === 'dart') {
       if (p.tryDash()) {
         this.burst(p.x, p.y, p.size * 0.5);
         this.sfx.dash();
@@ -533,9 +543,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.hud.popup('Shell Guard!', p.x, p.y - p.size * 1.6, false, '#fff3c4');
       return;
     }
-    // Death Roll: grab the nearest fish in reach and spin.
+    if (st.ability === 'slam') {
+      this.tailSlam();
+      return;
+    }
+    // Death Roll (spins) or Crushing Bite (no spin): grab the nearest fish in reach.
+    const grab = st.ability === 'crush' ? ab.crush : ab.roll;
     const mouth = p.mouthPoint();
-    const reach = p.mouthRadius(true) * ab.roll.reachMul;
+    const reach = p.mouthRadius(true) * grab.reachMul;
     let best: Creature | null = null;
     let bestD = Infinity;
     for (const c of this.creatures) {
@@ -547,23 +562,51 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       }
     }
     if (!best) {
-      this.hud.popup('Get closer to roll', p.x, p.y - p.size * 1.4, false, '#cfe8ff');
+      this.hud.popup(st.ability === 'crush' ? 'Get closer to bite' : 'Get closer to roll', p.x, p.y - p.size * 1.4, false, '#cfe8ff');
       return;
     }
-    this.abilityCooldown = ab.roll.cooldownSeconds * p.mods.cooldown;
-    this.rollTimer = ab.roll.spinSeconds;
-    this.rollBase = p.rotation;
+    this.abilityCooldown = grab.cooldownSeconds * p.mods.cooldown;
+    if (st.ability === 'roll') {
+      this.rollTimer = ab.roll.spinSeconds;
+      this.rollBase = p.rotation;
+    }
     const t = best.fish;
-    const dmg = t.armored(p.biteDamage * ab.roll.damageMul);
+    const dmg = t.armored(p.biteDamage * grab.damageMul);
     const killed = t.takeDamage(dmg);
-    t.stun(ab.roll.stunSeconds);
+    t.stun(grab.stunSeconds);
     p.playBite();
     this.spawnChunks(t.x, t.y, p, dmg * BALANCE.combat.meatXpPerDamage, 3);
-    this.hud.popup(`DEATH ROLL -${Math.round(dmg)}`, t.x, t.y - t.size, true, '#ffb36b');
+    this.hud.popup(`${grab.name.toUpperCase()} -${Math.round(dmg)}`, t.x, t.y - t.size, true, '#ffb36b');
     this.sfx.bite();
     this.cameras.main.shake(260, 0.01);
     best.brain?.onHurt(this.playerCreature);
     if (killed) this.kill(best, this.playerCreature);
+  }
+
+  /** Tail Slam: every fish around you takes a hit and is stunned. Works even with nothing in reach. */
+  private tailSlam(): void {
+    const p = this.player;
+    const cfg = BALANCE.abilities.slam;
+    this.abilityCooldown = cfg.cooldownSeconds * p.mods.cooldown;
+    const radius = p.size * cfg.radiusMul;
+    this.slamFx = { x: p.x, y: p.y, r: radius, t: 0.35 };
+    this.cameras.main.shake(220, 0.008);
+    this.sfx.stun();
+    this.burst(p.x, p.y, p.size * 1.2);
+    let hits = 0;
+    for (const c of this.creatures.slice()) {
+      if (!c.brain || !c.fish.active) continue;
+      if (Phaser.Math.Distance.Between(p.x, p.y, c.fish.x, c.fish.y) - c.fish.size > radius) continue;
+      const t = c.fish;
+      const dmg = t.armored(p.biteDamage * cfg.damageMul);
+      const killed = t.takeDamage(dmg);
+      t.stun(cfg.stunSeconds);
+      hits++;
+      this.spawnChunks(t.x, t.y, p, dmg * BALANCE.combat.meatXpPerDamage, 1);
+      c.brain.onHurt(this.playerCreature);
+      if (killed) this.kill(c, this.playerCreature);
+    }
+    this.hud.popup(hits ? `TAIL SLAM x${hits}` : 'TAIL SLAM', p.x, p.y - p.size * 1.6, hits > 0, '#ffb36b');
   }
 
   private updateAbility(dt: number): void {
@@ -580,6 +623,15 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       g.fillCircle(p.x, p.y, p.size * 1.5);
       g.lineStyle(3, 0xf3ecd6, 0.9 * a);
       g.strokeCircle(p.x, p.y, p.size * 1.5);
+    }
+    if (this.slamFx) {
+      // A widening shock ring from the tail slam.
+      const f = this.slamFx;
+      f.t -= dt;
+      const k = 1 - Math.max(0, f.t) / 0.35;
+      g.lineStyle(4, 0xc0cbdc, 0.8 * (1 - k));
+      g.strokeCircle(f.x, f.y, f.r * (0.4 + 0.6 * k));
+      if (f.t <= 0) this.slamFx = null;
     }
     if (this.rollTimer > 0) {
       this.rollTimer = Math.max(0, this.rollTimer - dt);

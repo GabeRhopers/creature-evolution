@@ -8,3 +8,5 @@ tools/stages/*.png
 tools/stages/croc-*.json
 tools/fish/*.png
 tools/fish/fish-*.json
+tools/mosa/mosa-*.json
+tools/mosa/mosa_preview.png

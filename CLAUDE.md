@@ -40,6 +40,15 @@ text grids in `scripts/croc-frames.py` (48x16, 3x upscale) -> `art/player/` -> a
 Keep his design (eye bumps, tooth row, back scutes, curled tail tip); only polish it.
 Species can declare `art` in species.json (radius, mouth reach, animation frames).
 
+**Mosa** is the second playable hero, also designed by the son (`tools/mosa/`: his drawings,
+the sampled grids and `draw_mosa.py`, which writes `public/studio/seeds/mosa-*.json` on the
+`mosa` framework). Keep his design: teal two-tone body, yellow eye, single tooth row, long tail.
+Heroes live in `balance.json` "heroes": each is a species id that reuses the shared stage levels,
+sizes and depths and swaps in its own stage designs and abilities (`heroStages`, `setHero` in
+`src/data/index.ts`; `setHero` swaps the shared `STAGES` array in place). The hero is picked on
+the home screen (`settings.hero`); a saved run keeps the hero it was played with (checkpoint `species`).
+Abilities: croc Shell Guard / Lunge / Death Roll; Mosa Dart / Tail Slam / Crushing Bite.
+
 ## Player damage rules (`GameScene.attackPlayer`)
 AI never swallows the player. Predators that could swallow you "chomp" (x1.5 damage);
 every hit is capped at `playerDefense.maxHitFraction` of max HP, then knockback +

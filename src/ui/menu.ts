@@ -5,7 +5,7 @@
 // one; HOME (pause or death screen) returns here. Settings, records and the
 // run checkpoint go through the SaveManager (src/save).
 import type Phaser from 'phaser';
-import { SPECIES, STAGES, type DifficultyName } from '../data';
+import { ALL_STAGE_SKINS, DEFAULT_HERO, HEROES, SPECIES, heroStages, isHero, type DifficultyName } from '../data';
 import { levelToSwallow } from '../systems/growth';
 import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
@@ -53,8 +53,8 @@ export function initMenu(game: Phaser.Game): void {
 
   // ---------------------------------------------------------------- creature look (Sprite Studio)
   let skinReady: Promise<void> = Promise.resolve();
-  // The three stage designs (hatchling, juvenile, adult): loaded in the background.
-  const looksReady = loadStageLooks(STAGES).catch(() => undefined);
+  // Every hero's stage designs (hatchling, juvenile, adult): loaded in the background.
+  const looksReady = loadStageLooks(ALL_STAGE_SKINS).catch(() => undefined);
   /** Load the chosen studio drawing in the background so PLAY starts instantly. */
   function prepareSkin(id: string | null, quiet = false): Promise<boolean> {
     let ok = true;
@@ -108,6 +108,28 @@ export function initMenu(game: Phaser.Game): void {
   function renderDifficulty(): void {
     document.querySelectorAll<HTMLButtonElement>('[data-diff]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.diff === opts.difficulty)));
   }
+  // ---------------------------------------------------------------- hero picker (Croc or Mosa)
+  if (!isHero(opts.hero)) opts.hero = DEFAULT_HERO;
+  const heroPick = $('heroPick');
+  for (const h of HEROES) {
+    const b = document.createElement('button');
+    b.className = 'hero-btn';
+    b.dataset.hero = h.id;
+    b.innerHTML = `<canvas width="224" height="88" aria-hidden="true"></canvas><span>${h.name}</span><span class="d">${h.blurb}</span>`;
+    const adult = heroStages(h.id).at(-1)!;
+    void drawLook(b.querySelector('canvas')!, `studio/seeds/${adult.skin}.json`);
+    b.addEventListener('click', () => {
+      opts.hero = h.id;
+      saveProfile();
+      renderHeroes();
+    });
+    heroPick.appendChild(b);
+  }
+  function renderHeroes(): void {
+    heroPick.querySelectorAll<HTMLButtonElement>('[data-hero]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.hero === opts.hero)));
+  }
+  renderHeroes();
+
   function renderContinue(): void {
     const got = saves.loadCheckpoint();
     checkpoint = got.data ? { data: got.data, savedAt: got.savedAt } : null;
@@ -146,7 +168,7 @@ export function initMenu(game: Phaser.Game): void {
     home.classList.remove('open');
     hud().hideDeath();
     hud().startMusic();
-    scene()?.startPlay(resume ? resume.difficulty : opts.difficulty, resume, test);
+    scene()?.startPlay(resume ? resume.difficulty : opts.difficulty, resume, test, opts.hero ?? DEFAULT_HERO);
   }
   function play(): void {
     if (!checkpoint) return void startRun(null);
@@ -186,7 +208,7 @@ export function initMenu(game: Phaser.Game): void {
   $('cardHow').addEventListener('click', () =>
     openPanel(
       `<h3>How to play</h3>
-      <p>You are a young crocodile in a reef full of hungry fish. Eat, grow, and work your way up the food chain.</p>
+      <p>You are a young crocodile or Mosa (pick one above PLAY) in a reef full of hungry fish. Eat, grow, and work your way up the food chain.</p>
       <h4>Controls</h4>
       <ul>${
         touch

@@ -87,5 +87,19 @@
       30
     ],
     "notes": "Long predators: room for a tall dorsal fin and a crescent tail."
+  },
+  "mosa": {
+    "extends": "default",
+    "name": "Mosa",
+    "canvas": [
+      64,
+      48
+    ],
+    "bodyRadius": 8,
+    "mouth": [
+      57,
+      22
+    ],
+    "notes": "Mike's long sea reptile. Wide for the long snout and tail, tall so the tail can curl up or down while swimming. Every stage uses this canvas; the eye stays in the same place in every frame so the mouth does not jump."
   }
 }

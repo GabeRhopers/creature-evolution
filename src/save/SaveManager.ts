@@ -25,6 +25,8 @@ export interface Settings {
   difficulty: Difficulty;
   /** Sprite Studio project used as the player's look (null = the original art). */
   skin: string | null;
+  /** Hero picked on the home screen (species id; null = the crocodile). */
+  hero: string | null;
 }
 export interface Best {
   level: number;
@@ -98,7 +100,7 @@ export interface SaveLimits {
 }
 
 export const DEFAULT_PROFILE: Profile = {
-  settings: { music: true, sfx: true, difficulty: 'normal', skin: null },
+  settings: { music: true, sfx: true, difficulty: 'normal', skin: null, hero: null },
   best: { level: 0, kills: 0, fish: 0 },
   lifetime: { runs: 0, deaths: { swallowed: 0, bitten: 0, starved: 0 } },
 };
@@ -145,6 +147,7 @@ export function sanitizeProfile(raw: unknown): Profile {
       sfx: bool(s.sfx, true),
       difficulty: diff(s.difficulty),
       skin: typeof s.skin === 'string' && /^[\w-]{1,40}$/.test(s.skin) ? s.skin : null,
+      hero: typeof s.hero === 'string' && /^[\w-]{1,40}$/.test(s.hero) ? s.hero : null,
     },
     best: { level: int(b.level, 0, 999, 0), kills: int(b.kills, 0, 1e7, 0), fish: int(b.fish, 0, 1e7, 0) },
     lifetime: {
