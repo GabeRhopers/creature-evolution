@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ATLAS } from '../assets';
+import { PX, PX_FRAME_WIDTH } from '../systems/pixelTextures';
 import { BALANCE } from '../data';
 
 export interface FoodItem {
@@ -47,7 +47,7 @@ export class FoodField {
   spawnAt(x: number, y: number, size = BALANCE.food.plankton.size, xp = BALANCE.food.plankton.xp): FoodItem {
     let f = this.pool.pop();
     if (!f) {
-      const img = this.scene.add.image(0, 0, ATLAS, 'bubble_b').setDepth(4);
+      const img = this.scene.add.image(0, 0, PX, 'dot').setDepth(4);
       f = { img, size, xp, phase: 0, driftX: 0, alive: true, kind: 'plankton', life: Infinity };
     }
     f.size = size;
@@ -57,10 +57,11 @@ export class FoodField {
     f.life = Infinity;
     f.phase = Math.random() * Math.PI * 2;
     f.driftX = Phaser.Math.FloatBetween(-8, 8);
-    // bubble_b's dot is ~24px wide in its 128px frame.
+    // Pixel dot: its diameter on screen is 2 x size, as before.
     f.img
       .setPosition(x, y)
-      .setScale((size * 2) / 24)
+      .setFrame('dot')
+      .setScale((size * 2) / PX_FRAME_WIDTH.dot)
       .setTint(Phaser.Utils.Array.GetRandom(this.tints))
       .setAlpha(0.95)
       .setVisible(true);
@@ -74,7 +75,7 @@ export class FoodField {
     f.kind = 'meat';
     f.life = BALANCE.combat.chunkLifeSeconds;
     f.driftX = Phaser.Math.FloatBetween(-25, 25);
-    f.img.setTint(this.meatTint).setScale((size * 2.4) / 24);
+    f.img.setFrame('chunk').setTint(this.meatTint).setScale((size * 2.4) / PX_FRAME_WIDTH.chunk);
     return f;
   }
 

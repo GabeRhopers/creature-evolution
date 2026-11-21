@@ -8,7 +8,7 @@ from PIL import Image
 FW = json.load(open('/home/claude/fishgame/public/studio/frameworks.json'))
 CW, CH = FW['crocodile']['canvas']
 MARGIN = FW['default']['margin']
-PAL = d1.PAL + ['#4a1418', '#bfe3ff']   # E: inside of the mouth, F: water splash
+PAL = d1.PAL + ['#3e2731', '#c0cbdc']   # E: inside of the mouth, F: water splash
 
 def blank(): return [['.'] * CW for _ in range(CH)]
 def to_str(g): return ''.join(''.join(r) for r in g)
@@ -136,7 +136,7 @@ def project(name, poses, mouth, radius):
     return {"name": name, "w": CW, "h": CH, "palette": PAL, "framework": "crocodile",
             "bodyRadius": radius, "mouth": mouth, "pixelScale": 3,
             "poses": [{"name": n, "fps": f, "frames": [to_str(x) for x in fr]} for n, f, fr in poses],
-            "updatedAt": "2026-11-21T09:30:00.000Z", "seedVersion": 2}
+            "updatedAt": "2026-11-21T11:30:00.000Z", "seedVersion": 3}
 
 frames = {
   'croc-hatchling': ("Crocodile 1: Hatchling", [
