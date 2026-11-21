@@ -9,3 +9,6 @@
 
 CC0 means no attribution is required; we credit anyway. Before adding any asset,
 read the license file inside its download and add a row here.
+
+## Palette
+- **Endesga 32** by ENDESGA (https://lospec.com/palette-list/endesga-32): the shared color palette for all pixel art in the game and Sprite Studio.

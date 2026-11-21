@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { ATLAS } from '../assets';
+import { createPixelTextures } from '../systems/pixelTextures';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -22,6 +23,7 @@ export class BootScene extends Phaser.Scene {
   private failed: string[] = [];
 
   create(): void {
+    createPixelTextures(this);
     // The atlas is required; music is optional (the game plays silently without it).
     if (this.failed.includes(ATLAS)) {
       showLoadFailure();

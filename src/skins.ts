@@ -127,7 +127,7 @@ interface TextureHost {
   textures: {
     exists(key: string): boolean;
     remove(key: string): unknown;
-    addCanvas(key: string, canvas: HTMLCanvasElement): { add(name: string, source: number, x: number, y: number, w: number, h: number): unknown } | null;
+    addCanvas(key: string, canvas: HTMLCanvasElement): { add(name: string, source: number, x: number, y: number, w: number, h: number): unknown; setSmoothPixelArt?(v: boolean): void } | null;
   };
 }
 
@@ -158,10 +158,11 @@ export function buildSkinTexture(host: TextureHost, key: string, p: StudioProjec
     celebrate: map.celebrate.map((f) => want(f)!),
   };
 
-  // Framework drawings keep their own canvas at their pixel scale (the canvas center is the
-  // body center). Older drawings are fitted into the original 144x72 crocodile frame.
+  // Framework drawings keep their own canvas at 1 texture pixel per art pixel; the game
+  // enlarges them with smooth pixel art, so every art pixel shows at the same width (the
+  // canvas center is the body center). Older drawings are fitted into the 144x72 frame.
   const framed = isFramed(p);
-  const k = framed ? Math.max(1, Math.round(p.pixelScale!)) : Math.max(1, Math.floor(Math.min(SKIN_FRAME_W / p.w, SKIN_FRAME_H / p.h)));
+  const k = framed ? 1 : Math.max(1, Math.floor(Math.min(SKIN_FRAME_W / p.w, SKIN_FRAME_H / p.h)));
   const fw = framed ? p.w * k : SKIN_FRAME_W;
   const fh = framed ? p.h * k : SKIN_FRAME_H;
   const ox = Math.floor((fw - p.w * k) / 2);
@@ -185,6 +186,7 @@ export function buildSkinTexture(host: TextureHost, key: string, p: StudioProjec
   if (host.textures.exists(key)) host.textures.remove(key);
   const tex = host.textures.addCanvas(key, canvas)!;
   order.forEach((_, slot) => tex.add(`${key}_${slot}`, 0, slot * fw, 0, fw, fh));
+  if (framed) tex.setSmoothPixelArt?.(true);
   return { ...result, art: framed ? artFromProject(p) : null };
 }
 
@@ -196,10 +198,10 @@ export function isFramed(p: StudioProject): boolean {
 /** Hitbox and mouth for the game, from the drawing's framework markers. */
 export function artFromProject(p: StudioProject): SkinArt | null {
   if (!isFramed(p)) return null;
-  const k = Math.max(1, Math.round(p.pixelScale!));
+  // The texture holds 1 pixel per art pixel, so the radius is in art pixels.
   const r = p.bodyRadius!;
   return {
-    radius: r * k,
+    radius: r,
     mouthReach: Math.max(0.5, (p.mouth![0] + 0.5 - p.w / 2) / r),
     mouthRadius: p.mouthRadius ?? 0.6,
   };
@@ -295,6 +297,8 @@ export function getActiveSkin() {
 // it is used; otherwise the design shipped with the game (studio/seeds).
 
 const stageLooks = new Map<string, StudioProject>();
+/** Timestamps of the starter designs shipped with the game; saving any edit replaces them. */
+export const SEED_STAMPS = ['2026-11-21T08:45:00.000Z', '2026-11-21T09:30:00.000Z', '2026-11-21T11:30:00.000Z'];
 
 export async function loadStageLooks(stages: Array<{ id: string; skin: string }>): Promise<void> {
   await Promise.all(
@@ -305,16 +309,18 @@ export async function loadStageLooks(stages: Array<{ id: string; skin: string }>
       } catch {
         project = null;
       }
-      // A starter design nobody edited, saved before the sprite framework: use the newer one.
-      const outdatedSeed = !!project && !isFramed(project) && (project.rev ?? 0) <= 1;
-      if (!project || outdatedSeed || validateProject(project).length) {
-        try {
-          const res = await fetch(`studio/seeds/${s.skin}.json`);
-          if (res.ok) project = (await res.json()) as StudioProject;
-        } catch {
-          project = null;
-        }
+      let shipped: StudioProject | null = null;
+      try {
+        const res = await fetch(`studio/seeds/${s.skin}.json`);
+        if (res.ok) shipped = (await res.json()) as StudioProject;
+      } catch {
+        shipped = null;
       }
+      // A starter design nobody edited (it still has the shipped timestamp) and an older
+      // version than the one shipped with the game: use the newer design.
+      const outdatedSeed =
+        !!project && !!shipped && project.updatedAt !== undefined && SEED_STAMPS.includes(project.updatedAt) && (project.seedVersion ?? 1) < (shipped.seedVersion ?? 1);
+      if (!project || outdatedSeed || validateProject(project).length) project = shipped;
       if (project && !validateProject(project).length) stageLooks.set(s.id, project);
     }),
   );

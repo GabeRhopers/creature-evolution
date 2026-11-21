@@ -180,8 +180,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.drawSeabed(W, H);
     this.placeRocks(W);
     this.placeKelp(W);
-    this.ambientBubbles = new Bubbles(this, 'bubble_a', -5);
-    this.trailBubbles = new Bubbles(this, 'bubble_a', 9);
+    this.ambientBubbles = new Bubbles(this, 'bubble6', -5);
+    this.trailBubbles = new Bubbles(this, 'bubble', 9);
 
     // Player.
     const species = getSpecies(BALANCE.playerSpecies);
@@ -319,7 +319,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   targetZoom(): number {
     const c = BALANCE.camera;
-    const ratio = this.player.size / this.player.species.baseSize;
+    // One zoom per stage (from its first level), so pixels stay steady while you grow
+    // inside a stage; the camera only glides to a new zoom when you evolve.
+    const st = this.player.stage;
+    const ratio = (st ? st.body[0] : this.player.size) / this.player.species.baseSize;
     // Also fit the zoom to small screens (phones) so you see enough water.
     const screenFit = Phaser.Math.Clamp(Math.min(this.scale.width, this.scale.height) / 800, 0.6, 1.2);
     return Phaser.Math.Clamp(c.baseZoom * screenFit * Math.pow(1 / ratio, c.zoomExponent), c.minZoom, c.maxZoom);

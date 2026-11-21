@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
-import { artFromProject, decodeFrame, isFramed, validateProject, type StudioProject } from '../src/skins';
+import { SEED_STAMPS, artFromProject, decodeFrame, isFramed, validateProject, type StudioProject } from '../src/skins';
 import { STAGES } from '../src/data';
 
 const FW = JSON.parse(fs.readFileSync('public/studio/frameworks.json', 'utf8'));
@@ -9,6 +9,9 @@ function framework(name: string): Record<string, unknown> {
   const f = FW[name];
   return f.extends ? { ...framework(f.extends), ...f } : f;
 }
+const E32: string[] = JSON.parse(fs.readFileSync('public/studio/palette-endesga32.json', 'utf8')).colors;
+/** Signature colors a creature may add on top of the shared palette (at most 3 each). */
+const SIGNATURE: Record<string, string[]> = { crocodile: ['#aad678'] };
 const seeds = fs.readdirSync('public/studio/seeds').map((f) => ({ id: f.replace('.json', ''), p: JSON.parse(fs.readFileSync('public/studio/seeds/' + f, 'utf8')) as StudioProject }));
 
 describe('sprite framework', () => {
@@ -46,11 +49,21 @@ describe('sprite framework', () => {
             }
           });
       });
+      it('uses only the shared palette (plus at most 3 signature colors)', () => {
+        const extra = (SIGNATURE[p.framework!] ?? []).slice(0, 3);
+        const used = new Set<number>();
+        for (const pose of p.poses) for (const f of pose.frames) for (const v of decodeFrame(f, p.w * p.h)) if (v >= 0) used.add(v);
+        for (const i of used) expect(E32.includes(p.palette[i]) || extra.includes(p.palette[i]), `color ${p.palette[i]}`).toBe(true);
+      });
+      it('carries a known starter-design timestamp and version', () => {
+        expect(SEED_STAMPS).toContain(p.updatedAt);
+        expect(p.seedVersion).toBeGreaterThanOrEqual(3);
+      });
       it('has its mouth in front of the body center and inside the canvas', () => {
         const art = artFromProject(p)!;
         expect(p.mouth![0]).toBeGreaterThan(p.w / 2);
         expect(p.mouth![0]).toBeLessThan(p.w);
-        expect(art.radius).toBe(p.bodyRadius! * p.pixelScale!);
+        expect(art.radius).toBe(p.bodyRadius!);
         expect(art.mouthReach).toBeGreaterThan(1);
       });
     });

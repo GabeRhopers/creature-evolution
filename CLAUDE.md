@@ -49,6 +49,10 @@ invulnerability. Armor per species (`armor` in species.json).
 - **Art comes from the single atlas** (`ATLAS` in `src/assets.ts`):
   `scene.add.image(x, y, ATLAS, 'frame_name')`. Do not load loose PNGs at runtime.
   To add art: drop the PNG in `art/...`, run `npm run atlas`.
+- **Pixel art direction** (plan in the Game Design Plan doc): every sprite uses the Endesga 32 palette
+  (`public/studio/palette-endesga32.json`) plus at most 3 signature colors per creature; textures hold
+  1 pixel per art pixel and use smooth pixel art (`texture.setSmoothPixelArt(true)`); small effects
+  (bubbles, food) come from `src/systems/pixelTextures.ts`. Camera zoom changes only per stage.
 - **No Phaser ParticleEmitter for now**; use the pooled `Bubbles` helper or
   similar plain-image pools.
 - Use Arcade Physics with **circle bodies only** (fish rotate; circles do not care).

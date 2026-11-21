@@ -202,6 +202,7 @@ footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: gri
       <div class="row">
         <select id="presets" aria-label="Add preset colors">
           <option value="">Add preset colors…</option>
+          <option value="game">Game palette (Endesga 32)</option>
           <option value="croc">Crocodile greens</option>
           <option value="ocean">Ocean</option>
           <option value="pico8">PICO-8 (16)</option>
@@ -301,8 +302,13 @@ function applyFramework(p, name, reset) {
   if (reset || !p.mouth) p.mouth = f.mouth.slice();
 }
 const MAX_COLORS = ALPH.length;
+// The game's shared palette (Endesga 32, lospec.com): every creature, the world and the UI use it.
+const ENDESGA32 = ['#181425', '#262b44', '#3a4466', '#5a6988', '#8b9bb4', '#c0cbdc', '#ffffff', '#ead4aa', '#e4a672', '#b86f50', '#733e39', '#3e2731',
+  '#be4a2f', '#d77643', '#f77622', '#feae34', '#fee761', '#63c74d', '#3e8948', '#265c42', '#193c3e', '#124e89', '#0099db', '#2ce8f5',
+  '#ff0044', '#a22633', '#e43b44', '#f6757a', '#e8b796', '#c28569', '#68386c', '#b55088'];
 const PRESETS = {
-  croc: ['#0e1a10', '#105e22', '#248e2c', '#68c452', '#aad678', '#ffe23a', '#f7ecc8', '#b2262b', '#e87a7a'],
+  game: ENDESGA32,
+  croc: ['#181425', '#265c42', '#3e8948', '#63c74d', '#aad678', '#fee761', '#ead4aa', '#a22633', '#f6757a'],
   ocean: ['#062038', '#0b4f7a', '#1f8fc7', '#5cc8f0', '#bfe9f7', '#f2e2b0', '#e8a33d', '#c2453b'],
   pico8: ['#000000', '#1d2b53', '#7e2553', '#008751', '#ab5236', '#5f574f', '#c2c3c7', '#fff1e8', '#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#83769c', '#ff77a8', '#ffccaa'],
   gameboy: ['#0f380f', '#306230', '#8bac0f', '#9bbc0f'],
@@ -374,7 +380,7 @@ function deserialize(d) {
 function newProject(name, w, h, fwName) {
   const f = fwResolve(fwName);
   if (f) { w = f.canvas[0]; h = f.canvas[1]; }
-  const p = { name, w, h, palette: PRESETS.croc.slice(),
+  const p = { name, w, h, palette: PRESETS.game.slice(),
     poses: DEFAULT_POSES.map((n) => ({ name: n, fps: 6, frames: n === 'idle' ? [new Int16Array(w * h).fill(-1)] : [] })) };
   if (f) applyFramework(p, fwName, true);
   return p;
@@ -1186,7 +1192,9 @@ window.addEventListener('online', () => { if (S.dirty) save(); });
 // New designs shipped with the game (seeds/*.json) are added once to the
 // project list, so they can be opened and edited like any other project.
 // Deleting one later does not bring it back.
-const SEEDS = { 'croc-hatchling': 2, 'croc-juvenile': 2, 'croc-adult': 2 };   // id -> design version
+const SEEDS = { 'croc-hatchling': 3, 'croc-juvenile': 3, 'croc-adult': 3 };   // id -> design version
+// Every starter design ships with one of these timestamps; saving any change replaces it.
+const SEED_STAMPS = ['2026-11-21T08:45:00.000Z', '2026-11-21T09:30:00.000Z', '2026-11-21T11:30:00.000Z'];
 async function seedStarters() {
   let done = {};
   try { const v = JSON.parse(localStorage.getItem('spritestudio.seeded') || '{}'); done = Array.isArray(v) ? Object.fromEntries(v.map((id) => [id, 1])) : v; } catch {}
@@ -1202,7 +1210,8 @@ async function seedStarters() {
       let existing = readLocal(id);
       if (db) { try { const d = await db.doc('projects/' + id).get(); if (d.exists) existing = d.data(); } catch {} }
       // Never overwrite someone's drawing: an edited older design stays, and the new one arrives as a copy.
-      const untouched = existing && !existing.framework && (existing.rev || 0) <= 1;
+      // Untouched = an older starter design nobody saved changes to.
+      const untouched = existing && SEED_STAMPS.includes(existing.updatedAt) && (existing.seedVersion || 1) < ver;
       const target = !existing || untouched ? id : id + '-v' + ver;
       const body = { ...data, name: target === id ? data.name : data.name + ' (new design)', rev: (existing && target === id ? (existing.rev || 0) : 0) + 1, device: DEVICE };
       if (db) await db.doc('projects/' + target).set(body);

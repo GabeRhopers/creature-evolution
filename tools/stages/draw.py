@@ -2,8 +2,8 @@ import json, math
 from render import frame_img
 from PIL import Image
 W,H=48,24
-PAL=["#0e1a10","#105e22","#248e2c","#68c452","#aad678","#ffe23a","#f7ecc8","#b2262b","#e87a7a",
-     "#f3ecd6","#cdbf9c","#8a7854","#1c4a22","#3a7a34"]
+PAL=["#181425","#265c42","#3e8948","#63c74d","#aad678","#fee761","#ead4aa","#a22633","#f6757a",
+     "#ffffff","#c0cbdc","#8b9bb4","#193c3e","#265c42"]
 # 0 outline 1 dark green 2 green 3 light green 4 belly 5 eye 6 teeth/cream 7 red 8 pink
 # 9 shell A shell shade B shell crack C adult dark scute D adult mid green
 class G:
