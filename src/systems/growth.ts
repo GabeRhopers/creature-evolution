@@ -21,8 +21,10 @@ export function biteDamageAt(species: Species, level: number): number {
   return species.baseBite * Math.pow(sizeRatio(species, level), g().biteExponent);
 }
 
+/** XP needed to go from `level` to the next: the normal curve, a little harder every level (levelHardness). */
 export function xpToNext(level: number): number {
-  return Math.round(g().xpBase * Math.pow(level, g().xpExponent));
+  const hardness = Math.pow(1 + (g().levelHardness ?? 0), Math.max(0, level - 1));
+  return Math.round(g().xpBase * Math.pow(level, g().xpExponent) * hardness);
 }
 
 /** Anything with a body radius at or below this can be swallowed whole. */

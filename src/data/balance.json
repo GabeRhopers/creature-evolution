@@ -14,6 +14,8 @@
     "biteExponent": 1.5,
     "xpBase": 10,
     "xpExponent": 1.5,
+    "levelHardness": 0.03,
+    "_levelHardness": "Each level needs this much more XP on top of the normal curve, compounding (0.03 = 3%: about +30% by level 10, 2.3x by level 30). Food fills the stomach the same, so you eat more per level.",
     "speedExponent": 0.35,
     "turnExponent": -0.25
   },

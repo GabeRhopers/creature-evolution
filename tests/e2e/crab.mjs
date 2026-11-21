@@ -14,6 +14,8 @@ const grow=async(level)=>{ await G((lv)=>{const g=window.game.scene.getScene('Ga
 
 await p.goto('http://localhost:4173/'); await G(()=>localStorage.clear()); await p.reload(); await p.waitForTimeout(3500);
 await G(()=>window.addEventListener('ce:perk',()=>setTimeout(()=>document.querySelector('[data-perk]')?.click(),30)));
+// Other banners (a new enemy, a level-up) can replace the crab's on screen: record the crab banners shown.
+await G(()=>{const h=window.game.scene.getScene('Hud'); window.__crab=[]; const a=h.crabAppeared.bind(h), d=h.crabDefeated.bind(h); h.crabAppeared=(l)=>{window.__crab.push('appeared '+l); a(l);}; h.crabDefeated=(l)=>{window.__crab.push('saved '+l); d(l);};});
 await p.click('#btnPlay'); await p.waitForTimeout(1500);
 
 await grow(9);
@@ -21,7 +23,7 @@ await p.waitForTimeout(1200);
 ok(await G(()=>!window.game.scene.getScene('Game').crab), 'no crab before level 10');
 await grow(10);
 ok(await waitFor(()=>!!window.game.scene.getScene('Game').crab, 15000), 'a Checkpoint Crab appears at level 10');
-ok(await G(()=>window.game.scene.getScene('Hud').banner.text.includes('CHECKPOINT CRAB')), 'with a banner');
+ok(await G(()=>window.__crab.includes('appeared 10')), 'with a banner');
 const c0 = await G(()=>{const g=window.game.scene.getScene('Game'),c=g.crab.fish,pl=g.player; return {hp:c.maxHp, bite:pl.biteDamage, armor:c.species.armor, size:c.size, psize:pl.size, depthOk: g.depthLimitY===null || c.y < g.depthLimitY + 1};});
 console.log(JSON.stringify(c0));
 ok(c0.size >= c0.psize, 'the crab is at least as big as you');
@@ -44,7 +46,7 @@ const bites = await G(()=>{const g=window.game.scene.getScene('Game'); let n=0; 
 console.log('bites to defeat:', bites);
 ok(bites>=10 && bites<=20, `defeating it takes about 14 bites (${bites})`);
 ok(await G(()=>window.game.scene.getScene('Game').crabLevel===10), 'level 10 is saved');
-ok(await G(()=>window.game.scene.getScene('Hud').banner.text.includes('CHECKPOINT SAVED: LEVEL 10')), 'with a banner');
+ok(await G(()=>window.__crab.includes('saved 10')), 'with a banner');
 ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.crabLevel===10), 'and written to the save');
 await p.waitForTimeout(1500);
 ok(await G(()=>!window.game.scene.getScene('Game').crab), 'no new crab until level 20');
