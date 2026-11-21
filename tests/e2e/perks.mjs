@@ -36,7 +36,8 @@ ok(await waitPanel(), 'an unmade pick is offered again after Continue');
 ok((await G(()=>window.game.scene.getScene('Game').perks)).length===1, 'the first perk came back with the save');
 await G(()=>document.querySelector('[data-perk]').click()); await p.waitForTimeout(300);
 ok((await G(()=>window.game.scene.getScene('Game').perks)).length===2, 'second perk picked');
-ok((await G(()=>window.game.scene.getScene('Hud').info.text)).match(/\|\s+\S+\S*$/), 'HUD shows perk icons: '+(await G(()=>window.game.scene.getScene('Hud').info.text)).split('|').pop());
+const icons = await G(()=>window.game.scene.getScene('Hud').perkIcons.map(i=>i.texture.key));
+ok(icons.length===2 && icons.every(k=>k.startsWith('perk_')), 'HUD shows the two perks as pixel icons: '+icons.join(', '));
 // evolve, die as juvenile, swim again from 11: perks kept
 await G(()=>{const s=window.game.scene.getScene('Game'); s.player.setLevel(10); s.grantXp(s.player.xpNeeded+1);}); await p.waitForTimeout(3200);
 await G(()=>{const s=window.game.scene.getScene('Game'); s.player.setLevel(13); s.playerDied(null,'starved');}); await p.waitForTimeout(1200);

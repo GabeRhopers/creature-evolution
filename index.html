@@ -127,7 +127,7 @@
       .perks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
       .perk { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 16px 10px; min-height: 150px; align-content: start; }
       .perk:hover, .perk:focus-visible { border-color: var(--sun); }
-      .perk .pi { font-size: 34px; line-height: 1; }
+      .perk .pi { width: 32px; height: 32px; image-rendering: pixelated; }
       .perk .pn { font: 700 18px/1.1 var(--font-display); color: var(--sun); }
       .perk .pd { font: 500 14px/1.35 var(--font-body); color: var(--ink); }
       @media (max-width: 560px) { .perks { grid-template-columns: 1fr; } .perk { min-height: 0; grid-template-columns: 44px 1fr; justify-items: start; text-align: left; } .perk .pi { grid-row: span 2; } }
@@ -172,6 +172,12 @@
         #heroCroc { width: 220px; }
       }
       @media (prefers-reduced-motion: reduce) { .btn-play:active { transform: none; } }
+      /* Pixel art interface: square corners and hard pixel shadows (round toasts and rings stay round). */
+      .btn, .btn-play, .seg, .seg button, .hero-btn, .card, .panel, .toggle, .toggle select { border-radius: 4px; }
+      .btn-play { box-shadow: 0 6px 0 #a87a00, 0 0 0 3px #181425; }
+      .btn-play:active { box-shadow: 0 3px 0 #a87a00, 0 0 0 3px #181425; }
+      .btn-play.alt { box-shadow: 4px 4px 0 rgba(24, 20, 37, 0.85); }
+      .card, .hero-btn, .panel { border-width: 2px; box-shadow: 4px 4px 0 rgba(24, 20, 37, 0.85); }
     </style>
   </head>
   <body>
@@ -182,7 +188,7 @@
     <section id="home" class="overlay open" aria-label="Creature Evolution home">
       <div class="home-inner">
         <div class="logo">
-          <canvas id="heroCroc" width="144" height="72" aria-label="The crocodile"></canvas>
+          <canvas id="heroCroc" width="288" height="128" aria-label="The crocodile"></canvas>
           <h1>Creature <span>Evolution</span></h1>
           <p class="tagline">Start small. Eat. Grow. Rule the reef.</p>
         </div>
