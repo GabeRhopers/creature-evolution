@@ -140,6 +140,12 @@ describe('checkpoint checks', () => {
     expect(c.stamina).toBe(100);
     expect(c.stats.maxLevel).toBe(99);
   });
+  it('keeps the Checkpoint Crab level, never above the run level (older saves have none)', () => {
+    expect(sanitizeCheckpoint({ ...CP, level: 14, crabLevel: 10 }, LIM)!.crabLevel).toBe(10);
+    expect(sanitizeCheckpoint({ ...CP, level: 14, crabLevel: 40 }, LIM)!.crabLevel).toBe(14);
+    expect(sanitizeCheckpoint({ ...CP, level: 14 }, LIM)!.crabLevel).toBe(0);
+    expect(sanitizeCheckpoint({ ...CP, level: 14, crabLevel: 'x' }, LIM)!.crabLevel).toBe(0);
+  });
   it('refuses an unknown species or a missing level', () => {
     expect(sanitizeCheckpoint({ ...CP, species: 'dragon' }, LIM)).toBeNull();
     expect(sanitizeCheckpoint({ ...CP, level: 'seven' }, LIM)).toBeNull();

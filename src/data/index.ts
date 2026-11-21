@@ -69,6 +69,8 @@ export interface Species {
   art?: SpeciesArt;
   /** Sprite Studio starter design used as this species' look (studio/seeds/<look>.json). */
   look?: string;
+  /** Never tilts with its heading (the front-view crab): only turns left and right. */
+  upright?: boolean;
   /** Damage reduction 0..1 (thick hide). */
   armor?: number;
 }

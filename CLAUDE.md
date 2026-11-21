@@ -55,6 +55,15 @@ helpers (eye-anchored placement, bite frames, blink, egg) live in `tools/heroes/
 Abilities: croc Shell Guard / Lunge / Death Roll; Mosa Dart / Tail Slam / Crushing Bite;
 White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks).
 
+## Checkpoint Crab (`GameScene` "Checkpoint Crab" section, `balance.json` "checkpointCrab")
+Every `everyLevels` (10) levels a crab (species `checkpoint_crab`, look `crab-checkpoint`, drawn by
+`tools/heroes/draw_crab.py`, `upright` so it never tilts) appears near the deepest water the player may swim in.
+It is a `guardian` creature: its Brain stays in its home band, chases only the player within `guardRange`,
+never flees; other fish ignore it; it can't be swallowed. Its health (about `hitsToDefeat` of the player's
+bites) and pinch (`pinchHpFraction` of the player's health + stun) are set from the player when it appears.
+Defeating it sets `crabLevel` (saved in the checkpoint). After dying, SWIM AGAIN restarts at `crabLevel`
+(or level 1), with perks. This replaced the old "back to the start of your stage" rule.
+
 ## Player damage rules (`GameScene.attackPlayer`)
 AI never swallows the player. Predators that could swallow you "chomp" (x1.5 damage);
 every hit is capped at `playerDefense.maxHitFraction` of max HP, then knockback +

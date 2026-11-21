@@ -13,3 +13,5 @@ tools/mosa/mosa_preview.png
 tools/heroes/white_shark-*.json
 tools/heroes/shark_preview.png
 tools/heroes/__pycache__/
+tools/heroes/crab-checkpoint.json
+tools/heroes/crab_preview.png

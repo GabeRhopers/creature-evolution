@@ -105,6 +105,9 @@ export class HudScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setAlpha(0);
 
+    this.crabArrow = this.add.graphics();
+    this.crabLabel = this.add.text(0, 0, 'CRAB', { ...small, color: '#f6757a' }).setOrigin(0.5).setVisible(false);
+
     // Virtual joystick (left half of the screen on touch devices).
     this.joystick = new Joystick(
       this,
@@ -266,6 +269,53 @@ export class HudScene extends Phaser.Scene {
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 2200, duration: 600 });
   }
 
+  /** A Checkpoint Crab appeared: banner, and an arrow points to it while it is off screen. */
+  crabAppeared(level: number): void {
+    this.banner.setText(`A CHECKPOINT CRAB APPEARED!\nDefeat it to save level ${level}`).setAlpha(1).setScale(0.5);
+    this.tweens.killTweensOf(this.banner);
+    this.tweens.add({ targets: this.banner, scale: 0.85, duration: 350, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: this.banner, alpha: 0, delay: 2600, duration: 600 });
+  }
+
+  crabDefeated(level: number): void {
+    this.banner.setText(`CHECKPOINT SAVED: LEVEL ${level}!\nIf you die, you swim again from here`).setAlpha(1).setScale(0.5);
+    this.tweens.killTweensOf(this.banner);
+    this.tweens.add({ targets: this.banner, scale: 0.9, duration: 350, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: this.banner, alpha: 0, delay: 2600, duration: 600 });
+  }
+
+  /** Arrow at the screen edge toward the Checkpoint Crab while it is out of view. */
+  private crabArrow!: Phaser.GameObjects.Graphics;
+  private crabLabel!: Phaser.GameObjects.Text;
+  private updateCrabArrow(): void {
+    const g = this.game$;
+    const crab = g.crab?.fish;
+    this.crabArrow.clear();
+    this.crabLabel.setVisible(false);
+    if (!crab || !crab.active || g.dead || g.menuMode) return;
+    const cam = g.cameras.main;
+    const view = cam.worldView;
+    if (view.contains(crab.x, crab.y)) return;
+    const { width, height } = this.scale;
+    // Screen position of the crab, clamped inside the edges.
+    const sx = (crab.x - view.x) * cam.zoom;
+    const sy = (crab.y - view.y) * cam.zoom;
+    const m = 56;
+    // Clamped inside the edges, above the touch buttons (bottom right) and below the HUD panel (top left).
+    const cx = Phaser.Math.Clamp(sx, m, width - m);
+    const cy = Phaser.Math.Clamp(sy, m + 150, height - (cx > width - 260 ? 230 : m));
+    const ang = Math.atan2(sy - height / 2, sx - width / 2);
+    const pulse = 0.75 + 0.25 * Math.sin(this.time.now / 160);
+    this.crabArrow.fillStyle(0xe43b44, pulse).lineStyle(3, 0x181425, 1);
+    const pts = [0, -2.5, 2.5].map((a, i) => {
+      const r = i === 0 ? 20 : 14;
+      return new Phaser.Math.Vector2(cx + Math.cos(ang + a) * r, cy + Math.sin(ang + a) * r);
+    });
+    this.crabArrow.fillTriangle(pts[0].x, pts[0].y, pts[1].x, pts[1].y, pts[2].x, pts[2].y);
+    this.crabArrow.strokeTriangle(pts[0].x, pts[0].y, pts[1].x, pts[1].y, pts[2].x, pts[2].y);
+    this.crabLabel.setPosition(cx - Math.cos(ang) * 30, cy - Math.sin(ang) * 30).setVisible(true);
+  }
+
   levelUp(level: number): void {
     this.banner.setText(`LEVEL ${level}!`).setAlpha(1).setScale(0.6);
     this.tweens.killTweensOf(this.banner);
@@ -380,6 +430,7 @@ export class HudScene extends Phaser.Scene {
       `${p.stage ? `${p.stage.name} · ` : ''}Level ${p.level}${p.atMaxLevel ? ' (MAX)' : ''}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
     );
     this.renderPerkIcons(g.perks);
+    this.updateCrabArrow();
     // Hidden while the home screen shows the ocean behind it.
     this.cameras.main.setVisible(!g.menuMode);
     if (!g.dead && this.deathLayer.visible) this.hideDeath(); // run restarted elsewhere (R key, bot)

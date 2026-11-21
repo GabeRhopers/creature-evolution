@@ -398,9 +398,12 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   /** Point the sprite along the heading; flip so the fish is never upside down. */
   private updateVisual(dt: number): void {
     const facingLeft = Math.cos(this.heading) < 0;
-    this.setFlipY(facingLeft);
+    // Upright species (the crab) stay level and only mirror; everyone else points along the heading.
+    const upright = !!this.species.upright;
+    this.setFlipY(!upright && facingLeft);
+    this.setFlipX(upright && facingLeft);
     // Wounded fish list toward belly-up; stunned fish wobble.
-    let target = this.heading;
+    let target = upright ? 0 : this.heading;
     if (this.wounded) target += (facingLeft ? -1 : 1) * 0.7;
     if (this.stunned) target += Math.sin(this.scene.time.now / 50) * 0.35;
     // Smooth the visual rotation a little more than the physics heading.

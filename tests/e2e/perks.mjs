@@ -38,11 +38,11 @@ await G(()=>document.querySelector('[data-perk]').click()); await p.waitForTimeo
 ok((await G(()=>window.game.scene.getScene('Game').perks)).length===2, 'second perk picked');
 const icons = await G(()=>window.game.scene.getScene('Hud').perkIcons.map(i=>i.texture.key));
 ok(icons.length===2 && icons.every(k=>k.startsWith('perk_')), 'HUD shows the two perks as pixel icons: '+icons.join(', '));
-// evolve, die as juvenile, swim again from 11: perks kept
-await G(()=>{const s=window.game.scene.getScene('Game'); s.player.setLevel(10); s.grantXp(s.player.xpNeeded+1);}); await p.waitForTimeout(3200);
+// beat the level 10 Checkpoint Crab, evolve, die as a juvenile, swim again from 10: perks kept
+await G(()=>{const s=window.game.scene.getScene('Game'); s.crabLevel=10; s.player.setLevel(10); s.grantXp(s.player.xpNeeded+1);}); await p.waitForTimeout(3200);
 await G(()=>{const s=window.game.scene.getScene('Game'); s.player.setLevel(13); s.playerDied(null,'starved');}); await p.waitForTimeout(1200);
 await G(()=>window.game.scene.getScene('Hud').respawn()); await p.waitForTimeout(1500);
-ok((await G(()=>window.game.scene.getScene('Game').perks)).length===2 && (await G(()=>window.game.scene.getScene('Game').player.level))===11, 'swimming again from the stage keeps the perks');
+ok((await G(()=>window.game.scene.getScene('Game').perks)).length===2 && (await G(()=>window.game.scene.getScene('Game').player.level))===10, 'swimming again from the crab level keeps the perks');
 // new run clears them
 await G(()=>window.game.scene.getScene('Game').restartRun()); await p.waitForTimeout(1500);
 ok((await G(()=>window.game.scene.getScene('Game').perks)).length===0, 'a new run starts with no perks');

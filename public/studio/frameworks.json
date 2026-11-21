@@ -115,5 +115,19 @@
       22
     ],
     "notes": "The third playable hero, drawn in the same style as Mike's Croc and Mosa. Tall enough for the dorsal fin, the crescent tail swinging up and down, and the eggshell and cap on the hatchling. The eye stays in the same place in every frame so the mouth does not jump."
+  },
+  "crab": {
+    "extends": "default",
+    "name": "Crab",
+    "canvas": [
+      48,
+      32
+    ],
+    "bodyRadius": 7,
+    "mouth": [
+      36,
+      12
+    ],
+    "notes": "The Checkpoint Crab, seen from the front (it scuttles sideways). Wide for both claws, tall for the eye stalks, claws and legs. The game keeps it upright: it never tilts, it only turns left and right."
   }
 }

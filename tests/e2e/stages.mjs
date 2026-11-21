@@ -61,14 +61,14 @@ ok(reacts.sharkFears, 'a grown adult scares sharks');
 // level cap
 await G(()=>{const g=window.game.scene.getScene('Game'); g.grantXp(1e6);}); s=await S();
 ok(s.lv===30, 'level stays at 30 (max)');
-// death as an adult -> swim again from 21; checkpoint at 21
-await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(24); g.playerDied(null,'starved');}); await p.waitForTimeout(1500);
-ok((await G(()=>window.game.scene.getScene('Hud').deathAgain.text)).includes('21'), 'death screen offers SWIM AGAIN FROM LEVEL 21');
-ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.level===21), 'stage checkpoint saved at level 21');
+// death after beating the level 20 Checkpoint Crab -> swim again from 20 (the crab's level); checkpoint at 20
+await G(()=>{const g=window.game.scene.getScene('Game'); g.crabLevel=20; g.player.setLevel(24); g.playerDied(null,'starved');}); await p.waitForTimeout(1500);
+ok((await G(()=>window.game.scene.getScene('Hud').deathAgain.text)).includes('20'), 'death screen offers SWIM AGAIN FROM LEVEL 20 (the last crab)');
+ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.level===20), 'checkpoint saved at level 20');
 await p.screenshot({path:'/home/claude/stages/st_dead.png'});
 await G(()=>window.game.scene.getScene('Hud').respawn()); await p.waitForTimeout(1500);
-s=await S(); ok(s.lv===21 && s.stage==='adult' && !s.dead && s.hp===s.maxHp, 'back as a level 21 adult with full health');
-// hatchling death -> level 1, no checkpoint
-await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(5); g.playerDied(null,'starved');}); await p.waitForTimeout(300);
-ok(await G(()=>localStorage.getItem('ce.save.checkpoint')===null), 'hatchling death leaves no checkpoint');
+s=await S(); ok(s.lv===20 && s.stage==='juvenile' && !s.dead && s.hp===s.maxHp, 'back at level 20 with full health');
+// death before beating any crab -> level 1, no checkpoint
+await G(()=>{const g=window.game.scene.getScene('Game'); g.crabLevel=0; g.player.setLevel(5); g.playerDied(null,'starved');}); await p.waitForTimeout(300);
+ok(await G(()=>localStorage.getItem('ce.save.checkpoint')===null), 'a death before the first crab leaves no checkpoint');
 console.log('errors', errs); await b.close();

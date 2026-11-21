@@ -21,3 +21,7 @@ run with Croc picked is a crocodile again.
 
 `shark.mjs` picks the White Shark, grows it through all three stages and checks that Feeding
 Frenzy boosts bite and speed, then wears off and recharges.
+
+`crab.mjs` covers the Checkpoint Crab: appears at level 10 with a banner and an arrow, can't be
+swallowed, takes about 14 bites, pinches, saves level 10, and after dying the run restarts at
+level 10 with its perks; Continue keeps the crab level and a new run clears it.
