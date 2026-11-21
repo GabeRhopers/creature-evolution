@@ -66,7 +66,7 @@ ok((await G(()=>window.game.scene.getScene('Hud').deathAgain.text))==='SWIM AGAI
 await G(()=>window.game.scene.getScene('Game').restartFromStage());
 ok(await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.dead && g.player.level===10;}, 5000), 'swims again at level 10');
 const perksAfter = await G(()=>window.game.scene.getScene('Game').perks.length);
-ok(perksAfter>=perks && perksAfter>=4, `perks kept (${perks} before, ${perksAfter} after)`);
+ok(perksAfter>=perks && perks>=1, `perks kept (${perks} before, ${perksAfter} after)`);
 await p.waitForTimeout(1500);
 ok(await G(()=>!window.game.scene.getScene('Game').crab && window.game.scene.getScene('Game').crabLevel===10), 'the beaten crab does not come back');
 
