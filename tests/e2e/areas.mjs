@@ -6,13 +6,15 @@ const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m); if(!c) process.exitCode=1;}
 const G=(f,a)=>p.evaluate(f,a);
 await p.goto('http://localhost:4173/'); await G(()=>localStorage.clear()); await p.reload(); await p.waitForTimeout(3500);
 await G(()=>window.addEventListener('ce:perk',()=>setTimeout(()=>document.querySelector('[data-perk]')?.click(),30)));
+// The Checkpoint Crab's banner can replace an area banner on screen: record every area banner shown.
+await G(()=>{const h=window.game.scene.getScene('Hud'); window.__areaBanners=[]; const f=h.areaBanner.bind(h); h.areaBanner=(n)=>{window.__areaBanners.push(n.toUpperCase()); f(n);};});
 await p.click('#btnPlay'); await p.waitForTimeout(1200);
 // clear predators out of the way so nothing interferes
 const calm = ()=>G(()=>{const g=window.game.scene.getScene('Game'); g.creatures.forEach(c=>{ if(c.brain) c.fish.setPosition(c.fish.x, 200); });});
 const dive = async (depth, ms=1500, until=null)=>{ await G((d)=>{const g=window.game.scene.getScene('Game'); const top=120; g.player.setPosition(g.player.x, top+(g.seabedTop-top)*d); g.player.arcadeBody.setVelocity(0,0);}, depth); await p.waitForTimeout(ms);
   // Slow machines: wait (up to 3 s) for the game to notice the new depth.
   if (until) for (let i=0;i<30 && !(await G(()=>window.game.scene.getScene('Game').depthBlocked));i++) await p.waitForTimeout(100);
-  return G(()=>{const g=window.game.scene.getScene('Game'); return {depth:+g.depthOf(g.player.y).toFixed(2), blocked:g.depthBlocked, status:window.game.scene.getScene('Hud').status.text, banner:window.game.scene.getScene('Hud').banner.text};}); };
+  return G(()=>{const g=window.game.scene.getScene('Game'); return {depth:+g.depthOf(g.player.y).toFixed(2), blocked:g.depthBlocked, status:window.game.scene.getScene('Hud').status.text, banner:window.game.scene.getScene('Hud').banner.text+' '+window.__areaBanners.join(' ')};}); };
 await calm();
 let r = await dive(0.6, 100, 'blocked'); console.log(JSON.stringify(r));
 ok(r.blocked && r.status.includes('Too deep'), 'a hatchling below the shallows is told it is too deep');

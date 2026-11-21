@@ -7,6 +7,7 @@
 | Player crocodile | Original pixel-art design by the developer's son; cleaned up and animated (swim, bite, rest frames) | Family original | `scripts/croc-frames.py` | Player character |
 | Mosa | Original pixel-art design and five swim poses by the developer's son; sampled cell by cell, hatchling and bite frames derived from it | Family original | `tools/mosa/` (drawings: `reference-*.jpg`) | Second playable hero |
 | White Shark | Original pixel-art design in the style of the developer's son's Croc and Mosa, generated in code | Original | `tools/heroes/draw_shark.py` | Third playable hero |
+| Checkpoint Crab | Original pixel-art starter design in the style of the heroes, generated in code (Mike can redraw it in Sprite Studio) | Original | `tools/heroes/draw_crab.py` | Checkpoint mini-boss |
 | Sound effects | generated in code (`src/audio/Sfx.ts`) | n/a | | All SFX |
 
 CC0 means no attribution is required; we credit anyway. Before adding any asset,

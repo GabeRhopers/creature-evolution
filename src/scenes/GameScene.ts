@@ -51,6 +51,8 @@ let nextTestMode = false;
 let nextStartLevel = 1;
 /** Perks carried into the next run (a stage restart keeps them). */
 let nextPerks: string[] = [];
+/** Level of the last Checkpoint Crab defeated, carried into a restart after dying. */
+let nextCrabLevel = 0;
 
 /** Seconds of play between automatic checkpoints. */
 const AUTOSAVE_SECONDS = 20;
@@ -124,6 +126,12 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   private rollTimer = 0;
   private slamFx: { x: number; y: number; r: number; t: number } | null = null;
   private frenzyTimer = 0;
+  /** Level saved by the last Checkpoint Crab defeated this run (0 = none yet). */
+  crabLevel = 0;
+  /** The Checkpoint Crab waiting in the water, and the level it guards. */
+  crab: Creature | null = null;
+  crabMilestone = 0;
+  private crabCheckTimer = 0;
   private rollBase = 0;
   /** Perks picked this run, and whether a choice is on screen. */
   perks: string[] = [];
@@ -165,6 +173,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.rollTimer = 0;
     this.slamFx = null;
     this.frenzyTimer = 0;
+    this.crab = null;
+    this.crabMilestone = 0;
+    this.crabCheckTimer = 1;
+    this.crabLevel = nextCrabLevel;
+    nextCrabLevel = 0;
     this.evolveLock = 0;
     this.perks = nextPerks;
     nextPerks = [];
@@ -301,6 +314,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.updateRams();
     }
     this.updateAiEating();
+    this.updateCrab(dt);
 
     if (!this.dead) {
       this.runTime += dt;
@@ -365,6 +379,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** Start over from level 1: the current run ends and its checkpoint is dropped. */
   restartRun(): void {
     nextPerks = [];
+    nextCrabLevel = 0;
     this.reportRun(true);
     if (!BOT_MODE && !this.testMode) saves.clearCheckpoint();
     pendingResume = null;
@@ -373,10 +388,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.scene.restart();
   }
 
-  /** After a death: swim again from the start of the stage you had reached. */
+  /** After a death: swim again from the level saved by the last Checkpoint Crab you defeated (or level 1). */
   restartFromStage(): void {
-    const from = this.player?.stage?.from ?? 1;
+    const from = this.stageRestartLevel;
     nextPerks = this.perks.slice();
+    nextCrabLevel = this.crabLevel;
     this.reportRun(true);
     pendingResume = null;
     nextMenuMode = false;
@@ -385,14 +401,15 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.scene.restart();
   }
 
-  /** Level SWIM AGAIN starts from after a death. */
+  /** Level SWIM AGAIN starts from after a death: the last Checkpoint Crab you defeated. */
   get stageRestartLevel(): number {
-    return this.player?.stage?.from ?? 1;
+    return Math.max(1, this.crabLevel);
   }
 
   /** Start a run from the home screen (a fresh one, or a saved one to continue). */
   startPlay(difficulty: DifficultyName, resume: Checkpoint | null = null, test = false, hero?: string): void {
     currentDifficulty = difficulty;
+    nextCrabLevel = 0;
     if (hero && isHero(hero)) currentHero = hero;
     pendingResume = test ? null : resume;
     nextTestMode = test;
@@ -424,10 +441,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   // ---------------------------------------------------------------- save / continue
 
-  /** After a death: keep a checkpoint at the start of the stage reached (or none for the first stage). */
+  /** After a death: keep a checkpoint at the last Checkpoint Crab's level (or none before the first crab). */
   private saveStageCheckpoint(): void {
-    const st = this.player.stage;
-    if (!st || st.from <= 1) {
+    const from = this.stageRestartLevel;
+    if (from <= 1) {
       saves.clearCheckpoint();
       return;
     }
@@ -435,7 +452,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     saves.saveCheckpoint({
       species: this.player.species.id,
       difficulty: this.difficultyName,
-      level: st.from,
+      level: from,
       xp: 0,
       hpRatio: 1,
       stamina: BALANCE.stamina.max,
@@ -444,8 +461,9 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       x: a.centerX,
       y: a.top + (this.seabedTop - a.top) * BALANCE.playerStartDepth,
       runTime: 0,
-      stats: { plankton: 0, fish: 0, kills: 0, maxLevel: st.from },
+      stats: { plankton: 0, fish: 0, kills: 0, maxLevel: from },
       perks: this.perks.slice(),
+      crabLevel: this.crabLevel,
     });
   }
 
@@ -780,6 +798,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       runTime: this.runTime,
       stats: { ...this.stats, maxLevel: Math.max(this.stats.maxLevel, p.level) },
       perks: this.perks.slice(),
+      crabLevel: this.crabLevel,
     });
     if (ok) {
       this.lastCheckpointAt = saves.lastSavedAt;
@@ -804,6 +823,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.runTime = c.runTime;
     this.stats = { ...c.stats };
     this.perks = (c.perks ?? []).filter((id) => !!perkById(id));
+    this.crabLevel = Math.min(c.crabLevel ?? 0, c.level);
     p.invulnTimer = RESUME_SHIELD_SECONDS;
     this.lastCheckpointAt = Date.now();
   }
@@ -856,7 +876,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     for (const c of this.creatures) {
       if (c.isPlayer) continue;
       const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, c.fish.x, c.fish.y);
-      if (p.canSwallow(c.fish.size)) {
+      if (p.canSwallow(c.fish.size) && !c.guardian) {
         if (d <= checkR + c.fish.size * 0.5 && (!swallowTarget || c.fish.size > swallowTarget.fish.size)) swallowTarget = c;
       } else if (d <= checkR + c.fish.size * BALANCE.combat.biteReachMul) {
         if (!biteTarget || d < Phaser.Math.Distance.Between(mouth.x, mouth.y, biteTarget.fish.x, biteTarget.fish.y)) biteTarget = c;
@@ -941,12 +961,15 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       return;
     }
     const chomp = a.canSwallow(p.size);
-    const raw = a.biteDamage * damageMul * (chomp ? def.chompMultiplier : 1);
+    // The Checkpoint Crab's pinch is set from your health, so the fight is fair for every hero.
+    const raw = attacker.guardian
+      ? p.maxHp * BALANCE.checkpointCrab.pinchHpFraction
+      : a.biteDamage * damageMul * (chomp ? def.chompMultiplier : 1);
     const dmg = Math.min(p.armored(raw), p.maxHp * def.maxHitFraction);
     const killed = p.takeDamage(dmg, false);
 
     p.invulnTimer = def.invulnerableSeconds;
-    p.stun(def.stunOnHitSeconds);
+    p.stun(attacker.guardian ? Math.max(def.stunOnHitSeconds, BALANCE.checkpointCrab.pinchStunSeconds) : def.stunOnHitSeconds);
     const d = Phaser.Math.Distance.Between(a.x, a.y, p.x, p.y) || 1;
     p.arcadeBody.setVelocity(((p.x - a.x) / d) * def.knockback, ((p.y - a.y) / d) * def.knockback);
 
@@ -984,7 +1007,79 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.stats.kills++;
       this.sfx.kill();
     }
+    if (victim.guardian) {
+      this.crabDefeated(victim);
+      return;
+    }
     this.respawnAmbient(victim);
+  }
+
+  // ---------------------------------------------------------------- Checkpoint Crab
+
+  /** The crab level you have reached but not beaten yet (0 = none): the highest multiple of everyLevels. */
+  get pendingCrabLevel(): number {
+    const every = BALANCE.checkpointCrab.everyLevels;
+    const milestone = Math.floor(this.player.level / every) * every;
+    return milestone >= every && milestone > this.crabLevel ? milestone : 0;
+  }
+
+  private updateCrab(dt: number): void {
+    if (this.menuMode || this.dead || !this.player) return;
+    this.crabCheckTimer -= dt;
+    if (this.crabCheckTimer > 0) return;
+    this.crabCheckTimer = 0.5;
+    const pending = this.pendingCrabLevel;
+    if (pending && !this.crab) this.spawnCrab(pending);
+  }
+
+  /** A Checkpoint Crab appears near the deepest water you may swim in, a short way off to one side. */
+  private spawnCrab(milestone: number): void {
+    const cfg = BALANCE.checkpointCrab;
+    const p = this.player;
+    const sp = getSpecies('checkpoint_crab');
+    const a = this.swimArea;
+    const side = p.x > a.centerX ? -1 : 1;
+    const x = Phaser.Math.Clamp(p.x + side * cfg.spawnDistance, a.left + cfg.homeWidth / 2, a.right - cfg.homeWidth / 2);
+    const floor = Math.min(this.depthLimitY ?? this.seabedTop, this.seabedTop) - 40;
+    const home = new Phaser.Geom.Rectangle(x - cfg.homeWidth / 2, floor - cfg.homeHeight, cfg.homeWidth, cfg.homeHeight);
+    // As big as you (a little bigger), and as tough as `hitsToDefeat` of your bites.
+    let level = 1;
+    const crab = new Fish(this, x, home.centerY, sp, 1);
+    while (level < 80 && crab.size < p.size * cfg.sizeRatio) crab.setLevel(++level);
+    crab.maxHp = Math.max(1, Math.round(p.biteDamage * (1 - (sp.armor ?? 0)) * cfg.hitsToDefeat)); // each bite is softened by its shell
+    crab.hp = crab.maxHp;
+    const look = this.speciesLook(sp.look);
+    if (look) {
+      crab.applySkin(look.key, look.frames);
+      crab.setArt(look.art);
+    }
+    crab.setDepth(6);
+    this.physics.add.collider(crab, this.rocks);
+    const c: Creature = { fish: crab, isPlayer: false, band: home, guardian: true };
+    c.brain = new Brain(c, this);
+    this.creatures.push(c);
+    this.crab = c;
+    this.crabMilestone = milestone;
+    this.hud.crabAppeared(milestone);
+    this.sfx.stun();
+    window.dispatchEvent(new CustomEvent('ce:crab', { detail: { appeared: milestone } }));
+  }
+
+  /** Crab defeated: its level is saved, a big reward, and the save is written right away. */
+  private crabDefeated(c: Creature): void {
+    const p = this.player;
+    for (const o of this.creatures) o.brain?.forget(c);
+    const { x, y } = c.fish;
+    this.creatures.splice(this.creatures.indexOf(c), 1);
+    c.fish.destroy();
+    this.crab = null;
+    this.crabLevel = Math.max(this.crabLevel, this.crabMilestone);
+    this.spawnChunks(x, y, p, p.xpNeeded * BALANCE.checkpointCrab.rewardLevels, 6);
+    this.cameras.main.flash(350, 255, 240, 200);
+    this.sfx.levelUp();
+    this.hud.crabDefeated(this.crabLevel);
+    this.checkpoint(true);
+    window.dispatchEvent(new CustomEvent('ce:crab', { detail: { defeated: this.crabLevel } }));
   }
 
   /** A species' pixel look, built into a texture once per scene (null = keep the atlas art). */
@@ -1016,7 +1111,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
     // The player (and other animated species) sink belly-up, greyed out, in their current look.
     const rest = t.species.art?.frames?.rest;
-    if (rest || t === this.player) {
+    if (rest || t === this.player || t.species.upright) {
       const body = this.add.image(t.x, t.y, t.texture.key, t.frame.name).setScale(t.scaleX).setFlipY(!t.flipY).setRotation(t.rotation).setTint(0x7a8a7a).setDepth(3);
       this.tweens.add({ targets: body, y: Math.min(t.y + 400, this.seabedTop + 10), alpha: 0, duration: 6000, ease: 'Sine.easeIn', onComplete: () => body.destroy() });
       return;

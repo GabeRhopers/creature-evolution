@@ -10,6 +10,8 @@ export interface Creature {
   brain?: Brain;
   /** Depth band an AI fish lives in (wander targets + respawn). */
   band?: Phaser.Geom.Rectangle;
+  /** A guardian (the Checkpoint Crab) stays in its band, fights only the player, never flees, and other fish leave it alone. */
+  guardian?: boolean;
 }
 
 /** What a brain needs from the world. GameScene implements this. */
@@ -89,6 +91,10 @@ export class Brain {
 
   /** Called by GameScene when this fish is bitten or rammed. */
   onHurt(attacker: Creature): void {
+    if (this.self.guardian) {
+      if (attacker.isPlayer) this.target = attacker;
+      return;
+    }
     const me = this.fish;
     if (attacker.fish.rank > me.rank * 0.8) {
       this.threat = attacker;
@@ -125,6 +131,7 @@ export class Brain {
   }
 
   think(dt: number): SwimIntent {
+    if (this.self.guardian) return this.guardIntent(dt);
     const ai = BALANCE.ai;
     this.hunger = Math.max(0, this.hunger - ai.hungerDrainPerSecond * dt);
     this.stateTime += dt;
@@ -165,7 +172,7 @@ export class Brain {
     let preyScore = -Infinity;
 
     for (const c of this.world.creatures) {
-      if (c === this.self || !c.fish.active || !c.fish.visible) continue;
+      if (c === this.self || !c.fish.active || !c.fish.visible || c.guardian) continue; // the crab is left alone
       const d = Phaser.Math.Distance.Between(me.x, me.y, c.fish.x, c.fish.y);
       // Wounded fish send distress: noticed from farther away.
       const range = c.fish.wounded ? vision * BALANCE.combat.distressVisionMul : vision;
@@ -306,6 +313,26 @@ export class Brain {
       return this.wanderIntent(0);
     }
     return { dirX: f.img.x - me.x, dirY: f.img.y - me.y, strength: 0.7, sprint: false };
+  }
+
+  /** Guardian: chase the player while it is within `guardRange` of home, otherwise patrol home. */
+  private guardIntent(dt: number): SwimIntent {
+    const me = this.fish;
+    const home = this.self.band ?? this.world.swimArea;
+    const player = this.world.creatures.find((c) => c.isPlayer);
+    const range = BALANCE.checkpointCrab.guardRange;
+    const near =
+      player &&
+      player.fish.active &&
+      Phaser.Math.Distance.Between(home.centerX, home.centerY, player.fish.x, player.fish.y) < range + home.width / 2;
+    if (near && player) {
+      this.target = player;
+      this.setState('hunt');
+      return { dirX: player.fish.x - me.x, dirY: player.fish.y - me.y, strength: 0.85, sprint: false };
+    }
+    this.target = null;
+    if (this.state !== 'wander') this.setState('wander');
+    return this.wanderIntent(dt);
   }
 
   private wanderIntent(dt: number): SwimIntent {
