@@ -237,6 +237,14 @@ export class HudScene extends Phaser.Scene {
     this.game$.restartFromStage();
   }
 
+  /** Short banner the first time you swim into an area. */
+  areaBanner(name: string): void {
+    this.banner.setText(name.toUpperCase()).setAlpha(1).setScale(0.7);
+    this.tweens.killTweensOf(this.banner);
+    this.tweens.add({ targets: this.banner, scale: 0.85, duration: 300, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: this.banner, alpha: 0, delay: 1400, duration: 600 });
+  }
+
   /** Big banner when the creature evolves into its next stage. */
   evolved(stageName: string, sub: string): void {
     this.banner.setText(`EVOLVED: ${stageName.toUpperCase()}!\n${sub}`).setAlpha(1).setScale(0.5);
@@ -368,6 +376,9 @@ export class HudScene extends Phaser.Scene {
         .setText(st.restTime > 0 ? `Digesting in... ${pct}%` : st.full ? 'Stomach full: stay still to digest' : 'Stay still to digest')
         .setColor('#ffffff')
         .setAlpha(0.95);
+    } else if (g.depthBlocked) {
+      const next = p.stage?.id === 'hatchling' ? 'juvenile' : 'adult';
+      this.status.setText(`Too deep for a ${p.stage?.name.toLowerCase() ?? 'baby'}: grow into a ${next} to dive deeper`).setColor('#9fe8ff').setAlpha(0.95);
     } else if (g.playerHidden) {
       this.status.setText('Hidden in kelp').setColor('#7cff6b').setAlpha(0.9);
     } else {

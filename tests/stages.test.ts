@@ -76,3 +76,30 @@ describe('food chain by stage', () => {
     expect(f(30).rank).toBeGreaterThanOrEqual(shark * BALANCE.combat.threatSizeRatio);
   });
 });
+
+import { AREAS, areaAt } from '../src/data';
+describe('areas', () => {
+  it('cover the sea from surface to seabed without gaps', () => {
+    expect(AREAS[0].from).toBe(0);
+    for (let i = 1; i < AREAS.length; i++) expect(AREAS[i].from).toBe(AREAS[i - 1].to);
+    expect(AREAS[AREAS.length - 1].to).toBe(1);
+    expect(areaAt(0.1).id).toBe('shallows');
+    expect(areaAt(1).id).toBe('deep');
+  });
+  it('open deeper with each stage, and the adult reaches the seabed', () => {
+    for (let i = 1; i < STAGES.length; i++) expect(STAGES[i].maxDepth).toBeGreaterThan(STAGES[i - 1].maxDepth);
+    expect(STAGES[STAGES.length - 1].maxDepth).toBe(1);
+  });
+  it('each stage has food it can swallow inside its own waters', () => {
+    for (const s of STAGES) {
+      const lvl = s.from;
+      const food = Object.values(SPECIES).filter(
+        (sp) => sp.spawn.weight > 0 && sp.spawn.depthMin < s.maxDepth && levelToSwallow(sp.baseSize) !== null && levelToSwallow(sp.baseSize)! <= lvl,
+      );
+      expect(food.length, s.id).toBeGreaterThan(0);
+    }
+  });
+  it('the start depth is open to a hatchling', () => {
+    expect(BALANCE.playerStartDepth).toBeLessThan(STAGES[0].maxDepth);
+  });
+});

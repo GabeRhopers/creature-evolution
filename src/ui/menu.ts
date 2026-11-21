@@ -204,7 +204,7 @@ export function initMenu(game: Phaser.Game): void {
       <ul>
         <li>Big fish hunt you. Each hit takes at most a third of your health and you blink for a moment, so swim away.</li>
         <li>Hide in kelp: predators can't see you unless they come very close.</li>
-        <li>Big predators live in deep water. Grow up in the shallows first.</li>
+        <li>Big predators live in deep water. A baby crocodile can't swim down there yet: each time you evolve, deeper water opens up.</li>
         <li>When your stomach is over 75% full, stay still to digest. Digesting heals you, then turns food into growth.</li>
         <li>Don't let your stomach run empty, or you starve.</li>
       </ul>

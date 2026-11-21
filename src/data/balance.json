@@ -169,7 +169,8 @@
           "mouthReach": 1.9,
           "mouthRadius": 0.55
         },
-        "ability": "shell"
+        "ability": "shell",
+        "maxDepth": 0.4
       },
       {
         "id": "juvenile",
@@ -191,7 +192,8 @@
           "mouthReach": 3.3,
           "mouthRadius": 0.7
         },
-        "ability": "lunge"
+        "ability": "lunge",
+        "maxDepth": 0.7
       },
       {
         "id": "adult",
@@ -213,7 +215,8 @@
           "mouthReach": 3.3,
           "mouthRadius": 0.75
         },
-        "ability": "roll"
+        "ability": "roll",
+        "maxDepth": 1.0
       }
     ]
   },
@@ -289,5 +292,30 @@
         "cooldown": 0.8
       }
     ]
+  },
+  "areas": {
+    "_comment": "Depth bands of the sea, as a share of the water from the surface (0) to the seabed (1). A stage can swim down to its maxDepth; below that a current pushes it back up.",
+    "list": [
+      {
+        "id": "shallows",
+        "name": "The Shallows",
+        "from": 0.0,
+        "to": 0.4
+      },
+      {
+        "id": "reef",
+        "name": "The Reef",
+        "from": 0.4,
+        "to": 0.7
+      },
+      {
+        "id": "deep",
+        "name": "The Deep",
+        "from": 0.7,
+        "to": 1.0
+      }
+    ],
+    "currentStrength": 7,
+    "maxPushSpeed": 260
   }
 }

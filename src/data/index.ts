@@ -103,6 +103,21 @@ export interface StageDef {
   skin: string;
   art: { radius: number; mouthReach: number; mouthRadius: number };
   ability: 'shell' | 'lunge' | 'roll';
+  /** Deepest the stage can swim, as a share of the water (1 = the seabed). */
+  maxDepth: number;
+}
+
+export interface AreaDef {
+  id: string;
+  name: string;
+  from: number;
+  to: number;
+}
+export const AREAS = BALANCE.areas.list as AreaDef[];
+
+/** The area at a depth share (0 = surface, 1 = seabed). */
+export function areaAt(depth: number): AreaDef {
+  return AREAS.find((a) => depth >= a.from && depth < a.to) ?? AREAS[AREAS.length - 1];
 }
 export const STAGES = BALANCE.stages.list as StageDef[];
 export const MAX_LEVEL: number = BALANCE.stages.maxLevel;

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BALANCE, DIFFICULTY, SPECIES, getSpecies, type Difficulty, type DifficultyName } from '../data';
+import { BALANCE, DIFFICULTY, SPECIES, areaAt, getSpecies, type Difficulty, type DifficultyName } from '../data';
 import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
 import { toggleTuningPanel } from '../ui/tuning';
@@ -120,6 +120,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** Perks picked this run, and whether a choice is on screen. */
   perks: string[] = [];
   private perkPending = false;
+  /** True while the current pushes the player back up (too deep for the stage). */
+  depthBlocked = false;
+  private seenAreas = new Set<string>();
+  private currentTimer = 0;
   /** Controls locked for a moment while evolving. */
   private evolveLock = 0;
   private abilityGfx!: Phaser.GameObjects.Graphics;
@@ -155,6 +159,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.perks = nextPerks;
     nextPerks = [];
     this.perkPending = false;
+    this.depthBlocked = false;
+    this.seenAreas = new Set();
     if (pendingResume) currentDifficulty = pendingResume.difficulty;
     this.difficultyName = currentDifficulty;
     this.difficulty = DIFFICULTY[currentDifficulty];
@@ -260,6 +266,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.lastIntentStrength = intent.strength;
       this.player.swim(intent, dt);
       this.updateAbility(dt);
+      this.updateAreas(dt);
     }
     this.updateBubbles(dt);
 
@@ -475,7 +482,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.sfx.digest();
     this.tweens.add({ targets: p, scaleX: p.scaleX * 1.25, scaleY: p.scaleY * 1.25, duration: 180, yoyo: true, repeat: 1 });
     const ability = ab[st.ability];
-    this.hud.evolved(st.name, `New ability: ${ability.name}`);
+    this.hud.evolved(st.name, `New ability: ${ability.name}${st.maxDepth >= 1 ? '\nThe Deep is open' : '\nDeeper water is open'}`);
     window.dispatchEvent(new CustomEvent('ce:evolved', { detail: { stage: st.id } }));
     this.checkpoint(true);
   }
@@ -570,6 +577,59 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.rollTimer = Math.max(0, this.rollTimer - dt);
       const k = 1 - this.rollTimer / BALANCE.abilities.roll.spinSeconds;
       p.rotation = this.rollBase + k * Math.PI * 4;
+    }
+  }
+
+  // ---------------------------------------------------------------- areas
+
+  /** Depth as a share of the water: 0 at the surface, 1 at the seabed. */
+  depthOf(y: number): number {
+    const top = BALANCE.world.surfaceY;
+    return Phaser.Math.Clamp((y - top) / (this.seabedTop - top), 0, 1);
+  }
+
+  /** The deepest point the current stage may swim to (world y), or null for no limit. */
+  get depthLimitY(): number | null {
+    const st = this.player?.stage;
+    if (!st || st.maxDepth >= 1) return null;
+    const top = BALANCE.world.surfaceY;
+    return top + (this.seabedTop - top) * st.maxDepth;
+  }
+
+  /** Deeper water opens as you evolve: below your stage's depth a current pushes you back up. */
+  private updateAreas(dt: number): void {
+    const p = this.player;
+    const limit = this.depthLimitY;
+    this.depthBlocked = false;
+    if (limit !== null) {
+      const over = p.y - limit;
+      if (over > 0) {
+        const cfg = BALANCE.areas;
+        const push = -Math.min(cfg.maxPushSpeed, 40 + over * cfg.currentStrength);
+        p.arcadeBody.setVelocityY(Math.min(p.arcadeBody.velocity.y, push));
+        this.depthBlocked = true;
+      }
+      // Rising bubbles mark the current when you get close to it.
+      if (over > -300) {
+        this.currentTimer -= dt;
+        while (this.currentTimer <= 0) {
+          this.currentTimer += 0.1;
+          this.trailBubbles.spawn(p.x + Phaser.Math.Between(-260, 260), limit + Phaser.Math.Between(0, 40), {
+            vx: Phaser.Math.FloatBetween(-10, 10),
+            vy: -Phaser.Math.FloatBetween(50, 90),
+            life: Phaser.Math.FloatBetween(0.8, 1.4),
+            scale: Phaser.Math.FloatBetween(0.08, 0.14),
+            alpha: 0.85,
+          });
+        }
+      }
+    }
+    // A banner the first time each run you reach an area.
+    const area = areaAt(this.depthOf(p.y));
+    if (!this.depthBlocked && !this.seenAreas.has(area.id)) {
+      const first = this.seenAreas.size === 0;
+      this.seenAreas.add(area.id);
+      if (!first) this.hud.areaBanner(area.name);
     }
   }
 
