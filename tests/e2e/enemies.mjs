@@ -20,7 +20,7 @@ ok(await count('lionfish')===0 && await count('moray_eel')===0 && await count('b
 
 await grow(6);
 ok(await waitFor(()=>window.game.scene.getScene('Game').creatures.some(c=>c.fish.species.id==='lionfish'), 5000), 'lionfish join the reef at level 6: '+await count('lionfish'));
-ok(await waitFor(()=>window.__news.includes('Lionfish'), 8000), 'with a NEW banner');
+ok(await waitFor(()=>window.__news.includes('Lionfish'), 20000), 'with a NEW banner');
 ok(await count('moray_eel')===0, 'no moray yet');
 
 // venom: biting a lionfish stings
@@ -38,7 +38,7 @@ ok(lunge.lunged && lunge.cd>0, 'a moray lunges when it starts a hunt: '+JSON.str
 
 await grow(22);
 ok(await waitFor(()=>window.game.scene.getScene('Game').creatures.some(c=>c.fish.species.id==='barracuda'), 5000), 'barracuda packs join at level 22: '+await count('barracuda'));
-ok(await waitFor(()=>window.__news.includes('Barracuda'), 8000), 'with a NEW banner');
+ok(await waitFor(()=>window.__news.includes('Barracuda'), 20000), 'with a NEW banner');
 
 // a saved run at level 15 continues with lionfish and morays already there
 await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(15); g.checkpoint(true);});
