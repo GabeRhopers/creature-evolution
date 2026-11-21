@@ -1,6 +1,6 @@
 # CLAUDE.md: rules for AI coding sessions on this repo
 
-2D side-view fish survival and growth game (working title), inspired by the
+Creature Evolution, a 2D side-view underwater survival and growth game, inspired by the
 mechanics of Feed and Grow: Fish. Browser game: **Phaser 4.2 + TypeScript + Vite**.
 Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 
@@ -16,10 +16,34 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 - `src/systems/growth.ts`: pure growth formulas (size, HP, bite, XP, devour size).
 - `src/entities/Fish.ts`: one class for every swimmer (player and AI). Movement =
   heading + limited turn rate + thrust + drag + soft speed cap + stamina sprint.
-- Controllers produce a `SwimIntent` (`PlayerController` for input, brains for AI).
+- Controllers produce a `SwimIntent` (`PlayerController` for input, `src/ai/Brain.ts` for AI).
+- `Brain` = per-fish state machine; GameScene implements `AIWorld` (creature list,
+  food, kelp hiding, difficulty) and resolves who eats whom (`updateAiEating`).
+- Threat rule: X threatens Y if X can swallow Y, or X is an aggressive biter and
+  >= 1.25x Y's size (`Brain.isThreat`). Combat lives in GameScene `bite/kill/updateRams`.
   Never move a fish directly; give it an intent.
 - `src/scenes/`: Boot (loads atlas), Game (world + entities), Hud (screen overlay).
+- `src/entities/Food.ts`: plankton field kept around the camera (pooled images).
+- Eating lives in `GameScene.updateEating()`: mouth = circle ahead of the head
+  (`Fish.mouthPoint/mouthRadius`); swallow allowed if `target.size <= devourSize`.
+- `src/systems/Stomach.ts`: pure stomach/digestion logic; GameScene applies releases (heal first, then XP).
+- `src/audio/Sfx.ts`: all sound effects synthesized with Web Audio (no files). Music: `public/assets/audio/`.
+- `src/ui/menu.ts` + overlays in `index.html`: home screen (game runs in attract mode behind it,
+  `GameScene.menuMode`), how to play, options, credits, pause menu, best record (localStorage).
+  Scene API: `startPlay(difficulty)`, `restartRun()`, `goHome()`; events `ce:pause`, `ce:home`, `ce:run`.
+- Developer buttons (TUNE, GROW) only appear with `?dev=1`.
 - `src/ui/tuning.ts`: live slider panel (` key or TUNE button) for feel tuning.
+
+## Player character
+The player is a **crocodile designed by the owner's son** (pixel art). Frames are drawn as
+text grids in `scripts/croc-frames.py` (48x16, 3x upscale) -> `art/player/` -> atlas.
+Keep his design (eye bumps, tooth row, back scutes, curled tail tip); only polish it.
+Species can declare `art` in species.json (radius, mouth reach, animation frames).
+
+## Player damage rules (`GameScene.attackPlayer`)
+AI never swallows the player. Predators that could swallow you "chomp" (x1.5 damage);
+every hit is capped at `playerDefense.maxHitFraction` of max HP, then knockback +
+invulnerability. Armor per species (`armor` in species.json).
 
 ## Rules
 - **Art comes from the single atlas** (`ATLAS` in `src/assets.ts`):
@@ -38,8 +62,8 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 ## Roadmap (one-week sprints)
 - [x] Sprint 0: setup, atlas, data files
 - [x] Sprint 1: swim feel, world, kelp, rocks, camera zoom, touch controls
-- [ ] Sprint 2: food items, swallow, XP, level-ups, HUD growth bar
-- [ ] Sprint 3: AI state machine (wander, flee, hunt, eat, rest, desperation), kelp blocks vision
-- [ ] Sprint 4: bite vs swallow, meat chunks, ram stun, wounded state, death/respawn, Dash
-- [ ] Sprint 5: stomach and digestion, difficulty presets, SFX, music, polish
+- [x] Sprint 2: plankton (auto-eat on mouth contact), swallow smaller fish (Space/E/right-click/EAT), XP, level-ups, mouth ring, HUD growth bar
+- [x] Sprint 3: AI brains (wander+schooling, flee, hunt with stalking vs player, forage plankton, rest, hunger/desperation), kelp hides fish, player can be eaten (death screen, restart), Easy/Normal/Hard
+- [x] Sprint 4: bite (anything too big to swallow) with meat chunks, kills + skeletons, ram stun, rock impact stun, critical wounds, wounded state + distress, HP regen, AI biting/retaliation, death by bite, Dash (E/Q/DASH)
+- [x] Sprint 5: stomach (1/3 XP now, 2/3 banked; 95% full; rest above 75% to digest; metabolism; starvation), procedural SFX, CC0 music, heartbeat when hunted, start screen, sound toggle
 - [ ] Sprint 6: playtest, balance, itch.io release

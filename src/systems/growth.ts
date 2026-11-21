@@ -1,5 +1,5 @@
 // Growth formulas from the MVP plan. Pure functions: easy to test and tune.
-import { BALANCE, type Species } from '../data';
+import { BALANCE, MAX_LEVEL, STAGES, type Species, type StageDef } from '../data';
 
 const g = () => BALANCE.growth;
 
@@ -38,4 +38,63 @@ export function speedFactor(species: Species, level: number): number {
 /** ...but turn more slowly. */
 export function turnFactor(species: Species, level: number): number {
   return Math.pow(sizeRatio(species, level), g().turnExponent);
+}
+
+// ------------------------------------------------------------------ stages (player)
+//
+// The player's creature no longer grows without limit. Its level sits inside a
+// stage (hatchling, juvenile, adult). Inside a stage the body grows only a
+// little; evolving to the next stage is a jump. Two numbers describe it:
+//   size  the body: look, physics, mouth, what can be swallowed whole, speed
+//   rank  how strong the reef thinks you are: who hunts you, who flees,
+//         health and bite. AI fish have rank = size.
+
+
+export interface Form {
+  stage: StageDef | null;
+  size: number;
+  rank: number;
+  /** Strength multiplier for health and bite (rank / base size). */
+  power: number;
+  devourRatio: number;
+}
+
+export function clampLevel(level: number): number {
+  return Math.max(1, Math.min(MAX_LEVEL, Math.round(level)));
+}
+
+export function stageAt(level: number, stages: StageDef[] = STAGES): StageDef {
+  const lv = clampLevel(level);
+  return stages.find((s) => lv >= s.from && lv <= s.to) ?? stages[stages.length - 1];
+}
+
+export function stageIndex(level: number, stages: StageDef[] = STAGES): number {
+  return stages.indexOf(stageAt(level, stages));
+}
+
+/** Smooth growth between two values across a stage (geometric). */
+function across(range: [number, number], s: StageDef, level: number): number {
+  const t = s.to > s.from ? (clampLevel(level) - s.from) / (s.to - s.from) : 0;
+  return range[0] * Math.pow(range[1] / range[0], Math.max(0, Math.min(1, t)));
+}
+
+/** Body, rank and strength at a level. With `staged` = false: the classic formula (AI fish). */
+export function formAt(species: Species, level: number, staged: boolean): Form {
+  if (!staged) {
+    const size = sizeAt(species, level);
+    return { stage: null, size, rank: size, power: size / species.baseSize, devourRatio: species.devourRatio };
+  }
+  const s = stageAt(level);
+  const size = across(s.body, s, level);
+  const rank = across(s.rank, s, level);
+  return { stage: s, size, rank, power: rank / species.baseSize, devourRatio: s.devourRatio };
+}
+
+/** First level at which the staged creature can swallow something of this size, or null if never. */
+export function levelToSwallow(targetSize: number): number | null {
+  for (let lv = 1; lv <= MAX_LEVEL; lv++) {
+    const s = stageAt(lv);
+    if (across(s.body, s, lv) * s.devourRatio >= targetSize) return lv;
+  }
+  return null;
 }

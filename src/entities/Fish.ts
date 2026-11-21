@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { BALANCE, type Species } from '../data';
 import { ATLAS } from '../assets';
-import { sizeAt, speedFactor, turnFactor, maxHpAt, devourSizeAt } from '../systems/growth';
+import { formAt, clampLevel, xpToNext, type Form } from '../systems/growth';
+import { MAX_LEVEL, type StageDef } from '../data';
+import { NO_MODS, type PerkMods } from '../systems/perks';
 
 /** What a controller (keyboard, touch or AI brain) asks the fish to do this frame. */
 export interface SwimIntent {
@@ -16,10 +18,12 @@ export interface SwimIntent {
 export const NO_INTENT: SwimIntent = { dirX: 0, dirY: 0, strength: 0, sprint: false };
 
 // Kenney fish art: 128x128 frame, the fish body fits a circle of ~36px radius
-// around the frame center. Scaling the sprite by size/ART_RADIUS makes the
-// visible fish match the physics circle.
-const ART_RADIUS = 36;
-const FRAME_CENTER = 64;
+// around the frame center. Scaling the sprite by size/artRadius makes the
+// visible fish match the physics circle. Species can override this with `art`
+// (e.g. the long crocodile frames).
+/** A multi-frame bite (Sprite Studio attack pose) plays over this long. */
+const BITE_SEQ_SECONDS = 0.36;
+const DEFAULT_ART_RADIUS = 36;
 
 /**
  * A swimming creature. Shared by the player and every AI fish:
@@ -41,6 +45,42 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   stamina: number;
   isSprinting = false;
   exhausted = false;
+  /** XP collected toward the next level. */
+  xp = 0;
+  /** Difficulty multiplier on swim speed (AI only; player stays 1). */
+  speedMul = 1;
+  /** Seconds left stunned (no steering or thrust). */
+  stunTimer = 0;
+  /** Seconds left in an active Dash. */
+  dashTimer = 0;
+  /** Seconds until Dash can be used again. */
+  dashCooldown = 0;
+  /** Seconds until the next bite is allowed. */
+  biteCooldown = 0;
+  /** Seconds since this fish last took damage (drives regen). */
+  sinceHurt = 99;
+  /** Seconds of post-hit invulnerability left (player only). */
+  invulnTimer = 0;
+  /** Speed at the end of last frame (before collisions changed it): used for ram checks. */
+  lastSpeed = 0;
+  private baseTint = 0xffffff;
+  /** Seconds left showing the bite / open-jaw frame. */
+  private biteAnim = 0;
+  /** Body, rank and strength for the current level. */
+  form!: Form;
+  /** Perk effects (player only; AI fish keep 1.0 everywhere). */
+  mods: PerkMods = { ...NO_MODS };
+  /** True for the player: growth follows stages (capped size, level cap). */
+  staged = false;
+  /** Per-stage art geometry (overrides the species art). */
+  private artOverride: StageDef['art'] | null = null;
+  private celebrateAnim = 0;
+  /** Frames from a Sprite Studio drawing, replacing the species art (player only). */
+  private skinFrames: NonNullable<NonNullable<Species['art']>['frames']> | null = null;
+  private animClock = 0;
+  private idleClock = 0;
+  /** Set by GameScene while the player is digesting (lie flat). */
+  digestPose = false;
   private sinceSprint = 99;
 
   constructor(scene: Phaser.Scene, x: number, y: number, species: Species, level = 1) {
@@ -51,13 +91,69 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(ART_RADIUS, FRAME_CENTER - ART_RADIUS, FRAME_CENTER - ART_RADIUS);
+    const r = this.artRadius;
+    body.setCircle(r, this.frame.realWidth / 2 - r, this.frame.realHeight / 2 - r);
     body.setCollideWorldBounds(true);
     body.setAllowGravity(false);
 
     this.heading = Math.random() < 0.5 ? 0 : Math.PI;
     this.setLevel(level);
     this.hp = this.maxHp;
+  }
+
+  get artRadius(): number {
+    return this.artOverride?.radius ?? this.species.art?.radius ?? DEFAULT_ART_RADIUS;
+  }
+
+  /** How strong the reef thinks this creature is (AI fish: equal to size). */
+  get rank(): number {
+    return this.form.rank;
+  }
+
+  /** Switch to staged growth (the player). */
+  enableStages(): void {
+    this.staged = true;
+    this.setLevel(this.level);
+  }
+
+  get stage(): StageDef | null {
+    return this.form.stage;
+  }
+
+  get atMaxLevel(): boolean {
+    return this.staged && this.level >= MAX_LEVEL;
+  }
+
+  /** Use another stage's art geometry: re-fits the body circle and scale. */
+  setArt(art: StageDef['art'] | null): void {
+    this.artOverride = art;
+    const r = this.artRadius;
+    this.arcadeBody.setCircle(r, this.frame.realWidth / 2 - r, this.frame.realHeight / 2 - r);
+    this.setScale(this.size / r);
+  }
+
+  /** Show the open-jaw frame briefly (species with animation frames). */
+  playBite(): void {
+    this.biteAnim = this.skinFrames?.biteSeq && this.skinFrames.biteSeq.length > 1 ? BITE_SEQ_SECONDS : 0.25;
+  }
+
+  /** Play the celebrate animation (level-up), if the art has one. */
+  playCelebrate(): void {
+    this.celebrateAnim = 1.1;
+  }
+
+  /** Use frames from another texture (a Sprite Studio drawing). Same frame size as the original art. */
+  applySkin(texture: string, frames: { swim: string[]; idle?: string[]; bite?: string; biteSeq?: string[]; rest?: string; damage?: string; celebrate?: string[] }): void {
+    if (!frames.swim.length) return;
+    this.skinFrames = { ...frames, celebrate: frames.celebrate?.length ? frames.celebrate : undefined };
+    this.setTexture(texture, frames.swim[0]);
+  }
+
+  /** Back to the species' own art. */
+  clearSkin(): void {
+    if (!this.skinFrames) return;
+    this.skinFrames = null;
+    this.setTexture(ATLAS, this.species.sprite);
   }
 
   get arcadeBody(): Phaser.Physics.Arcade.Body {
@@ -69,16 +165,138 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   }
 
   get devourSize(): number {
-    return devourSizeAt(this.species, this.level);
+    return this.size * this.form.devourRatio;
+  }
+
+  get xpNeeded(): number {
+    return xpToNext(this.level);
+  }
+
+  /** Center of the mouth area in world space (just ahead of the head). */
+  mouthPoint(): Phaser.Math.Vector2 {
+    const reach = this.size * (this.artOverride?.mouthReach ?? this.species.art?.mouthReach ?? BALANCE.eating.mouthReach);
+    return new Phaser.Math.Vector2(this.x + Math.cos(this.heading) * reach, this.y + Math.sin(this.heading) * reach);
+  }
+
+  /** Radius of the mouth area; `suction` widens it while actively swallowing. */
+  mouthRadius(suction = false): number {
+    const e = BALANCE.eating;
+    return this.size * ((this.artOverride?.mouthRadius ?? this.species.art?.mouthRadius ?? e.mouthRadius) + (suction ? e.suctionBonus : 0));
+  }
+
+  /** Can this fish swallow something of the given body radius whole? */
+  canSwallow(targetSize: number): boolean {
+    return targetSize <= this.devourSize;
+  }
+
+  /** Add XP, level up as many times as earned. Returns levels gained. */
+  addXp(amount: number): number {
+    this.xp += amount;
+    let gained = 0;
+    if (this.atMaxLevel) {
+      this.xp = Math.min(this.xp, this.xpNeeded);
+      return 0;
+    }
+    while (this.xp >= this.xpNeeded && !this.atMaxLevel) {
+      this.xp -= this.xpNeeded;
+      gained++;
+      this.setLevel(this.level + 1);
+    }
+    return gained;
+  }
+
+  heal(amount: number): void {
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+  }
+
+  get biteDamage(): number {
+    return this.species.baseBite * Math.pow(this.form.power, BALANCE.growth.biteExponent) * this.mods.bite;
+  }
+
+  get stunned(): boolean {
+    return this.stunTimer > 0;
+  }
+
+  get dashing(): boolean {
+    return this.dashTimer > 0;
+  }
+
+  /** Below 30% HP: slow, tilted, and attracts predators. */
+  get wounded(): boolean {
+    return this.hp < this.maxHp * BALANCE.combat.woundedBelow;
+  }
+
+  /** Normal top speed right now (no sprint), used as the ramming reference. */
+  get cruiseSpeed(): number {
+    return this.species.maxSpeed * this.speedFactor * this.speedMul;
+  }
+
+  /** Bigger bodies swim a bit faster in absolute terms but turn more slowly. */
+  get speedFactor(): number {
+    return Math.pow(this.size / this.species.baseSize, BALANCE.growth.speedExponent) * this.mods.speed;
+  }
+  get turnFactor(): number {
+    return Math.pow(this.size / this.species.baseSize, BALANCE.growth.turnExponent);
+  }
+
+  stun(seconds: number): void {
+    this.stunTimer = Math.max(this.stunTimer, seconds);
+  }
+
+  get invulnerable(): boolean {
+    return this.invulnTimer > 0;
+  }
+
+  /** Damage after this species' armor (thick hide). */
+  armored(amount: number): number {
+    return amount * (1 - (this.species.armor ?? 0)) * this.mods.damageTaken;
+  }
+
+  /**
+   * Apply damage (armor already applied by the caller via `armored`).
+   * Returns true if this hit killed the fish. Big hits stun (critical wound)
+   * unless `critStun` is false.
+   */
+  takeDamage(amount: number, critStun = true): boolean {
+    const c = BALANCE.combat;
+    this.hp = Math.max(0, this.hp - amount);
+    this.sinceHurt = 0;
+    if (critStun && amount >= this.maxHp * c.critFraction) this.stun(c.critStunSeconds);
+    // Hit flash.
+    this.setTint(0xff7070);
+    this.scene.time.delayedCall(120, () => this.active && this.setTint(this.baseTint));
+    return this.hp <= 0;
+  }
+
+  /** Lunge forward. Returns false if on cooldown, stunned or out of stamina. */
+  tryDash(): boolean {
+    const d = BALANCE.combat.dash;
+    if (this.dashCooldown > 0 || this.stunned || this.stamina < d.staminaCost) return false;
+    this.stamina -= d.staminaCost;
+    this.dashTimer = d.durationSeconds;
+    this.dashCooldown = d.cooldownSeconds * this.mods.cooldown;
+    const v = this.cruiseSpeed * d.speedMul;
+    this.arcadeBody.setVelocity(Math.cos(this.heading) * v, Math.sin(this.heading) * v);
+    return true;
+  }
+
+  /** Reset combat state (used when an AI fish respawns). */
+  resetCombat(): void {
+    this.hp = this.maxHp;
+    this.stunTimer = 0;
+    this.dashTimer = 0;
+    this.sinceHurt = 99;
+    this.setTint(this.baseTint);
   }
 
   setLevel(level: number): void {
     const hpRatio = this.maxHp > 1 ? this.hp / this.maxHp : 1;
-    this.level = Math.max(1, level);
-    this.size = sizeAt(this.species, this.level);
-    this.maxHp = maxHpAt(this.species, this.level);
+    this.level = this.staged ? clampLevel(level) : Math.max(1, level);
+    this.form = formAt(this.species, this.level, this.staged);
+    this.size = this.form.size;
+    this.maxHp = Math.round(this.species.baseHP * Math.pow(this.form.power, BALANCE.growth.hpExponent));
     this.hp = Math.max(1, Math.round(this.maxHp * hpRatio));
-    this.setScale(this.size / ART_RADIUS);
+    this.setScale(this.size / this.artRadius);
   }
 
   /** Advance swimming physics by dt seconds. */
@@ -87,13 +305,30 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     const st = BALANCE.stamina;
     const body = this.arcadeBody;
 
+    const c = BALANCE.combat;
+    this.stunTimer = Math.max(0, this.stunTimer - dt);
+    this.dashTimer = Math.max(0, this.dashTimer - dt);
+    this.dashCooldown = Math.max(0, this.dashCooldown - dt);
+    this.biteCooldown = Math.max(0, this.biteCooldown - dt);
+    this.invulnTimer = Math.max(0, this.invulnTimer - dt);
+    this.sinceHurt += dt;
+    // Slow regeneration when out of combat for a while.
+    if (this.sinceHurt > c.regenDelaySeconds && this.hp < this.maxHp) this.heal(this.maxHp * c.regenPerSecond * dt);
+
     const len = Math.hypot(intent.dirX, intent.dirY);
-    const thrust = len > 0.0001 ? Phaser.Math.Clamp(intent.strength, 0, 1) : 0;
+    const thrust = len > 0.0001 && !this.stunned ? Phaser.Math.Clamp(intent.strength, 0, 1) : 0;
+
+    // Animated species settle to horizontal when idle, so the idle pose and
+    // the mouth both face sideways.
+    if (thrust === 0 && sp.art?.frames?.idle && body.velocity.length() < this.cruiseSpeed * 0.12) {
+      const side = Math.cos(this.heading) < 0 ? Math.PI : 0;
+      this.heading = Phaser.Math.Angle.RotateTo(this.heading, side, sp.turnSpeed * 0.5 * dt);
+    }
 
     // Turning: rotate heading toward the requested direction at a limited rate.
     if (thrust > 0) {
       const target = Math.atan2(intent.dirY, intent.dirX);
-      const maxTurn = sp.turnSpeed * turnFactor(sp, this.level) * dt;
+      const maxTurn = sp.turnSpeed * this.turnFactor * dt;
       this.heading = Phaser.Math.Angle.RotateTo(this.heading, target, maxTurn);
     }
 
@@ -112,8 +347,11 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     }
 
     const sprintMul = this.isSprinting ? sp.sprintMultiplier : 1;
-    const maxSpeed = sp.maxSpeed * speedFactor(sp, this.level) * sprintMul;
-    const accel = sp.accel * speedFactor(sp, this.level) * (this.isSprinting ? 1.6 : 1);
+    const woundMul = this.wounded ? c.woundedSpeedMul : 1;
+    // While dashing, the cap is the dash speed so the lunge is not clipped.
+    const dashMul = this.dashing ? c.dash.speedMul : 1;
+    const maxSpeed = sp.maxSpeed * this.speedFactor * Math.max(sprintMul * woundMul, dashMul) * this.speedMul;
+    const accel = sp.accel * this.speedFactor * (this.isSprinting ? 1.6 : 1) * this.speedMul;
 
     let vx = body.velocity.x;
     let vy = body.velocity.y;
@@ -147,6 +385,8 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     if (this.y - this.size < surfaceY + 4) vy += BALANCE.surface.pushDown * dt;
 
     body.setVelocity(vx, vy);
+    // Speed we asked for, before the next physics step's collisions change it.
+    this.lastSpeed = Math.hypot(vx, vy);
     this.updateVisual(dt);
   }
 
@@ -154,7 +394,53 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   private updateVisual(dt: number): void {
     const facingLeft = Math.cos(this.heading) < 0;
     this.setFlipY(facingLeft);
+    // Wounded fish list toward belly-up; stunned fish wobble.
+    let target = this.heading;
+    if (this.wounded) target += (facingLeft ? -1 : 1) * 0.7;
+    if (this.stunned) target += Math.sin(this.scene.time.now / 50) * 0.35;
     // Smooth the visual rotation a little more than the physics heading.
-    this.rotation = Phaser.Math.Angle.RotateTo(this.rotation, this.heading, 14 * dt);
+    this.rotation = Phaser.Math.Angle.RotateTo(this.rotation, target, 14 * dt);
+    // Blink while invulnerable after a hit; wobble-fade while stunned.
+    const blink = this.invulnerable && Math.floor(this.scene.time.now / 80) % 2 === 0;
+    this.setAlpha(blink ? 0.35 : this.stunned ? 0.75 + 0.25 * Math.sin(this.scene.time.now / 60) : 1);
+    this.animate(dt);
+  }
+
+  /** Frame animation for species that have it: swim, bite, idle, rest. */
+  private animate(dt: number): void {
+    const frames = this.skinFrames ?? this.species.art?.frames;
+    if (!frames) return;
+    this.biteAnim = Math.max(0, this.biteAnim - dt);
+    this.celebrateAnim = Math.max(0, this.celebrateAnim - dt);
+    let frame: string;
+    const speed = this.arcadeBody.velocity.length();
+    const still = speed < this.cruiseSpeed * 0.12 && !this.stunned;
+    if (this.biteAnim > 0 && frames.biteSeq && frames.biteSeq.length > 1) {
+      const k = Math.min(frames.biteSeq.length - 1, Math.floor((1 - this.biteAnim / BITE_SEQ_SECONDS) * frames.biteSeq.length));
+      frame = frames.biteSeq[Math.max(0, k)];
+    } else if (this.biteAnim > 0 && frames.bite) {
+      frame = frames.bite;
+    } else if (this.sinceHurt < 0.35 && frames.damage) {
+      frame = frames.damage;
+    } else if (this.celebrateAnim > 0 && frames.celebrate) {
+      frame = frames.celebrate[Math.floor((1.1 - this.celebrateAnim) * 8) % frames.celebrate.length];
+    } else if (still && this.digestPose && frames.rest) {
+      // Lying flat while digesting.
+      frame = frames.rest;
+    } else if (still && frames.idle) {
+      // Gentle idle loop: tail sway + tongue flick, with a blink every few seconds.
+      this.idleClock += dt;
+      const blinkPhase = this.idleClock % 3.4;
+      if (frames.blink && blinkPhase > 3.25) frame = frames.blink;
+      else frame = frames.idle[Math.floor(this.idleClock * 1.6) % frames.idle.length];
+    } else if (still && frames.rest) {
+      frame = frames.rest;
+    } else {
+      this.idleClock = 0;
+      // Paddle faster the faster we swim.
+      this.animClock += dt * (2 + (speed / this.cruiseSpeed) * 6);
+      frame = frames.swim[Math.floor(this.animClock) % frames.swim.length];
+    }
+    if (this.frame.name !== frame) this.setFrame(frame, false, false);
   }
 }

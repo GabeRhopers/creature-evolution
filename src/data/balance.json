@@ -1,5 +1,5 @@
 {
-  "playerSpecies": "reef_snapper",
+  "playerSpecies": "crocodile",
   "world": {
     "width": 9000,
     "height": 3200,
@@ -34,5 +34,288 @@
   },
   "surface": {
     "pushDown": 900
+  },
+  "eating": {
+    "mouthReach": 1.2,
+    "mouthRadius": 0.45,
+    "suctionBonus": 0.3,
+    "swallowCooldown": 0.2,
+    "healOnEatPct": 0.05
+  },
+  "food": {
+    "plankton": {
+      "targetCount": 80,
+      "xp": 3,
+      "size": 6,
+      "tints": [
+        "#9adc6c",
+        "#b9ffa4",
+        "#ffec3b"
+      ]
+    },
+    "spawnMargin": 700
+  },
+  "population": {
+    "blue_tang": 45,
+    "reef_snapper": 14,
+    "red_grouper": 7,
+    "grey_shark": 2
+  },
+  "ai": {
+    "hungerDrainPerSecond": 0.014,
+    "huntBelowHunger": 0.65,
+    "desperateBelowHunger": 0.2,
+    "hungerPerFish": 0.4,
+    "hungerPerPlankton": 0.06,
+    "giveUpAfterSeconds": 8,
+    "restSeconds": 1.2,
+    "fleeMemorySeconds": 1.6,
+    "kelpSeeThroughDistance": 4,
+    "schoolRadius": 220,
+    "wanderStrength": 0.45,
+    "desperateVisionMul": 1.5,
+    "stalkSecondsBeforeChasingPlayer": 1.2,
+    "predatorLeash": 250,
+    "leashFromTier": 3
+  },
+  "respawnLevelKeep": 0,
+  "playerStartDepth": 0.18,
+  "combat": {
+    "biteCooldown": 0.45,
+    "aiBiteCooldown": 0.9,
+    "biteReachMul": 0.9,
+    "meatXpPerDamage": 0.5,
+    "meatTint": "#e2574c",
+    "chunkLifeSeconds": 25,
+    "chunkSinkSpeed": 14,
+    "ramSpeedRatio": 0.85,
+    "ramStunSeconds": 1.2,
+    "rockStunSeconds": 0.7,
+    "ramSizeRatio": 1.1,
+    "critFraction": 0.34,
+    "critStunSeconds": 0.8,
+    "woundedBelow": 0.3,
+    "woundedSpeedMul": 0.6,
+    "distressVisionMul": 1.5,
+    "regenPerSecond": 0.01,
+    "regenDelaySeconds": 4,
+    "aiBiteMinAggression": 0.5,
+    "aiBiteMaxSizeRatio": 0.9,
+    "threatSizeRatio": 1.25,
+    "dash": {
+      "speedMul": 2.6,
+      "durationSeconds": 0.35,
+      "cooldownSeconds": 4,
+      "staminaCost": 25,
+      "damageMul": 1.2,
+      "knockback": 420,
+      "reboundSizeRatio": 1.5
+    }
+  },
+  "stomach": {
+    "enabled": true,
+    "capacityBase": 24,
+    "capacityExponent": 1.25,
+    "immediateXpFraction": 0.34,
+    "fullAt": 0.95,
+    "restReadyAt": 0.75,
+    "restSeconds": 1.8,
+    "restSpeedRatio": 0.12,
+    "digestTo": 0.5,
+    "digestSeconds": 1.2,
+    "metabolismPerSecond": 0.012,
+    "starveDamagePerSecond": 0.01,
+    "hpPerXp": 1.5,
+    "startFill": 0.3,
+    "metabolismLevelExponent": 0.9
+  },
+  "audio": {
+    "musicVolume": 0.35,
+    "sfxVolume": 0.6,
+    "heartbeatSeconds": 0.85
+  },
+  "playerDefense": {
+    "maxHitFraction": 0.34,
+    "chompMultiplier": 1.5,
+    "invulnerableSeconds": 1.0,
+    "knockback": 380,
+    "stunOnHitSeconds": 0.35
+  },
+  "joystick": {
+    "radius": 70,
+    "deadZone": 0.12
+  },
+  "stages": {
+    "_comment": "Player growth by stage. body = [size at the first level, size at the last level] (look, physics, what fits in the mouth). rank = how strong the reef thinks you are (who hunts, who flees, health and bite). Both grow a little inside a stage and jump when you evolve.",
+    "maxLevel": 30,
+    "list": [
+      {
+        "id": "hatchling",
+        "name": "Hatchling",
+        "from": 1,
+        "to": 10,
+        "body": [
+          15,
+          19
+        ],
+        "rank": [
+          15,
+          20
+        ],
+        "devourRatio": 0.8,
+        "skin": "croc-hatchling",
+        "art": {
+          "radius": 27,
+          "mouthReach": 1.9,
+          "mouthRadius": 0.55
+        },
+        "ability": "shell",
+        "maxDepth": 0.4
+      },
+      {
+        "id": "juvenile",
+        "name": "Juvenile",
+        "from": 11,
+        "to": 20,
+        "body": [
+          26,
+          34
+        ],
+        "rank": [
+          42,
+          58
+        ],
+        "devourRatio": 0.8,
+        "skin": "croc-juvenile",
+        "art": {
+          "radius": 18,
+          "mouthReach": 3.3,
+          "mouthRadius": 0.7
+        },
+        "ability": "lunge",
+        "maxDepth": 0.7
+      },
+      {
+        "id": "adult",
+        "name": "Adult",
+        "from": 21,
+        "to": 30,
+        "body": [
+          44,
+          56
+        ],
+        "rank": [
+          100,
+          135
+        ],
+        "devourRatio": 0.9,
+        "skin": "croc-adult",
+        "art": {
+          "radius": 18,
+          "mouthReach": 3.3,
+          "mouthRadius": 0.75
+        },
+        "ability": "roll",
+        "maxDepth": 1.0
+      }
+    ]
+  },
+  "abilities": {
+    "shell": {
+      "name": "Shell Guard",
+      "label": "SHELL",
+      "durationSeconds": 1.6,
+      "cooldownSeconds": 7,
+      "attackerStunSeconds": 0.6
+    },
+    "lunge": {
+      "name": "Lunge",
+      "label": "LUNGE"
+    },
+    "roll": {
+      "name": "Death Roll",
+      "label": "ROLL",
+      "damageMul": 3,
+      "spinSeconds": 0.6,
+      "cooldownSeconds": 6,
+      "stunSeconds": 1.2,
+      "reachMul": 1.3
+    },
+    "evolveLockSeconds": 1.0,
+    "evolveShieldSeconds": 2.5
+  },
+  "perks": {
+    "_comment": "Pick 1 of 3 perks at these levels (twice per stage, never on an evolution level). Perks stack.",
+    "levels": [
+      4,
+      7,
+      14,
+      17,
+      24,
+      27
+    ],
+    "list": [
+      {
+        "id": "swift",
+        "icon": "💨",
+        "name": "Swift Tail",
+        "desc": "Swim 10% faster.",
+        "speed": 1.1
+      },
+      {
+        "id": "hide",
+        "icon": "🛡️",
+        "name": "Thick Hide",
+        "desc": "Bites hurt you 12% less.",
+        "damageTaken": 0.88
+      },
+      {
+        "id": "jaws",
+        "icon": "🦷",
+        "name": "Strong Jaws",
+        "desc": "Your bites hit 15% harder.",
+        "bite": 1.15
+      },
+      {
+        "id": "belly",
+        "icon": "🍖",
+        "name": "Big Belly",
+        "desc": "Stomach holds 25% more and empties 10% slower.",
+        "stomach": 1.25,
+        "hunger": 0.9
+      },
+      {
+        "id": "focus",
+        "icon": "⚡",
+        "name": "Quick Recovery",
+        "desc": "Your stage ability recharges 20% faster.",
+        "cooldown": 0.8
+      }
+    ]
+  },
+  "areas": {
+    "_comment": "Depth bands of the sea, as a share of the water from the surface (0) to the seabed (1). A stage can swim down to its maxDepth; below that a current pushes it back up.",
+    "list": [
+      {
+        "id": "shallows",
+        "name": "The Shallows",
+        "from": 0.0,
+        "to": 0.4
+      },
+      {
+        "id": "reef",
+        "name": "The Reef",
+        "from": 0.4,
+        "to": 0.7
+      },
+      {
+        "id": "deep",
+        "name": "The Deep",
+        "from": 0.7,
+        "to": 1.0
+      }
+    ],
+    "currentStrength": 7,
+    "maxPushSpeed": 260
   }
 }

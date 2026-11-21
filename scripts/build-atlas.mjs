@@ -1,4 +1,4 @@
-// Packs every PNG in art/kenney-fish-pack/ into one texture atlas:
+// Packs every PNG in art/kenney-fish-pack/ and art/player/ into one texture atlas:
 //   public/assets/atlas.png + public/assets/atlas.json (Phaser "JSON hash" format)
 //
 // Each frame gets PAD pixels of padding, and its edge pixels are extruded
@@ -10,19 +10,22 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
 
-const SRC = 'art/kenney-fish-pack';
+const SRC_DIRS = ['art/kenney-fish-pack', 'art/player'];
 const OUT_DIR = 'public/assets';
 const PAD = 3;
 const MAX_WIDTH = 2048;
 
-const files = fs
-  .readdirSync(SRC)
-  .filter((f) => f.endsWith('.png') && !f.endsWith('_outline.png'))
-  .sort();
+const files = SRC_DIRS.flatMap((dir) =>
+  fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.png') && !f.endsWith('_outline.png'))
+    .sort()
+    .map((f) => path.join(dir, f)),
+);
 
 const images = files.map((f) => ({
   name: path.basename(f, '.png'),
-  png: PNG.sync.read(fs.readFileSync(path.join(SRC, f))),
+  png: PNG.sync.read(fs.readFileSync(f)),
 }));
 
 // Simple shelf packing (all Kenney frames are 128x128, but stay generic).
