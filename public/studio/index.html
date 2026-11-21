@@ -1107,6 +1107,34 @@ window.addEventListener('pagehide', () => { if (S.dirty) { writeLocal(true); sav
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && S.dirty) { writeLocal(true); save(); } });
 window.addEventListener('online', () => { if (S.dirty) save(); });
 
+// ------------------------------------------------------------------ starter designs
+// New designs shipped with the game (seeds/*.json) are added once to the
+// project list, so they can be opened and edited like any other project.
+// Deleting one later does not bring it back.
+const SEEDS = ['croc-hatchling', 'croc-juvenile', 'croc-adult'];
+async function seedStarters() {
+  let done = [];
+  try { done = JSON.parse(localStorage.getItem('spritestudio.seeded') || '[]'); } catch {}
+  if (db) { try { const m = await db.doc('meta/seeds').get(); if (m.exists) done = [...new Set([...done, ...(m.data().ids || [])])]; } catch {} }
+  const todo = SEEDS.filter((id) => !done.includes(id));
+  if (!todo.length) return;
+  for (const id of todo) {
+    try {
+      const res = await fetch('seeds/' + id + '.json'); if (!res.ok) continue;
+      const data = await res.json();
+      let exists = !!readLocal(id);
+      if (db) { try { exists = exists || (await db.doc('projects/' + id).get()).exists; } catch {} }
+      if (!exists) {
+        if (db) await db.doc('projects/' + id).set({ ...data, rev: 1, device: DEVICE });
+        try { localStorage.setItem(LOCAL + id, JSON.stringify({ ...data, rev: db ? 1 : 0, pending: false })); } catch {}
+      }
+      done.push(id);
+    } catch {}
+  }
+  try { localStorage.setItem('spritestudio.seeded', JSON.stringify(done)); } catch {}
+  if (db) { try { await db.doc('meta/seeds').set({ ids: done }); } catch {} }
+}
+
 // ------------------------------------------------------------------ boot
 async function boot() {
   // Show a working canvas right away; cloud storage lights up when ready.
@@ -1123,6 +1151,7 @@ async function boot() {
     try { history.replaceState(null, '', location.pathname); } catch {}
     return;
   }
+  await seedStarters();
   const list = await listProjects();
   const pick = (last && list.find((p) => p.id === last)) || list.find((p) => p.id === 'croc') || list[0];
   if (pick && await loadProject(pick.id)) return;
