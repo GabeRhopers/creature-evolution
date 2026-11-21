@@ -6,3 +6,5 @@ dist/
 __pycache__/
 tools/stages/*.png
 tools/stages/croc-*.json
+tools/fish/*.png
+tools/fish/fish-*.json

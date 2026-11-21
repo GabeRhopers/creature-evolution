@@ -40,6 +40,8 @@ export interface SpeciesArt {
     damage?: string;
     /** Several bite frames played in order. */
     biteSeq?: string[];
+    /** Left behind when it dies (a skeleton). */
+    dead?: string;
     /** Played on level-up. */
     celebrate?: string[];
   };
@@ -65,6 +67,8 @@ export interface Species {
   ability: string | null;
   spawn: SpeciesSpawn;
   art?: SpeciesArt;
+  /** Sprite Studio starter design used as this species' look (studio/seeds/<look>.json). */
+  look?: string;
   /** Damage reduction 0..1 (thick hide). */
   armor?: number;
 }

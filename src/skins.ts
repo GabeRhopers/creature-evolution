@@ -58,6 +58,8 @@ export interface PoseMap {
   rest?: [string, number];
   damage?: [string, number];
   celebrate: Array<[string, number]>;
+  /** Skeleton or body left behind when it dies. */
+  dead?: [string, number];
 }
 
 const ALPH = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
@@ -109,6 +111,7 @@ export function poseMap(p: StudioProject): PoseMap {
     rest: frames('rest')[0],
     damage: frames('damage')[0],
     celebrate: frames('celebrate'),
+    dead: frames('dead')[0],
   };
 }
 
@@ -121,6 +124,7 @@ export interface SkinFrames {
   rest?: string;
   damage?: string;
   celebrate?: string[];
+  dead?: string;
 }
 
 interface TextureHost {
@@ -156,6 +160,7 @@ export function buildSkinTexture(host: TextureHost, key: string, p: StudioProjec
     rest: want(map.rest),
     damage: want(map.damage),
     celebrate: map.celebrate.map((f) => want(f)!),
+    dead: want(map.dead),
   };
 
   // Framework drawings keep their own canvas at 1 texture pixel per art pixel; the game
@@ -298,7 +303,7 @@ export function getActiveSkin() {
 
 const stageLooks = new Map<string, StudioProject>();
 /** Timestamps of the starter designs shipped with the game; saving any edit replaces them. */
-export const SEED_STAMPS = ['2026-11-21T08:45:00.000Z', '2026-11-21T09:30:00.000Z', '2026-11-21T11:30:00.000Z'];
+export const SEED_STAMPS = ['2026-11-21T08:45:00.000Z', '2026-11-21T09:30:00.000Z', '2026-11-21T11:30:00.000Z', '2026-11-21T12:00:00.000Z'];
 
 export async function loadStageLooks(stages: Array<{ id: string; skin: string }>): Promise<void> {
   await Promise.all(

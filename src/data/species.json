@@ -79,7 +79,8 @@
       "depthMin": 0.1,
       "depthMax": 0.5,
       "weight": 30
-    }
+    },
+    "look": "fish-reef_snapper"
   },
   "blue_tang": {
     "displayName": "Blue Tang",
@@ -109,7 +110,8 @@
       "depthMin": 0.0,
       "depthMax": 0.4,
       "weight": 50
-    }
+    },
+    "look": "fish-blue_tang"
   },
   "red_grouper": {
     "displayName": "Red Grouper",
@@ -140,7 +142,8 @@
       "depthMin": 0.4,
       "depthMax": 1.0,
       "weight": 12
-    }
+    },
+    "look": "fish-red_grouper"
   },
   "grey_shark": {
     "displayName": "Grey Hunter",
@@ -172,6 +175,7 @@
       "depthMin": 0.6,
       "depthMax": 1.0,
       "weight": 3
-    }
+    },
+    "look": "fish-grey_shark"
   }
 }
