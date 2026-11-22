@@ -49,7 +49,11 @@ await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMod
 await btn(X,true);
 ok(await waitFor(()=>window.game.scene.getScene('Game').controller.wantsSwallow(), 3000), 'after a reload, X eats in the game');
 await btn(X,false);
-await btn(A,true); await p.waitForTimeout(600);
+// Let the game see X go up first (slow runners draw only a few frames a second), then hold A for a few frames.
+await waitFor(()=>!window.game.scene.getScene('Game').controller.wantsSwallow(), 8000);
+await btn(A,true);
+const f0 = await G(()=>window.game.loop.frame);
+await waitFor((f0)=>window.game.loop.frame >= f0 + 6, 15000, f0);
 ok(!(await G(()=>window.game.scene.getScene('Game').controller.wantsSwallow())), 'A no longer eats');
 await btn(A,false);
 await btn(X,true); await p.waitForTimeout(200);
