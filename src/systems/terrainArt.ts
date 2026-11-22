@@ -283,7 +283,8 @@ export function makeIceberg(scene: Phaser.Scene, key: string, t: Terrain, cx: nu
   const bottom = undersideOf(t, left, P);
   const half = cols / 2;
   // Above water: a jagged peak, highest a little off center.
-  const peakX = half + (r() - 0.5) * half * 0.5;
+  // Centered, so the game can tell where you can stand on it (GameScene.landTopAt).
+  const peakX = half;
   const jag = Array.from({ length: cols }, () => r());
   const peak = (x: number) => {
     const u = Math.abs(x - peakX) / (half * 0.85);

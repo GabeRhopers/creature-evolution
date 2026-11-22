@@ -186,6 +186,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   init(): void {
     this.creatures = [];
     this.kelpZones = [];
+    this.landState = 'water';
+    this.dryTime = 0;
     this.rays = [];
     this.stars = [];
     this.dayTime = this.dayNight.startOf((BALANCE.dayNight.startAt as Period) ?? 'day');
@@ -236,7 +238,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     // (x and x + W are the same place), so there are no side walls: fish far from the player
     // may sit a world-width to either side (see keepNearFocus).
     const swimTop = BALANCE.world.surfaceY;
-    this.physics.world.setBounds(-W, swimTop, W * 3, this.seabedTop + 40 - swimTop);
+    // The top is the sky (the player can leap out of the water); fish stay below the surface on their own.
+    this.physics.world.setBounds(-W, 0, W * 3, this.seabedTop + 40);
     this.swimArea = new Phaser.Geom.Rectangle(-W, swimTop + 30, W * 3, this.seabedTop - swimTop - 40);
     this.terrain = new Terrain(BALANCE.terrain as TerrainConfig, W, swimTop, this.seabedTop);
     this.regions = new Regions(BALANCE.regions as unknown as RegionsConfig, W);
@@ -327,6 +330,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     // Clamp dt so a background tab or hitch does not launch fish across the map.
     const dt = Math.min(deltaMs / 1000, 1 / 20);
     this.updateDayNight(dt);
+    this.updateMood(dt);
 
     if (this.menuMode) {
       this.updateAttract(dt, time);
@@ -341,7 +345,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         intent.sprint = false;
       }
       this.lastIntentStrength = intent.strength;
-      this.player.swim(intent, dt);
+      if (this.landState === 'water') {
+        this.player.swim(intent, dt);
+        this.checkLeap();
+      } else this.updateOutOfWater(intent, dt);
+      this.updateDrying(dt);
       this.updateAbility(dt);
       this.updateAreas(dt);
     }
@@ -1158,6 +1166,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.crab = c;
     this.crabMilestone = milestone;
     this.hud.crabAppeared(milestone);
+    this.sfx.crabHorn();
     this.sfx.stun();
     window.dispatchEvent(new CustomEvent('ce:crab', { detail: { appeared: milestone } }));
   }
@@ -1324,7 +1333,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
   }
 
-  playerDied(by: Creature | null, how: 'swallowed' | 'bitten' | 'starved'): void {
+  playerDied(by: Creature | null, how: DeathCause): void {
     if (this.dead) return;
     this.sfx.death();
     this.stats.maxLevel = Math.max(this.stats.maxLevel, this.player.level);
@@ -1669,8 +1678,135 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (!this.menuMode && !this.dead) {
         const k = BALANCE.dayNight.periods[p];
         this.hud?.dayPeriod(k.name, k.line);
+        if (p === 'dawn' || p === 'dusk') this.sfx.periodChime(p === 'dawn');
       }
     }
+  }
+
+  // ---------------------------------------------------------------- leaving the water
+
+  /** Where the player is: swimming, flying through the air after a leap, or on an island. */
+  landState: 'water' | 'air' | 'land' = 'water';
+  /** Seconds out of the water (drying out after `land.drySafeSeconds`). */
+  dryTime = 0;
+
+  /**
+   * Where you can stand on an island at x (the top of the sand hump, the mangrove mud or the
+   * iceberg), or null where there is none. Matches the island art in terrainArt.
+   */
+  landTopAt(x: number): number | null {
+    const t = this.terrain;
+    const surfaceY = t.surfaceY;
+    const P = WORLD_PX;
+    const aboveRows = Math.floor((BALANCE.world.surfaceY - 4) / P);
+    let best: number | null = null;
+    for (const isl of t.cfg.islands) {
+      let d = Math.abs(t.wrap(x) - isl.x) % BALANCE.world.width;
+      d = Math.min(d, BALANCE.world.width - d);
+      const half = (isl.width / 2 + 2 * P) * (isl.style === 'iceberg' ? 0.85 : 0.8);
+      if (d >= half) continue;
+      const u = d / half;
+      let h: number;
+      if (isl.style === 'iceberg') h = (aboveRows - 3) * P * Math.pow(1 - u, 1.1);
+      else if (isl.style === 'mangrove') h = 2 * P;
+      else h = Math.min(8, aboveRows - 2) * P * Math.pow(1 - u * u, 0.6);
+      const top = surfaceY - h;
+      if (h > P * 0.5 && (best === null || top < best)) best = top;
+    }
+    return best;
+  }
+
+  /** Sprinting up through the surface fast enough launches you into the air. */
+  private checkLeap(): void {
+    const p = this.player;
+    const body = p.arcadeBody;
+    const L = BALANCE.land;
+    if (this.shellTimer > 0 || this.evolveLock > 0 || p.stunned) return;
+    if (!p.isSprinting || p.y - p.size > BALANCE.world.surfaceY + 16 || body.velocity.y > -L.jumpSpeed) return;
+    this.landState = 'air';
+    body.setVelocity(body.velocity.x, Math.max(-L.maxJumpSpeed, body.velocity.y * 1.25));
+    this.sfx.splash();
+    this.burst(p.x, BALANCE.world.surfaceY, p.size * 0.5);
+  }
+
+  /** Out of the water: fall with gravity, land on islands, crawl, hop, and splash back in. */
+  private updateOutOfWater(intent: { dirX: number; dirY: number; strength: number; sprint: boolean }, dt: number): void {
+    const p = this.player;
+    const body = p.arcadeBody;
+    const L = BALANCE.land;
+    const surfaceY = BALANCE.world.surfaceY;
+    const foot = body.halfHeight * 0.85;
+    if (this.landState === 'air') {
+      body.setVelocity(body.velocity.x * Math.pow(0.99, dt * 60), body.velocity.y + L.gravity * dt);
+      p.heading = Math.atan2(body.velocity.y, body.velocity.x || 0.001);
+      const top = this.landTopAt(p.x);
+      if (top !== null && body.velocity.y > 0 && p.y + foot >= top) {
+        // Landed on an island.
+        this.landState = 'land';
+        p.y = top - foot;
+        body.setVelocity(0, 0);
+        this.burst(p.x, top, p.size * 0.3);
+      } else if (body.velocity.y > 0 && p.y > surfaceY + 6) {
+        // Back in the water.
+        this.landState = 'water';
+        body.setVelocity(body.velocity.x * 0.6, body.velocity.y * 0.35);
+        this.sfx.splash();
+        this.burst(p.x, surfaceY, p.size * 0.5);
+      }
+    } else {
+      // On an island: crawl left and right; push up and sprint to hop; walk off the edge to fall.
+      const dx = intent.strength > 0 ? intent.dirX * intent.strength : 0;
+      body.setVelocity(dx * L.crawlSpeed * (p.size > 40 ? 1.4 : 1), 0);
+      if (Math.abs(dx) > 0.1) p.heading = dx > 0 ? 0 : Math.PI;
+      const top = this.landTopAt(p.x + body.velocity.x * dt);
+      if (top === null) {
+        this.landState = 'air';
+        body.setVelocity(body.velocity.x, 40);
+      } else {
+        p.y = top - foot;
+        if (intent.sprint && intent.dirY < -0.4) {
+          this.landState = 'air';
+          body.setVelocity(body.velocity.x * 1.5, -L.hopSpeed);
+        }
+      }
+    }
+    p.pose(dt);
+  }
+
+  /** Out of the water you dry out: harmless for a few seconds, then it hurts. */
+  private updateDrying(dt: number): void {
+    const p = this.player;
+    const L = BALANCE.land;
+    if (this.landState === 'water') {
+      this.dryTime = Math.max(0, this.dryTime - dt * 3);
+      return;
+    }
+    this.dryTime += dt;
+    if (this.dryTime > L.drySafeSeconds && !this.dead) {
+      p.hp -= p.maxHp * L.dryDamagePerSecond * dt;
+      if (p.hp <= 0) this.playerDied(null, 'dried');
+    }
+  }
+
+  // ---------------------------------------------------------------- soundtrack mood
+
+  private moodTimer = 0;
+  /** Pick the music for where and when you are: crab fight, the Deep, the region, then the time of day. */
+  private updateMood(dt: number): void {
+    this.moodTimer -= dt;
+    if (this.moodTimer > 0 || !this.light) return;
+    this.moodTimer = 1;
+    const p = this.player;
+    const x = this.menuMode || !p ? this.cameras.main.worldView.centerX : p.x;
+    const region = this.regions.at(x).id;
+    let mood = 'sunny';
+    const crabNear = this.crab && p && Phaser.Math.Distance.Between(this.crab.fish.x, this.crab.fish.y, p.x, p.y) < 1400;
+    if (!this.menuMode && crabNear) mood = 'crab';
+    else if (!this.menuMode && p && this.depthOf(p.y) > 0.72) mood = 'deep';
+    else if (region === 'swamp') mood = 'swamp';
+    else if (region === 'ice') mood = 'ice';
+    else mood = this.period === 'night' ? 'moonlit' : this.period === 'day' ? 'sunny' : 'golden';
+    this.hud?.setMood(mood, this.menuMode || !p ? 1 : tideOf(p.level), !this.menuMode && this.playerHunted);
   }
 
   // ---------------------------------------------------------------- the looping sea
@@ -1690,7 +1826,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (r !== this.region) {
         const first = this.region === null;
         this.region = r;
-        if (!first && !this.menuMode) this.hud.areaBanner(r.name);
+        if (!first && !this.menuMode) {
+          this.hud.areaBanner(r.name);
+          this.sfx.chime();
+        }
       }
     }
     this.keepNearFocus(p && !this.dead ? p.x : this.cameras.main.worldView.centerX);
@@ -1929,6 +2068,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       const f = c.fish;
       const body = f.body as Phaser.Physics.Arcade.Body | null;
       if (!body || !f.active) continue;
+      if (c.isPlayer && this.landState !== 'water') continue; // in the air or on an island
       const r = body.halfWidth;
       const hit = this.terrain.resolve(f.x, f.y, r);
       if (!hit) continue;
@@ -2128,7 +2268,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (!fresh.length) return;
     this.spawnAmbientFish(BALANCE.world.width, fresh);
     const sp = SPECIES[fresh[0]];
-    this.time.delayedCall(1600, () => this.hud.newCreature(sp.displayName, sp.intro ?? ''));
+    this.time.delayedCall(1600, () => {
+      this.hud.newCreature(sp.displayName, sp.intro ?? '');
+      this.sfx.sting();
+    });
   }
 
   // ---------------------------------------------------------------- dev tools

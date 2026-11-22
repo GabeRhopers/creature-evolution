@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { Music } from '../audio/Music';
 import { saves } from '../save';
 import { PERK_ICONS, perkIconCanvas } from '../ui/perkIcons';
 import { BALANCE, legendLevel, tideOf } from '../data';
@@ -8,6 +9,37 @@ import { Joystick } from '../ui/Joystick';
 import { PAD, padHint, pads } from '../input/gamepad';
 
 /** Help line while a controller is in use. */
+
+/** Compact bar layout (left edge after the icons, width). */
+const BAR_X = 36;
+const BAR_W = 150;
+/** Seconds the help line stays on screen at the start of a run. */
+const HINT_SECONDS = 25;
+
+/** 8x8 pixel icons for the bars: heart (health), bolt (stamina), belly (stomach), star (growth). */
+const ICONS: Record<string, { color: string; rows: string[] }> = {
+  heart: { color: '#e43b44', rows: ['.XX..XX.', 'XXXXXXXX', 'XXXXXXXX', 'XXXXXXXX', '.XXXXXX.', '..XXXX..', '...XX...', '........'] },
+  bolt: { color: '#2ce8f5', rows: ['....XX..', '...XX...', '..XX....', '.XXXXXX.', '....XX..', '...XX...', '..XX....', '.X......'] },
+  belly: { color: '#63c74d', rows: ['..XXXX..', '.XXXXXX.', 'XXXXXXXX', 'XXXXXXXX', 'XXXXXXXX', 'XXXXXXXX', '.XXXXXX.', '..XXXX..'] },
+  star: { color: '#fee761', rows: ['...XX...', '...XX...', 'XXXXXXXX', '.XXXXXX.', '..XXXX..', '.XXXXXX.', '.XX..XX.', '........'] },
+};
+function hudIcon(scene: Phaser.Scene, name: string): string {
+  const key = 'hud_icon_' + name;
+  if (!scene.textures.exists(key)) {
+    const c = document.createElement('canvas');
+    c.width = 8;
+    c.height = 8;
+    const g = c.getContext('2d')!;
+    const ic = ICONS[name];
+    ic.rows.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch !== 'X') return;
+      g.fillStyle = ic.color;
+      g.fillRect(x, y, 1, 1);
+    }));
+    scene.textures.addCanvas(key, c)?.setSmoothPixelArt(true);
+  }
+  return key;
+}
 
 /** Pixel font for labels, numbers and banners (loaded in index.html). */
 const FONT = '"Pixelify Sans", "Courier New", monospace';
@@ -34,6 +66,7 @@ export class HudScene extends Phaser.Scene {
   private stomachBack!: Phaser.GameObjects.Rectangle;
   private bankFill!: Phaser.GameObjects.Rectangle;
   private music?: Phaser.Sound.BaseSound;
+  private soundtrack!: Music;
   /** Developer buttons (TUNE, GROW) only with ?dev in the URL. */
   private readonly dev = new URLSearchParams(window.location.search).has('dev');
   musicOn = true;
@@ -42,6 +75,7 @@ export class HudScene extends Phaser.Scene {
   private staminaBack!: Phaser.GameObjects.Rectangle;
   private xpFill!: Phaser.GameObjects.Rectangle;
   private info!: Phaser.GameObjects.Text;
+  private levelBadge!: Phaser.GameObjects.Text;
   /** Time of day: the period's name and how far through it we are. */
   private clock!: Phaser.GameObjects.Text;
   private clockBar!: Phaser.GameObjects.Rectangle;
@@ -76,32 +110,30 @@ export class HudScene extends Phaser.Scene {
     // Red screen-edge flash when the player is hurt.
     this.hurtFlash = this.add.rectangle(0, 0, 10, 10, 0xff2020, 0).setOrigin(0, 0).setStrokeStyle(24, 0xff2020, 0.5).setAlpha(0);
 
-    // A dark pixel panel behind the bars keeps them readable over bright water and sky.
-    this.add.rectangle(8, 6, 238, 140, HUD.ink, 0.55).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 0.9);
-    this.add.text(16, 10, 'HEALTH', small);
-    this.hpBack = this.add.rectangle(16, 26, 220, 12, HUD.ink, 0.9).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 1);
-    this.hpFill = this.add.rectangle(18, 28, 216, 8, HUD.hp).setOrigin(0, 0);
-
-    this.add.text(16, 44, 'STAMINA', small);
-    this.staminaBack = this.add.rectangle(16, 60, 220, 12, HUD.ink, 0.9).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 1);
-    this.staminaFill = this.add.rectangle(18, 62, 216, 8, HUD.stamina).setOrigin(0, 0);
-
-    this.add.text(16, 78, 'STOMACH', small);
-    this.stomachBack = this.add.rectangle(16, 94, 220, 12, HUD.ink, 0.9).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 1);
-    this.stomachFill = this.add.rectangle(18, 96, 0, 8, HUD.food).setOrigin(0, 0);
+    // Compact bars (Rhopers: keep the play screen minimal). A small pixel icon instead of a label;
+    // the full numbers are in the pause menu (Start / MENU).
+    this.add.rectangle(8, 6, BAR_X + BAR_W + 10 - 8, 66, HUD.ink, 0.4).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 0.6);
+    const rows: Array<[string, number]> = [['heart', 12], ['bolt', 27], ['belly', 42], ['star', 57]];
+    for (const [icon, y] of rows) this.add.image(16, y + 4, hudIcon(this, icon)).setOrigin(0, 0.5).setScale(1.5);
+    const bar = (y: number) => this.add.rectangle(BAR_X, y, BAR_W, 8, HUD.ink, 0.9).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 1);
+    this.hpBack = bar(12);
+    this.hpFill = this.add.rectangle(BAR_X + 1, 13, BAR_W - 2, 6, HUD.hp).setOrigin(0, 0);
+    this.staminaBack = bar(27);
+    this.staminaFill = this.add.rectangle(BAR_X + 1, 28, BAR_W - 2, 6, HUD.stamina).setOrigin(0, 0);
+    this.stomachBack = bar(42);
+    this.stomachFill = this.add.rectangle(BAR_X + 1, 43, 0, 6, HUD.food).setOrigin(0, 0);
     // Markers: 75% (rest to digest) and 95% (full).
-    this.add.rectangle(18 + 216 * 0.75, 93, 2, 14, 0xffffff, 0.8).setOrigin(0.5, 0);
-    this.add.rectangle(18 + 216 * 0.95, 93, 2, 14, 0xff8a80, 0.8).setOrigin(0.5, 0);
-
-    this.add.text(16, 112, 'GROWTH', small);
-    this.add.rectangle(16, 128, 220, 12, HUD.ink, 0.9).setOrigin(0, 0).setStrokeStyle(2, HUD.edge, 1);
+    this.add.rectangle(BAR_X + 1 + (BAR_W - 2) * 0.75, 41, 2, 10, 0xffffff, 0.8).setOrigin(0.5, 0);
+    this.add.rectangle(BAR_X + 1 + (BAR_W - 2) * 0.95, 41, 2, 10, 0xff8a80, 0.8).setOrigin(0.5, 0);
+    bar(57);
     // Banked XP (still in the stomach) shows as a pale segment after the real XP.
-    this.bankFill = this.add.rectangle(18, 130, 0, 8, HUD.xp, 0.35).setOrigin(0, 0);
-    this.xpFill = this.add.rectangle(18, 130, 0, 8, HUD.xp).setOrigin(0, 0);
-    // Pixel notches every 10% on each bar.
-    for (const y of [28, 62, 96, 130]) for (let i = 1; i < 10; i++) this.add.rectangle(18 + 21.6 * i, y, 2, 8, HUD.ink, 0.45).setOrigin(0.5, 0);
+    this.bankFill = this.add.rectangle(BAR_X + 1, 58, 0, 6, HUD.xp, 0.35).setOrigin(0, 0);
+    this.xpFill = this.add.rectangle(BAR_X + 1, 58, 0, 6, HUD.xp).setOrigin(0, 0);
+    // Level badge under the bars.
+    this.levelBadge = this.add.text(12, 76, '', { fontFamily: FONT, fontSize: '15px', color: '#fee761', stroke: '#181425', strokeThickness: 4 });
 
-    this.info = this.add.text(16, 148, '', style);
+    // Full details (Tide, HP, bite, kills...) live in the pause menu now; kept here for tests and tools, hidden.
+    this.info = this.add.text(16, 148, '', style).setVisible(false);
     this.clock = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '16px', color: '#ffffff', stroke: '#181425', strokeThickness: 4 }).setOrigin(1, 0);
     this.clockBack = this.add.rectangle(0, 0, 64, 4, HUD.ink, 0.7).setOrigin(1, 0);
     this.clockBar = this.add.rectangle(0, 0, 0, 4, 0xffffff).setOrigin(0, 0);
@@ -172,6 +204,10 @@ export class HudScene extends Phaser.Scene {
     this.game$.sfx.setMuted(!this.sfxOn);
 
     if (this.cache.audio.exists('music')) this.music = this.sound.add('music', { loop: true, volume: BALANCE.audio.musicVolume });
+    // Soundtrack: the recorded track plus generated moods (region, time of day, depth, crab).
+    this.soundtrack = new Music(this.sound, this.tweens);
+    this.soundtrack.setFile(this.music);
+    this.soundtrack.setEnabled(this.musicOn);
     this.growBtn = this.makeTapButton('DEV: GROW +1', () => this.game$.player.setLevel(this.game$.player.level + 1));
     this.gearBtn.setVisible(this.dev);
     this.growBtn.setVisible(this.dev);
@@ -207,15 +243,28 @@ export class HudScene extends Phaser.Scene {
 
   /** Start (or resume) the music loop if music is on. Call from a user gesture. */
   startMusic(): void {
-    if (!this.music || !this.musicOn) return;
-    if (!this.music.isPlaying) this.music.play();
+    if (!this.musicOn) return;
+    const ctx = (this.sound as Phaser.Sound.WebAudioSoundManager).context;
+    if (ctx && ctx.state !== 'running') void ctx.resume();
+    this.soundtrack.play(this.wantMood);
   }
 
   setMusicOn(on: boolean): void {
     this.musicOn = on;
-    if (!this.music) return;
+    this.soundtrack.setEnabled(on);
     if (on) this.startMusic();
-    else this.music.stop();
+  }
+
+  /** The game asks for a mood (region, time of day, depth, crab), the Tide and whether you are hunted. */
+  private wantMood = 'sunny';
+  setMood(id: string, tide: number, hunted: boolean): void {
+    if (!this.soundtrack) return;
+    this.soundtrack.setTide(tide);
+    if (id !== this.wantMood) {
+      this.wantMood = id;
+      if (this.musicOn) this.soundtrack.play(id);
+    }
+    this.soundtrack.setDanger(this.musicOn && hunted);
   }
 
   setSfxOn(on: boolean): void {
@@ -233,14 +282,14 @@ export class HudScene extends Phaser.Scene {
   showDeath(
     byName: string,
     byLevel: number,
-    how: 'swallowed' | 'bitten' | 'starved',
+    how: 'swallowed' | 'bitten' | 'starved' | 'dried',
     stats: { plankton: number; fish: number; kills: number; maxLevel: number },
   ): void {
     this.deathTitle.setText(
-      how === 'swallowed' ? `Finished off by a ${byName}!` : how === 'bitten' ? `Bitten to death by a ${byName}!` : 'You starved!',
+      how === 'swallowed' ? `Finished off by a ${byName}!` : how === 'bitten' ? `Bitten to death by a ${byName}!` : how === 'dried' ? 'You dried out!' : 'You starved!',
     );
     this.deathStats.setText(
-      `${how === 'starved' ? 'Keep your stomach from emptying.' : `It was level ${byLevel}.`}\nYou reached level ${stats.maxLevel}: swallowed ${stats.fish} fish, killed ${stats.kills}, ate ${stats.plankton} morsels.`,
+      `${how === 'starved' ? 'Keep your stomach from emptying.' : how === 'dried' ? 'Get back in the water before you dry out.' : `It was level ${byLevel}.`}\nYou reached level ${stats.maxLevel}: swallowed ${stats.fish} fish, killed ${stats.kills}, ate ${stats.plankton} morsels.`,
     );
     const from = this.game$.stageRestartLevel;
     this.deathAgain.setText(from > 1 ? `SWIM AGAIN FROM LEVEL ${from}` : 'SWIM AGAIN');
@@ -408,7 +457,7 @@ export class HudScene extends Phaser.Scene {
     this.perkIcons.forEach((i) => i.destroy());
     this.perkIcons = perks
       .filter((id) => this.textures.exists('perk_' + id))
-      .map((id, i) => this.add.image(16 + i * 28, 172, 'perk_' + id).setOrigin(0, 0).setScale(1.5));
+      .map((id, i) => this.add.image(12 + i * 20, 98, 'perk_' + id).setOrigin(0, 0).setScale(1).setAlpha(0.9));
   }
 
   private layout(): void {
@@ -462,6 +511,9 @@ export class HudScene extends Phaser.Scene {
       this.clockBar.fillColor = per === 'night' ? 0xc0cbdc : per === 'day' ? 0xfee761 : parseInt(cfg.sky.slice(1), 16);
     }
     if (this.hint.text !== hint) this.hint.setText(hint);
+    // The help line shows for the first moments of a run, then fades (the pause menu has the details).
+    const showHint = g.runTime < HINT_SECONDS;
+    this.hint.setAlpha(Phaser.Math.Linear(this.hint.alpha, showHint ? 0.9 : 0, 0.05));
     if (this.deathLayer.visible && this.deathLayer.alpha > 0.5) {
       if (pads.justDown(PAD.A)) this.respawn();
       else if (pads.justDown(PAD.B)) {
@@ -474,24 +526,26 @@ export class HudScene extends Phaser.Scene {
     c.x = this.joystick.x;
     c.y = this.joystick.y;
     c.strength = this.joystick.strength;
-    this.hpFill.width = 216 * Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
+    this.hpFill.width = (BAR_W - 2) * Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
     this.hpBack.setStrokeStyle(2, p.wounded ? HUD.hp : HUD.edge, p.wounded ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 1);
     const ratio = p.stamina / BALANCE.stamina.max;
-    this.staminaFill.width = 216 * ratio;
+    this.staminaFill.width = (BAR_W - 2) * ratio;
     this.staminaFill.fillColor = p.exhausted ? HUD.tired : p.isSprinting ? HUD.sprint : HUD.stamina;
     this.staminaBack.setStrokeStyle(2, p.exhausted ? HUD.tired : HUD.edge, 1);
     const xpRatio = Phaser.Math.Clamp(p.xp / p.xpNeeded, 0, 1);
-    this.xpFill.width = 216 * xpRatio;
-    this.bankFill.width = 216 * Phaser.Math.Clamp((p.xp + g.stomach.bank) / p.xpNeeded, 0, 1);
+    this.xpFill.width = (BAR_W - 2) * xpRatio;
+    this.bankFill.width = (BAR_W - 2) * Phaser.Math.Clamp((p.xp + g.stomach.bank) / p.xpNeeded, 0, 1);
 
     const st = g.stomach;
-    this.stomachFill.width = 216 * Phaser.Math.Clamp(st.ratio, 0, 1);
+    this.stomachFill.width = (BAR_W - 2) * Phaser.Math.Clamp(st.ratio, 0, 1);
     this.stomachFill.fillColor = st.digesting ? HUD.digest : st.full ? HUD.full : st.readyToDigest ? 0xffffff : HUD.food;
     const starving = st.ratio < 0.1;
     this.stomachBack.setStrokeStyle(2, starving ? HUD.hp : HUD.edge, starving ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 1);
     this.info.setText(
       `Tide ${tideOf(p.level)}  |  ${p.stage ? `${p.stage.name} · ` : ''}Level ${p.level}${legendLevel(p.level) ? ` (Legend ${legendLevel(p.level)})` : ''}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
     );
+    const lv = `LV ${p.level}${legendLevel(p.level) ? ` · LEGEND ${legendLevel(p.level)}` : ''}`;
+    if (this.levelBadge.text !== lv) this.levelBadge.setText(lv);
     this.renderPerkIcons(g.perks);
     this.updateCrabArrow();
     // Hidden while the home screen shows the ocean behind it.
@@ -499,6 +553,10 @@ export class HudScene extends Phaser.Scene {
     if (!g.dead && this.deathLayer.visible) this.hideDeath(); // run restarted elsewhere (R key, bot)
     if (g.dead) {
       this.status.setText('');
+    } else if (g.landState !== 'water') {
+      const left = BALANCE.land.drySafeSeconds - g.dryTime;
+      if (left > 0) this.status.setText(g.landState === 'land' ? `On land: ${Math.ceil(left)}s before you dry out` : '').setColor('#fee761').setAlpha(0.95);
+      else this.status.setText('DRYING OUT! Get back in the water').setColor('#ff6b6b').setAlpha(0.6 + 0.4 * Math.sin(this.time.now / 120));
     } else if (p.stunned) {
       this.status.setText('STUNNED!').setColor('#ffd166').setAlpha(1);
     } else if (st.digesting) {

@@ -31,6 +31,11 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
   digesting drops it to `digestTo` (15%). Meat torn off a fish that is still alive is a `scrap`: it gives
   `biteScrapXpFraction` of its XP and does not fill the stomach (it can be eaten even when full); carcass meat fills.
 - `src/audio/Sfx.ts`: all sound effects synthesized with Web Audio (no files). Music: `public/assets/audio/`.
+  Soundtrack (`src/audio/Music.ts`, `balance.json` "music"): moods = the recorded CC0 track (Sunny Reef) plus
+  generated pieces (Golden Hour, Moonlit Reef, Mangrove Mist, Ice Shelf, Into the Deep, Crab Showdown: scale, key,
+  bpm, melody/bass/pad/ticks). `GameScene.updateMood` picks one each second (crab nearby > Deep > region > time
+  of day) and calls `HudScene.setMood`; moods cross-fade; each Tide shifts the key; being hunted adds a low pulse.
+  SFX added: region chime, dawn/dusk chime, crab horn, new-enemy sting, splash.
 - `src/ui/menu.ts` + overlays in `index.html`: home screen (game runs in attract mode behind it,
   `GameScene.menuMode`), how to play, options, credits, pause menu, best record (localStorage).
   Scene API: `startPlay(difficulty)`, `restartRun()`, `goHome()`; events `ce:pause`, `ce:home`, `ce:run`.
@@ -99,6 +104,12 @@ layers use texture widths that make W x scrollFactor a whole number of tiles (no
 frame (`LOD_DISTANCE`); far scenery is hidden (`cullStatics`). A region banner shows on entering. New runs start at
 `world.startX`. Gates between regions and region gameplay come next (plan doc).
 
+## Leaping and land (`GameScene` "Land" section, `balance.json` "land")
+- Sprint upward through the surface to leap (`checkLeap`: sprinting, near the surface, rising faster than `jumpSpeed`). No extra button.
+- `landState` is 'water', 'air' or 'land'. `updateOutOfWater` applies gravity, lands on islands via `landTopAt(x)` (follows the sand, mangrove and iceberg art), crawls and hops. `collideTerrain` skips the player out of the water.
+- `updateDrying`: safe for `drySafeSeconds`, then `dryDamagePerSecond` of max HP. Death cause 'dried'. The HUD shows the countdown and a warning.
+- E2E: `tests/e2e/land.mjs`.
+
 ## Enemy settings (`src/data/adminSettings.ts`, Options > Enemy settings)
 Per enemy (species with a population): appears from level, how many, aggression, vision, top speed, health, bite,
 fights-above-its-size. Saved on the device (`ce.admin.enemies`, only differences from shipped), clamped to safe
@@ -163,6 +174,8 @@ invulnerability. Armor per species (`armor` in species.json).
   Reef fish looks are Sprite Studio starter designs (`public/studio/seeds/fish-*.json`, drawn by
   `tools/fish/draw_fish.py`), linked by `look` in species.json, built once per scene.
   Target pixel density: about 3.5 world pixels per art pixel (size / bodyRadius).
+  Play screen is minimal (Rhopers): compact bars with 8x8 pixel icons (`hudIcon`, `BAR_X/BAR_W`), an LV badge,
+  perk icons; the help line fades after `HINT_SECONDS`; full numbers are in the pause menu (`detailsHtml`).
   Interface: labels, numbers and banners use the pixel font Pixelify Sans (`--font-display`, HUD `FONT`);
   longer help text stays in the plain body font. Perk icons are 16x16 pixel grids in `src/ui/perkIcons.ts`
   (no emoji). The home logo animates the picked hero's adult design.

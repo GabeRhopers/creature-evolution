@@ -864,5 +864,169 @@
       "Sunken City",
       "Midnight Zone"
     ]
+  },
+  "music": {
+    "_comment": "Soundtrack moods. 'sunny' is the recorded CC0 track (Aquaria); the others are generated live (scale = semitones, root = MIDI key note, bpm, how busy the melody/bass/pad/ticks are). The game picks a mood from region, time of day, depth and the Checkpoint Crab; each Tide shifts the key. When hunted, a low pulse joins.",
+    "moods": [
+      {
+        "id": "sunny",
+        "name": "Sunny Reef",
+        "source": "file",
+        "scale": [
+          0,
+          2,
+          4,
+          7,
+          9
+        ],
+        "root": 60,
+        "bpm": 80,
+        "melody": 0,
+        "voice": "bell",
+        "octave": 1,
+        "bass": 0,
+        "pad": 0,
+        "padTone": 1000,
+        "ticks": 0
+      },
+      {
+        "id": "golden",
+        "name": "Golden Hour",
+        "scale": [
+          0,
+          2,
+          4,
+          7,
+          9
+        ],
+        "root": 62,
+        "bpm": 72,
+        "melody": 0.22,
+        "voice": "pluck",
+        "octave": 1,
+        "bass": 0.6,
+        "pad": 0.7,
+        "padTone": 1400,
+        "ticks": 0
+      },
+      {
+        "id": "moonlit",
+        "name": "Moonlit Reef",
+        "scale": [
+          0,
+          3,
+          5,
+          7,
+          10
+        ],
+        "root": 57,
+        "bpm": 60,
+        "melody": 0.16,
+        "voice": "bell",
+        "octave": 1,
+        "bass": 0.4,
+        "pad": 0.9,
+        "padTone": 900,
+        "ticks": 0
+      },
+      {
+        "id": "swamp",
+        "name": "Mangrove Mist",
+        "scale": [
+          0,
+          2,
+          3,
+          5,
+          7,
+          9,
+          10
+        ],
+        "root": 50,
+        "bpm": 66,
+        "melody": 0.2,
+        "voice": "pluck",
+        "octave": 1,
+        "bass": 0.7,
+        "pad": 0.7,
+        "padTone": 700,
+        "ticks": 0.1
+      },
+      {
+        "id": "ice",
+        "name": "Ice Shelf",
+        "scale": [
+          0,
+          2,
+          4,
+          6,
+          7,
+          9,
+          11
+        ],
+        "root": 67,
+        "bpm": 56,
+        "melody": 0.18,
+        "voice": "glass",
+        "octave": 0,
+        "bass": 0.3,
+        "pad": 0.6,
+        "padTone": 2200,
+        "ticks": 0
+      },
+      {
+        "id": "deep",
+        "name": "Into the Deep",
+        "scale": [
+          0,
+          2,
+          3,
+          5,
+          7,
+          8,
+          10
+        ],
+        "root": 45,
+        "bpm": 50,
+        "melody": 0.08,
+        "voice": "bell",
+        "octave": 1,
+        "bass": 0.5,
+        "pad": 1.0,
+        "padTone": 500,
+        "ticks": 0
+      },
+      {
+        "id": "crab",
+        "name": "Crab Showdown",
+        "scale": [
+          0,
+          1,
+          3,
+          5,
+          7,
+          8,
+          10
+        ],
+        "root": 52,
+        "bpm": 96,
+        "melody": 0.32,
+        "voice": "pluck",
+        "octave": 1,
+        "bass": 1.0,
+        "pad": 0.5,
+        "padTone": 1200,
+        "ticks": 0.5
+      }
+    ]
+  },
+  "land": {
+    "_comment": "Leaving the water: sprint up through the surface faster than jumpSpeed to leap out. Gravity pulls you down; land on an island (sand hump, mangrove mud, iceberg) and crawl left/right; swim up + sprint to hop. Out of the water you dry out: after drySafeSeconds you lose dryDamagePerSecond of max health each second.",
+    "jumpSpeed": 230,
+    "maxJumpSpeed": 560,
+    "gravity": 1300,
+    "crawlSpeed": 90,
+    "hopSpeed": 420,
+    "drySafeSeconds": 5,
+    "dryDamagePerSecond": 0.06
   }
 }

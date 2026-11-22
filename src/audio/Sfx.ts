@@ -103,6 +103,38 @@ export class Sfx {
     this.noiseHit(300, 0.8, 0.3, 'lowpass');
   }
 
+  /** Entering a new region: a soft rising chime. */
+  chime(): void {
+    if (!this.gate('chime', 2)) return;
+    [659, 784, 988].forEach((f, i) => this.tone('sine', f, f, 0.5, 0.18, i * 0.12));
+  }
+
+  /** The time of day changes: two calm notes, up at dawn, down at dusk. */
+  periodChime(up: boolean): void {
+    if (!this.gate('period', 5)) return;
+    const [a, b] = up ? [523, 784] : [784, 523];
+    this.tone('triangle', a, a, 0.6, 0.12);
+    this.tone('triangle', b, b, 0.8, 0.12, 0.35);
+  }
+
+  /** The Checkpoint Crab shows up: a low horn with a clack. */
+  crabHorn(): void {
+    this.tone('sawtooth', 110, 98, 0.7, 0.22, 0, 600);
+    this.tone('sawtooth', 147, 131, 0.7, 0.16, 0.05, 600);
+    this.noiseHit(2500, 0.05, 0.3, 'bandpass');
+  }
+
+  /** A new enemy joins the reef: a short, curious sting. */
+  sting(): void {
+    [440, 415, 554].forEach((f, i) => this.tone('square', f, f, 0.14, 0.08, i * 0.11, 1800));
+  }
+
+  /** Breaking the surface. */
+  splash(): void {
+    if (!this.gate('splash', 0.4)) return;
+    this.sweepNoise(2600, 500, 0.35, 0.35);
+  }
+
   click(): void {
     this.tone('triangle', 1200, 1000, 0.04, 0.2);
   }

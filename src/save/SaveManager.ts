@@ -25,7 +25,7 @@ export const SAVE_VERSION = 1;
 export const SLOT_COUNT = 3;
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
-export type DeathCause = 'swallowed' | 'bitten' | 'starved';
+export type DeathCause = 'swallowed' | 'bitten' | 'starved' | 'dried';
 
 export interface Settings {
   music: boolean;
@@ -118,7 +118,7 @@ export interface SaveLimits {
 export const DEFAULT_PROFILE: Profile = {
   settings: { music: true, sfx: true, difficulty: 'normal', skin: null, hero: null, padMap: null },
   best: { level: 0, kills: 0, fish: 0 },
-  lifetime: { runs: 0, deaths: { swallowed: 0, bitten: 0, starved: 0 } },
+  lifetime: { runs: 0, deaths: { swallowed: 0, bitten: 0, starved: 0, dried: 0 } },
   slots: { active: 1, names: defaultSlotNames() },
 };
 
@@ -182,7 +182,7 @@ export function sanitizeProfile(raw: unknown): Profile {
     best: { level: int(b.level, 0, 999, 0), kills: int(b.kills, 0, 1e7, 0), fish: int(b.fish, 0, 1e7, 0) },
     lifetime: {
       runs: int(l.runs, 0, 1e7, 0),
-      deaths: { swallowed: int(d.swallowed, 0, 1e7, 0), bitten: int(d.bitten, 0, 1e7, 0), starved: int(d.starved, 0, 1e7, 0) },
+      deaths: { swallowed: int(d.swallowed, 0, 1e7, 0), bitten: int(d.bitten, 0, 1e7, 0), starved: int(d.starved, 0, 1e7, 0), dried: int(d.dried, 0, 1e7, 0) },
     },
     slots: {
       active: int(sl.active, 1, SLOT_COUNT, 1),
