@@ -74,6 +74,12 @@ Brains steer away (`AIWorld.terrain.avoid`) and never pick wander points inside 
 bubbles, skeletons and the crab's home all use the ground line. Mangrove roots and coral gardens are hiding
 places (pushed into `kelpZones`). `seabedTop` is still the base of the depth math (areas, depth limits).
 Keep the world center clear: the player starts there.
+Scenery (`balance.json` "scenery", art in `src/systems/sceneryArt.ts`, painted on a `Grid` and auto-outlined):
+pieces sit on the ground line at their x (galleon, a wreck on a seamount top, submarine, whale bones, ruins, an
+arch, vents, cannons, chests, a helmet, an anchor). Kinds in `hide` are hiding places; the arch is a ring of rock
+circles in the `rocks` group (solid, open underneath); vents puff bubbles and heal the player (`inVent`,
+`healPerSecond` of max health). Rocks and kelp keep clear of scenery (`sceneryAt`). Floats (rowboats, a beach
+ball, bottles) bob at the surface. Far parallax layers: islands on the horizon (Shallows), faded peaks (Reef).
 
 ## Checkpoint Crab (`GameScene` "Checkpoint Crab" section, `balance.json` "checkpointCrab")
 Every `everyLevels` (10) levels a crab (species `checkpoint_crab`, look `crab-checkpoint`, drawn by
