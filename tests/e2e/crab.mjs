@@ -1,4 +1,4 @@
-// Checkpoint Crab: appears at level 10, can't be swallowed, takes about 14 bites, pinches,
+// Checkpoint Crab: appears at level 10, can't be swallowed, takes about 6 bites, pinches,
 // saves level 10 when defeated, and after dying the run restarts at level 10 (perks kept).
 import { chromium } from 'playwright-core';
 const b = await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--mute-audio']});
@@ -44,20 +44,20 @@ await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.crab; g.creat
 ok(await waitFor(()=>!!window.game.scene.getScene('Game').crab, 15000), 'the crab comes back until it is defeated');
 const bites = await G(()=>{const g=window.game.scene.getScene('Game'); let n=0; while(g.crab && n<60){ g.player.biteCooldown=0; g.bite(g.playerCreature, g.crab); n++; } return n;});
 console.log('bites to defeat:', bites);
-ok(bites>=10 && bites<=20, `defeating it takes about 14 bites (${bites})`);
+ok(bites>=4 && bites<=9, `defeating it takes about 6 bites (${bites})`);
 ok(await G(()=>window.game.scene.getScene('Game').crabLevel===10), 'level 10 is saved');
 ok(await G(()=>window.__crab.includes('saved 10')), 'with a banner');
 ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.crabLevel===10), 'and written to the save');
 await p.waitForTimeout(1500);
 ok(await G(()=>!window.game.scene.getScene('Game').crab), 'no new crab until level 20');
 
-// the pinch: 12% of your health and a stun
+// the pinch: 6% of your health and a short stun
 await grow(14);
 const pinch = await G(()=>{const g=window.game.scene.getScene('Game'),pl=g.player; return {max:pl.maxHp};});
 await grow(20);
 ok(await waitFor(()=>!!window.game.scene.getScene('Game').crab, 15000), 'the next crab appears at level 20');
 const hit = await G(()=>{const g=window.game.scene.getScene('Game'),pl=g.player; pl.invulnTimer=0; pl.hp=pl.maxHp; const h0=pl.hp; g.bite(g.crab, g.playerCreature); return {lost:(h0-pl.hp)/pl.maxHp, stunned:pl.stunned};});
-ok(Math.abs(hit.lost-0.12*(1-0.2))<0.03 && hit.stunned, `a pinch takes about 12% of your health and stuns: ${JSON.stringify(hit)}`);
+ok(Math.abs(hit.lost-0.06*(1-0.2))<0.02 && hit.stunned, `a pinch takes about 6% of your health and stuns: ${JSON.stringify(hit)}`);
 
 // dying before the level 20 crab: back to level 10, perks kept
 const perks = await G(()=>window.game.scene.getScene('Game').perks.length);
