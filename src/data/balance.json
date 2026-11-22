@@ -1018,5 +1018,15 @@
         "ticks": 0.5
       }
     ]
+  },
+  "land": {
+    "_comment": "Leaving the water: sprint up through the surface faster than jumpSpeed to leap out. Gravity pulls you down; land on an island (sand hump, mangrove mud, iceberg) and crawl left/right; swim up + sprint to hop. Out of the water you dry out: after drySafeSeconds you lose dryDamagePerSecond of max health each second.",
+    "jumpSpeed": 230,
+    "maxJumpSpeed": 560,
+    "gravity": 1300,
+    "crawlSpeed": 90,
+    "hopSpeed": 420,
+    "drySafeSeconds": 5,
+    "dryDamagePerSecond": 0.06
   }
 }

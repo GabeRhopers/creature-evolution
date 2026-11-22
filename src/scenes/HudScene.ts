@@ -282,14 +282,14 @@ export class HudScene extends Phaser.Scene {
   showDeath(
     byName: string,
     byLevel: number,
-    how: 'swallowed' | 'bitten' | 'starved',
+    how: 'swallowed' | 'bitten' | 'starved' | 'dried',
     stats: { plankton: number; fish: number; kills: number; maxLevel: number },
   ): void {
     this.deathTitle.setText(
-      how === 'swallowed' ? `Finished off by a ${byName}!` : how === 'bitten' ? `Bitten to death by a ${byName}!` : 'You starved!',
+      how === 'swallowed' ? `Finished off by a ${byName}!` : how === 'bitten' ? `Bitten to death by a ${byName}!` : how === 'dried' ? 'You dried out!' : 'You starved!',
     );
     this.deathStats.setText(
-      `${how === 'starved' ? 'Keep your stomach from emptying.' : `It was level ${byLevel}.`}\nYou reached level ${stats.maxLevel}: swallowed ${stats.fish} fish, killed ${stats.kills}, ate ${stats.plankton} morsels.`,
+      `${how === 'starved' ? 'Keep your stomach from emptying.' : how === 'dried' ? 'Get back in the water before you dry out.' : `It was level ${byLevel}.`}\nYou reached level ${stats.maxLevel}: swallowed ${stats.fish} fish, killed ${stats.kills}, ate ${stats.plankton} morsels.`,
     );
     const from = this.game$.stageRestartLevel;
     this.deathAgain.setText(from > 1 ? `SWIM AGAIN FROM LEVEL ${from}` : 'SWIM AGAIN');
@@ -553,6 +553,10 @@ export class HudScene extends Phaser.Scene {
     if (!g.dead && this.deathLayer.visible) this.hideDeath(); // run restarted elsewhere (R key, bot)
     if (g.dead) {
       this.status.setText('');
+    } else if (g.landState !== 'water') {
+      const left = BALANCE.land.drySafeSeconds - g.dryTime;
+      if (left > 0) this.status.setText(g.landState === 'land' ? `On land: ${Math.ceil(left)}s before you dry out` : '').setColor('#fee761').setAlpha(0.95);
+      else this.status.setText('DRYING OUT! Get back in the water').setColor('#ff6b6b').setAlpha(0.6 + 0.4 * Math.sin(this.time.now / 120));
     } else if (p.stunned) {
       this.status.setText('STUNNED!').setColor('#ffd166').setAlpha(1);
     } else if (st.digesting) {

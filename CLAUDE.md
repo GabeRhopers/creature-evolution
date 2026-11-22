@@ -104,6 +104,12 @@ layers use texture widths that make W x scrollFactor a whole number of tiles (no
 frame (`LOD_DISTANCE`); far scenery is hidden (`cullStatics`). A region banner shows on entering. New runs start at
 `world.startX`. Gates between regions and region gameplay come next (plan doc).
 
+## Leaping and land (`GameScene` "Land" section, `balance.json` "land")
+- Sprint upward through the surface to leap (`checkLeap`: sprinting, near the surface, rising faster than `jumpSpeed`). No extra button.
+- `landState` is 'water', 'air' or 'land'. `updateOutOfWater` applies gravity, lands on islands via `landTopAt(x)` (follows the sand, mangrove and iceberg art), crawls and hops. `collideTerrain` skips the player out of the water.
+- `updateDrying`: safe for `drySafeSeconds`, then `dryDamagePerSecond` of max HP. Death cause 'dried'. The HUD shows the countdown and a warning.
+- E2E: `tests/e2e/land.mjs`.
+
 ## Enemy settings (`src/data/adminSettings.ts`, Options > Enemy settings)
 Per enemy (species with a population): appears from level, how many, aggression, vision, top speed, health, bite,
 fights-above-its-size. Saved on the device (`ce.admin.enemies`, only differences from shipped), clamped to safe

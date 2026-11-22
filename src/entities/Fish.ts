@@ -395,6 +395,11 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     this.updateVisual(dt);
   }
 
+  /** Out of the water there is no swimming: just turn the sprite to the heading and animate. */
+  pose(dt: number): void {
+    this.updateVisual(dt);
+  }
+
   /** Point the sprite along the heading; flip so the fish is never upside down. */
   private updateVisual(dt: number): void {
     const facingLeft = Math.cos(this.heading) < 0;
