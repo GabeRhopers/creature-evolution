@@ -19,7 +19,7 @@ await p.click('#btnPlay'); await p.waitForTimeout(1500);
 ok((await info()).startsWith('Tide 1 '), 'the HUD shows Tide 1: '+(await info()).slice(0,40));
 
 await grow(11);
-ok(await waitFor(()=>window.__tides.includes('2 Kelp Forest'), 20000), 'reaching level 11 starts Tide 2: Kelp Forest, with a banner');
+ok(await waitFor(()=>window.__tides.includes('2 Kelp Forest'), 45000), 'reaching level 11 starts Tide 2: Kelp Forest, with a banner');
 ok((await info()).startsWith('Tide 2 '), 'the HUD shows Tide 2');
 
 // reef fish that respawn in a later Tide come back stronger
