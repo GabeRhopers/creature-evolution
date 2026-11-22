@@ -11,6 +11,7 @@ import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
 import { APP_VERSION, SLOT_COUNT, cleanSlotName, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
 import { perkIconUrl } from './perkIcons';
+import { PAD, pads } from '../input/gamepad';
 import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
 import type { PerkDef } from '../systems/perks';
 import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
@@ -332,7 +333,8 @@ export function initMenu(game: Phaser.Game): void {
              <li><b>EAT / BITE</b>, <b>SPRINT</b> and <b>DASH</b> buttons are on the right.</li>`
           : `<li><b>Swim:</b> WASD or arrow keys, or hold the mouse button.</li>
              <li><b>Eat / bite:</b> Space or right-click. <b>Sprint:</b> Shift. <b>Dash:</b> E or Q.</li>`
-      }</ul>
+      }
+      <li><b>Controller</b> (Xbox, PlayStation, most Bluetooth pads): left stick or D-pad to swim, <b>A</b> eat, <b>B</b> or a trigger sprint, <b>X</b> your stage ability, <b>Start</b> pause. In menus, move with the D-pad, <b>A</b> to choose, <b>B</b> to go back.</li></ul>
       <h4>Eating</h4>
       <ul>
         <li>Plankton and meat chunks are eaten just by touching them with your mouth.</li>
@@ -572,6 +574,94 @@ export function initMenu(game: Phaser.Game): void {
     game.scene.resume('Game');
   }
   window.addEventListener('ce:pause', pause);
+
+  // ---------------------------------------------------------------- controller in the menus
+  // D-pad / left stick moves between buttons (the nearest one in that direction), A presses,
+  // B goes back (closes a panel, resumes from pause; never skips a perk choice), Start pauses
+  // and resumes in a run, and on the home screen starts CONTINUE or PLAY.
+  const FOCUSABLE = 'button:not([disabled]), a[href], input, select';
+  let navHeld = 0;
+  let navDir = '';
+  function visibleIn(root: HTMLElement): HTMLElement[] {
+    return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && !el.closest('[hidden]') && getComputedStyle(el).visibility !== 'hidden';
+    });
+  }
+  function padFocus(el: HTMLElement | null): void {
+    document.querySelectorAll('.pad-focus').forEach((e) => e.classList.remove('pad-focus'));
+    if (!el) return;
+    el.classList.add('pad-focus');
+    el.focus({ preventScroll: false });
+    el.scrollIntoView({ block: 'nearest' });
+  }
+  /** The nearest button in a direction: mostly along it, a little across it. */
+  function moveFocus(root: HTMLElement, dx: number, dy: number): void {
+    const items = visibleIn(root);
+    if (!items.length) return;
+    const cur = document.activeElement as HTMLElement | null;
+    if (!cur || !items.includes(cur)) return padFocus(items[0]);
+    const a = cur.getBoundingClientRect();
+    const ax = a.left + a.width / 2;
+    const ay = a.top + a.height / 2;
+    let best: HTMLElement | null = null;
+    let bestScore = Infinity;
+    for (const el of items) {
+      if (el === cur) continue;
+      const b = el.getBoundingClientRect();
+      const vx = b.left + b.width / 2 - ax;
+      const vy = b.top + b.height / 2 - ay;
+      const along = vx * dx + vy * dy;
+      if (along <= 4) continue;
+      const across = Math.abs(vx * dy - vy * dx);
+      const score = along + across * 2.5;
+      if (score < bestScore) {
+        bestScore = score;
+        best = el;
+      }
+    }
+    if (best) padFocus(best);
+  }
+  function padLoop(): void {
+    requestAnimationFrame(padLoop);
+    pads.poll();
+    if (!pads.connected) return;
+    const panelOpen = wrap.classList.contains('open');
+    const root = panelOpen ? panel : home.classList.contains('open') ? home : null;
+    if (pads.justDown(PAD.START)) {
+      if (paused && !choosingPerk) return void closePanel();
+      if (!root && playing()) return void pause();
+      if (root === home) return void (($('btnContinue') as HTMLButtonElement).hidden ? $('btnPlay') : $('btnContinue')).click();
+    }
+    if (!root) return;
+    // Directions: act on the first press, then repeat while held.
+    const d = pads.y < -0.5 ? 'up' : pads.y > 0.5 ? 'down' : pads.x < -0.5 ? 'left' : pads.x > 0.5 ? 'right' : '';
+    if (d !== navDir) {
+      navDir = d;
+      navHeld = 0;
+    } else navHeld++;
+    if (d && (navHeld === 0 || (navHeld > 24 && navHeld % 8 === 0))) {
+      const [dx, dy] = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[d]!;
+      moveFocus(root, dx, dy);
+    }
+    if (pads.justDown(PAD.A)) {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && root.contains(el) && el.tagName !== 'INPUT') el.click();
+      else if (!el || !root.contains(el)) moveFocus(root, 0, 1);
+    }
+    if (pads.justDown(PAD.B) && panelOpen && !choosingPerk) {
+      // Back: cancel an open confirm step first, else close the panel.
+      const cancel = panel.querySelector<HTMLElement>('[data-act="no"]');
+      if (cancel) cancel.click();
+      else closePanel();
+    }
+  }
+  requestAnimationFrame(padLoop);
+  window.addEventListener('gamepadconnected', (e) => {
+    badge(`Controller connected: ${(e as GamepadEvent).gamepad.id.replace(/\(.*\)/, '').trim().slice(0, 40) || 'gamepad'}`);
+    pads.poll();
+  });
+  window.addEventListener('gamepaddisconnected', () => badge('Controller disconnected', true));
 
   // ---------------------------------------------------------------- perk choice
   let choosingPerk = false;

@@ -103,6 +103,10 @@ invulnerability. Armor per species (`armor` in species.json).
   similar plain-image pools.
 - Use Arcade Physics with **circle bodies only** (fish rotate; circles do not care).
 - Keep it touch-first: every action needs a touch path (button or gesture).
+- Controllers: `src/input/gamepad.ts` (`pads`, browser Gamepad API, standard layout, every pad counts,
+  one poll per frame shared by game, HUD and menus). In game: stick/D-pad swim, A eat, B/LT/RT sprint,
+  X/Y/RB ability, Start pause. Menus: D-pad moves focus (`.pad-focus`), A presses, B goes back (never skips
+  a perk choice). Death screen: A swim again, B home. New actions need a controller button too.
 - Phaser 4 API reference for agents: `node_modules/phaser/skills/*/SKILL.md`.
   Read the relevant skill before using an unfamiliar API.
 - Only CC0 assets (or clearly licensed for commercial use). Log every asset in

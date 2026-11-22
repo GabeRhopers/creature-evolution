@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { Fish, SwimIntent } from './Fish';
+import { PAD, pads } from '../input/gamepad';
 
 /**
  * Turns keyboard, mouse and touch input into a SwimIntent for the player fish.
@@ -10,6 +11,8 @@ import type { Fish, SwimIntent } from './Fish';
  * Touch: virtual joystick on the left half of the screen (HUD sets `stick`);
  *   a finger held elsewhere still swims toward it; a second finger sprints. HUD buttons (SPRINT, EAT, DASH) set `uiSprint` / `uiSwallow` /
  *   `uiDash` and reserve their pointer so it does not steer.
+ * Controller (src/input/gamepad.ts): left stick or D-pad swims (the stick is analog),
+ *   A eats, B / LT / RT sprint, X / Y / RB use the stage ability. Start pauses (menu.ts).
  */
 export class PlayerController {
   private keys: Record<string, Phaser.Input.Keyboard.Key>;
@@ -35,12 +38,14 @@ export class PlayerController {
   /** True while the player wants to eat: swallow or bite (Space, right mouse, EAT button). */
   wantsSwallow(): boolean {
     const mouse = this.scene.input.mousePointer;
-    return this.keys.SPACE.isDown || this.uiSwallow || (mouse.isDown && mouse.rightButtonDown());
+    return this.keys.SPACE.isDown || this.uiSwallow || (mouse.isDown && mouse.rightButtonDown()) || pads.down(PAD.A);
   }
 
   /** True once per Dash press (E, Q or DASH button). */
   consumeDash(): boolean {
-    const pressed = Phaser.Input.Keyboard.JustDown(this.keys.E) || Phaser.Input.Keyboard.JustDown(this.keys.Q) || this.uiDash;
+    pads.poll();
+    const pad = pads.justDown(PAD.X) || pads.justDown(PAD.Y) || pads.justDown(PAD.RB);
+    const pressed = Phaser.Input.Keyboard.JustDown(this.keys.E) || Phaser.Input.Keyboard.JustDown(this.keys.Q) || this.uiDash || pad;
     this.uiDash = false;
     return pressed;
   }
@@ -54,7 +59,15 @@ export class PlayerController {
     if (k.W.isDown || k.UP.isDown) dy -= 1;
     if (k.S.isDown || k.DOWN.isDown) dy += 1;
     let strength = dx !== 0 || dy !== 0 ? 1 : 0;
-    let sprint = k.SHIFT.isDown || this.uiSprint;
+    pads.poll();
+    let sprint = k.SHIFT.isDown || this.uiSprint || pads.down(PAD.B) || pads.down(PAD.LT) || pads.down(PAD.RT);
+
+    // Controller: the left stick is analog (push a little to swim slowly), the D-pad is full speed.
+    if (strength === 0 && (pads.x || pads.y)) {
+      dx = pads.x;
+      dy = pads.y;
+      strength = Math.min(1, Math.hypot(pads.x, pads.y));
+    }
 
     // Virtual joystick has priority over pointer steering.
     if (this.stick.active && strength === 0) {

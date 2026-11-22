@@ -33,3 +33,7 @@ continued at level 15 starts with the enemies it has unlocked.
 `slots.mjs` covers save slots: the first run saves in slot 1 (the original key), NEW RUN offers an
 empty slot, slots keep separate runs, rename (kept after reload), Continue from the panel, delete
 with a confirm step, and New game in an empty slot.
+
+`gamepad.mjs` plugs in a virtual controller (navigator.getGamepads replaced before load) and drives
+the home screen, swimming, eating, sprint, the ability, pause and resume, a perk choice and the
+death screen with it.
