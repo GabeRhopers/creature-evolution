@@ -11,6 +11,8 @@ export interface FoodItem {
   driftX: number;
   alive: boolean;
   kind: 'plankton' | 'meat';
+  /** Meat torn off a fish that is still alive: it does not fill the stomach. */
+  scrap?: boolean;
   /** Seconds left before it disappears (plankton: Infinity). */
   life: number;
 }
@@ -23,6 +25,10 @@ export interface FoodItem {
  */
 export class FoodField {
   readonly items: FoodItem[] = [];
+  /** Time of day: more plankton at night (it rises to the surface), and it glows (0..1). */
+  density = 1;
+  glow = 0;
+  private glowShown = -1;
   private pool: FoodItem[] = [];
   private tints: number[];
   private meatTint: number;
@@ -39,7 +45,7 @@ export class FoodField {
 
   /** Fill the area around the camera right away (used at start). */
   fill(view: Phaser.Geom.Rectangle): void {
-    const want = BALANCE.food.plankton.targetCount;
+    const want = Math.round(BALANCE.food.plankton.targetCount * this.density);
     const area = this.spawnArea(view);
     let tries = 0;
     while (this.items.length < want && tries++ < want * 4) {
@@ -58,6 +64,7 @@ export class FoodField {
     f.xp = xp;
     f.alive = true;
     f.kind = 'plankton';
+    f.scrap = false;
     f.life = Infinity;
     f.phase = Math.random() * Math.PI * 2;
     f.driftX = Phaser.Math.FloatBetween(-8, 8);
@@ -68,18 +75,20 @@ export class FoodField {
       .setScale((size * 2) / PX_FRAME_WIDTH.dot)
       .setTint(Phaser.Utils.Array.GetRandom(this.tints))
       .setAlpha(0.95)
+      .setBlendMode(this.glowShown === 1 ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL)
       .setVisible(true);
     this.items.push(f);
     return f;
   }
 
   /** A chunk of meat torn off by a bite. */
-  spawnMeat(x: number, y: number, size: number, xp: number): FoodItem {
+  spawnMeat(x: number, y: number, size: number, xp: number, scrap = false): FoodItem {
     const f = this.spawnAt(x, y, size, xp);
     f.kind = 'meat';
+    f.scrap = scrap;
     f.life = BALANCE.combat.chunkLifeSeconds;
     f.driftX = Phaser.Math.FloatBetween(-25, 25);
-    f.img.setFrame('chunk').setTint(this.meatTint).setScale((size * 2.4) / PX_FRAME_WIDTH.chunk);
+    f.img.setFrame('chunk').setTint(this.meatTint).setScale((size * 2.4) / PX_FRAME_WIDTH.chunk).setBlendMode(Phaser.BlendModes.NORMAL);
     return f;
   }
 
@@ -105,7 +114,15 @@ export class FoodField {
         if (f.life <= 0) this.remove(f);
       } else {
         f.img.y += Math.sin(time * 0.0012 + f.phase) * 6 * dt;
+        // Night: plankton glows and twinkles (light adds up, like bioluminescence).
+        if (this.glow > 0.02) f.img.setAlpha(0.55 + 0.45 * this.glow * (0.6 + 0.4 * Math.sin(time * 0.004 + f.phase * 3)));
       }
+    }
+    // Switch the blend mode only when the glow turns on or off (not every frame).
+    const on = this.glow > 0.02 ? 1 : 0;
+    if (on !== this.glowShown) {
+      this.glowShown = on;
+      for (const f of this.items) if (f.kind === 'plankton') f.img.setBlendMode(on ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL).setAlpha(0.95);
     }
 
     // Recycle food left far behind the camera.
@@ -117,7 +134,7 @@ export class FoodField {
     }
 
     // Top up: spawn just outside the visible view so nothing pops in.
-    const want = BALANCE.food.plankton.targetCount;
+    const want = Math.round(BALANCE.food.plankton.targetCount * this.density);
     const area = this.spawnArea(view);
     let plankton = this.items.reduce((n, f) => n + (f.kind === 'plankton' ? 1 : 0), 0);
     let tries = 0;

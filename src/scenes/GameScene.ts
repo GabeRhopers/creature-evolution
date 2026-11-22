@@ -6,8 +6,9 @@ import { toggleTuningPanel } from '../ui/tuning';
 import { Bubbles } from '../systems/Bubbles';
 import { C, makeKelp, makeRay, makeRock, makeSilhouette, makeWater } from '../systems/worldTextures';
 import { Terrain, type TerrainConfig } from '../systems/terrain';
+import { DayNight, type DayNightConfig, type Light, type Period } from '../systems/dayNight';
 import { CORAL_KINDS, makeCoral, makeGround, makeIsland, makeShadow } from '../systems/terrainArt';
-import { SCENERY_SIZE, makeFarIslands, makeFarPeaks, makeFloat, makeScenery, type FloatKind, type SceneryKind } from '../systems/sceneryArt';
+import { Grid, SCENERY_SIZE, makeFarIslands, makeFarPeaks, makeFloat, makeScenery, type FloatKind, type SceneryKind } from '../systems/sceneryArt';
 
 /** World px per art px for the seabed, water and plants. */
 const WORLD_PX = 4;
@@ -98,6 +99,16 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** True while at least one AI fish is hunting the player (HUD warning). */
   playerHunted = false;
   playerHidden = false;
+  /** Day and night: the cycle, seconds into it, and the light right now (read by brains, food, overlay, HUD). */
+  readonly dayNight = new DayNight(BALANCE.dayNight as DayNightConfig);
+  dayTime = 0;
+  light!: Light;
+  period: Period = 'day';
+  private skyRect!: Phaser.GameObjects.Rectangle;
+  private rays: Array<{ img: Phaser.GameObjects.Image; base: number }> = [];
+  private stars: Phaser.GameObjects.Image[] = [];
+  private sun!: Phaser.GameObjects.Image;
+  private moon!: Phaser.GameObjects.Image;
   /** The player is resting by a warm vent (heals slowly). */
   inVent = false;
   /** Warm vents: centers of their healing circles. */
@@ -166,6 +177,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   init(): void {
     this.creatures = [];
     this.kelpZones = [];
+    this.rays = [];
+    this.stars = [];
+    this.dayTime = this.dayNight.startOf((BALANCE.dayNight.startAt as Period) ?? 'day');
+    this.period = this.dayNight.periodAt(this.dayTime);
+    this.light = this.dayNight.lightAt(this.dayTime);
     this.stats = { plankton: 0, fish: 0, kills: 0, maxLevel: 1 };
     this.dead = false;
     this.aiMeals = 0;
@@ -295,6 +311,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   update(time: number, deltaMs: number): void {
     // Clamp dt so a background tab or hitch does not launch fish across the map.
     const dt = Math.min(deltaMs / 1000, 1 / 20);
+    this.updateDayNight(dt);
 
     if (this.menuMode) {
       this.updateAttract(dt, time);
@@ -484,6 +501,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       stats: { plankton: 0, fish: 0, kills: 0, maxLevel: from },
       perks: this.perks.slice(),
       crabLevel: this.crabLevel,
+      dayTime: this.dayTime,
     });
   }
 
@@ -625,7 +643,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const killed = t.takeDamage(dmg);
     t.stun(grab.stunSeconds);
     p.playBite();
-    this.spawnChunks(t.x, t.y, p, dmg * BALANCE.combat.meatXpPerDamage, 3);
+    this.spawnChunks(t.x, t.y, p, dmg * BALANCE.combat.meatXpPerDamage, 3, true);
     this.hud.popup(`${grab.name.toUpperCase()} -${Math.round(dmg)}`, t.x, t.y - t.size, true, '#ffb36b');
     this.sfx.bite();
     this.cameras.main.shake(260, 0.01);
@@ -652,7 +670,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       const killed = t.takeDamage(dmg);
       t.stun(cfg.stunSeconds);
       hits++;
-      this.spawnChunks(t.x, t.y, p, dmg * BALANCE.combat.meatXpPerDamage, 1);
+      this.spawnChunks(t.x, t.y, p, dmg * BALANCE.combat.meatXpPerDamage, 1, true);
       c.brain.onHurt(this.playerCreature);
       if (killed) this.kill(c, this.playerCreature);
     }
@@ -819,6 +837,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       stats: { ...this.stats, maxLevel: Math.max(this.stats.maxLevel, p.level) },
       perks: this.perks.slice(),
       crabLevel: this.crabLevel,
+      dayTime: this.dayTime,
     });
     if (ok) {
       this.lastCheckpointAt = saves.lastSavedAt;
@@ -844,6 +863,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.stats = { ...c.stats };
     this.perks = (c.perks ?? []).filter((id) => !!perkById(id));
     this.crabLevel = Math.min(c.crabLevel ?? 0, c.level);
+    if (c.dayTime !== undefined) this.dayTime = c.dayTime;
     p.invulnTimer = RESUME_SHIELD_SECONDS;
     this.lastCheckpointAt = Date.now();
   }
@@ -879,12 +899,20 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
     // Plankton and meat chunks: eaten automatically on mouth contact.
     const touchR = p.mouthRadius(false);
-    for (let i = full ? -1 : this.food.items.length - 1; i >= 0; i--) {
+    for (let i = this.food.items.length - 1; i >= 0; i--) {
       const f = this.food.items[i];
+      if (full && !f.scrap) continue;
       if (p.canSwallow(f.size) && Phaser.Math.Distance.Between(mouth.x, mouth.y, f.img.x, f.img.y) < touchR + f.size) {
         this.food.remove(f);
-        this.stats.plankton++;
         this.sfx.nibble();
+        if (f.scrap) {
+          // Bite scraps: a little XP, but no food in the stomach (kill it and eat the carcass for that).
+          const xp = Math.max(1, Math.round(f.xp * BALANCE.stomach.biteScrapXpFraction));
+          this.hud.popup(`+${xp}`, f.img.x, f.img.y, false, '#c0cbdc');
+          this.grantXp(xp);
+          continue;
+        }
+        this.stats.plankton++;
         this.gainXp(Math.max(1, Math.round(f.xp)), f.img.x, f.img.y, false);
       }
     }
@@ -948,7 +976,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     // Meat chunks torn off at the wound, sized so the attacker can swallow them.
     const wx = Phaser.Math.Linear(t.x, a.x, 0.35);
     const wy = Phaser.Math.Linear(t.y, a.y, 0.35);
-    this.spawnChunks(wx, wy, a, dmg * cb.meatXpPerDamage, Phaser.Math.Between(1, 2));
+    this.spawnChunks(wx, wy, a, dmg * cb.meatXpPerDamage, Phaser.Math.Between(1, 2), true);
     if (attacker.isPlayer) {
       this.hud.popup(`-${Math.round(dmg)}`, t.x, t.y - t.size, false, '#ff9a8a');
       this.sfx.bite();
@@ -997,7 +1025,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
     const wx = Phaser.Math.Linear(p.x, a.x, 0.35);
     const wy = Phaser.Math.Linear(p.y, a.y, 0.35);
-    this.spawnChunks(wx, wy, a, dmg * BALANCE.combat.meatXpPerDamage, 1);
+    this.spawnChunks(wx, wy, a, dmg * BALANCE.combat.meatXpPerDamage, 1, true);
     this.hud.popup(`-${Math.round(dmg)}`, p.x, p.y - p.size, true, '#ff5c5c');
     this.hud.hurt();
     this.sfx.hurt();
@@ -1005,10 +1033,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (killed) this.playerDied(attacker, chomp ? 'swallowed' : 'bitten');
   }
 
-  private spawnChunks(x: number, y: number, eater: Fish, totalXp: number, count: number): void {
+  /** Meat chunks. `scrap` = torn off a fish that is still alive (XP only, it does not fill the stomach). */
+  private spawnChunks(x: number, y: number, eater: Fish, totalXp: number, count: number, scrap = false): void {
     const size = Phaser.Math.Clamp(eater.devourSize * 0.6, 3, 40);
     for (let i = 0; i < count; i++) {
-      const f = this.food.spawnMeat(x + Phaser.Math.Between(-10, 10), y + Phaser.Math.Between(-10, 10), size, totalXp / count);
+      const f = this.food.spawnMeat(x + Phaser.Math.Between(-10, 10), y + Phaser.Math.Between(-10, 10), size, totalXp / count, scrap);
       f.driftX = Phaser.Math.FloatBetween(-60, 60); // spray outward, then slow down and sink
     }
   }
@@ -1410,7 +1439,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const P = WORLD_PX;
 
     // Sky strip above the surface.
-    this.add.rectangle(0, 0, W, surfaceY, 0xc0cbdc).setOrigin(0, 0).setDepth(-100);
+    this.skyRect = this.add.rectangle(0, 0, W, surfaceY, 0xc0cbdc).setOrigin(0, 0).setDepth(-100);
+    this.drawSkyLights(W, surfaceY);
 
     // Water: flat pixel bands (Shallows, Reef, Deep) with dithered edges.
     const rows = Math.ceil((H - surfaceY) / P);
@@ -1425,12 +1455,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     makeRay(this, 'w_ray_a', 18, 150, 40);
     makeRay(this, 'w_ray_b', 30, 180, 70);
     for (let x = 200; x < W; x += Phaser.Math.Between(350, 700)) {
-      this.add
+      const base = Phaser.Math.FloatBetween(0.04, 0.07);
+      const img = this.add
         .image(Math.round(x / P) * P, surfaceY, Math.random() < 0.5 ? 'w_ray_a' : 'w_ray_b')
         .setOrigin(0, 0)
         .setScale(P)
-        .setAlpha(Phaser.Math.FloatBetween(0.04, 0.07))
+        .setAlpha(base)
         .setDepth(-90);
+      this.rays.push({ img, base });
     }
 
     // Far layers per depth (parallax): islands on the horizon above the Shallows,
@@ -1515,6 +1547,75 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       }
       // Coral gardens are hiding places, like kelp.
       this.kelpZones.push(new Phaser.Geom.Rectangle(top.x - top.half, top.y - 150, top.half * 2, 160));
+    }
+  }
+
+  // ---------------------------------------------------------------- day and night
+
+  /** Sun, moon and stars in the sky strip (they fade in and out with the time of day). */
+  private drawSkyLights(W: number, surfaceY: number): void {
+    const P = WORLD_PX;
+    if (!this.textures.exists('w_sun')) {
+      const g = new Grid(13, 13);
+      g.ellipse(6, 6, 6, 6, (_x, _y, u, v) => (u * u + v * v < 0.35 ? C.yellow : C.gold));
+      g.toTexture(this, 'w_sun');
+      const m = new Grid(11, 11);
+      m.ellipse(5, 5, 5, 5, C.white);
+      m.ellipse(7, 4, 4, 4, null);
+      m.dot(3, 6, C.mist);
+      m.dot(4, 8, C.mist);
+      m.toTexture(this, 'w_moon');
+      const st = new Grid(3, 3);
+      st.dot(1, 0, C.mist); st.dot(0, 1, C.mist); st.dot(2, 1, C.mist); st.dot(1, 2, C.mist); st.dot(1, 1, C.white);
+      st.toTexture(this, 'w_star');
+    }
+    this.sun = this.add.image(0, surfaceY * 0.5, 'w_sun').setScale(P).setDepth(-99.5);
+    this.moon = this.add.image(0, surfaceY * 0.45, 'w_moon').setScale(P).setDepth(-99.5);
+    for (let i = 0; i < W / 140; i++) {
+      this.stars.push(
+        this.add
+          .image(Phaser.Math.Between(0, W), Phaser.Math.Between(6, surfaceY - 14), 'w_star')
+          .setScale(Math.random() < 0.3 ? P : P / 2)
+          .setDepth(-99.6)
+          .setAlpha(0),
+      );
+    }
+  }
+
+  /** Time passes: blend the light, move the sun and moon, and tell the player when the period changes. */
+  private updateDayNight(dt: number): void {
+    if (!this.light) return;
+    if (!this.dead) this.dayTime += dt;
+    const L = (this.light = this.dayNight.lightAt(this.dayTime));
+    this.skyRect?.setFillStyle(L.sky);
+    for (const r of this.rays) r.img.setAlpha(r.base * L.rays);
+    // Sun across the sky from dawn to the end of dusk; moon across the night.
+    const view = this.cameras.main.worldView;
+    const dn = this.dayNight;
+    const t = dn.cycleAt(this.dayTime) * dn.length;
+    const nightStart = dn.startOf('night');
+    const dayFrac = Phaser.Math.Clamp(t / nightStart, 0, 1);
+    const nightFrac = Phaser.Math.Clamp((t - nightStart) / (dn.length - nightStart), 0, 1);
+    const arc = (f: number) => BALANCE.world.surfaceY * (0.75 - 0.5 * Math.sin(Math.PI * f));
+    if (this.sun) {
+      this.sun.setPosition(view.x + view.width * (0.08 + 0.84 * dayFrac), arc(dayFrac)).setAlpha(Math.min(1, 1 - L.stars * 0.9));
+      this.sun.setTint(L.sky === 0xc0cbdc ? 0xffffff : 0xffd9a8);
+    }
+    if (this.moon) this.moon.setPosition(view.x + view.width * (0.08 + 0.84 * nightFrac), arc(nightFrac)).setAlpha(L.stars);
+    const tw = this.time.now / 600;
+    this.stars.forEach((st, i) => st.setAlpha(L.stars * (0.55 + 0.45 * Math.sin(tw + i * 1.7))));
+    // Plankton: more at night (it rises to the surface), and it glows.
+    if (this.food) {
+      this.food.density = L.plankton;
+      this.food.glow = L.glow;
+    }
+    const p = dn.periodAt(this.dayTime);
+    if (p !== this.period) {
+      this.period = p;
+      if (!this.menuMode && !this.dead) {
+        const k = BALANCE.dayNight.periods[p];
+        this.hud?.dayPeriod(k.name, k.line);
+      }
     }
   }
 

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { HudScene } from './scenes/HudScene';
+import { LightScene } from './scenes/LightScene';
 import { initMenu } from './ui/menu';
 
 // Add ?canvas to the URL to force the Canvas renderer (debug fallback for
@@ -22,7 +23,7 @@ const game = new Phaser.Game({
     arcade: { gravity: { x: 0, y: 0 }, debug: false },
   },
   input: { activePointers: 3 },
-  scene: [BootScene, GameScene, HudScene],
+  scene: [BootScene, GameScene, LightScene, HudScene],
 });
 
 initMenu(game);

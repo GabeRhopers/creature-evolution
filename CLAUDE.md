@@ -22,11 +22,14 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
 - Threat rule: X threatens Y if X can swallow Y, or X is an aggressive biter and
   >= 1.25x Y's size (`Brain.isThreat`). Combat lives in GameScene `bite/kill/updateRams`.
   Never move a fish directly; give it an intent.
-- `src/scenes/`: Boot (loads atlas), Game (world + entities), Hud (screen overlay).
+- `src/scenes/`: Boot (loads atlas), Game (world + entities), Light (time-of-day overlay), Hud (screen overlay).
 - `src/entities/Food.ts`: plankton field kept around the camera (pooled images).
 - Eating lives in `GameScene.updateEating()`: mouth = circle ahead of the head
   (`Fish.mouthPoint/mouthRadius`); swallow allowed if `target.size <= devourSize`.
 - `src/systems/Stomach.ts`: pure stomach/digestion logic; GameScene applies releases (heal first, then XP).
+  Capacity grows at least `capacityStepMin` (15%) per level up to `capacityStepMaxLevels` (`stomachCapacityAt`);
+  digesting drops it to `digestTo` (15%). Meat torn off a fish that is still alive is a `scrap`: it gives
+  `biteScrapXpFraction` of its XP and does not fill the stomach (it can be eaten even when full); carcass meat fills.
 - `src/audio/Sfx.ts`: all sound effects synthesized with Web Audio (no files). Music: `public/assets/audio/`.
 - `src/ui/menu.ts` + overlays in `index.html`: home screen (game runs in attract mode behind it,
   `GameScene.menuMode`), how to play, options, credits, pause menu, best record (localStorage).
@@ -80,6 +83,15 @@ arch, vents, cannons, chests, a helmet, an anchor). Kinds in `hide` are hiding p
 circles in the `rocks` group (solid, open underneath); vents puff bubbles and heal the player (`inVent`,
 `healPerSecond` of max health). Rocks and kelp keep clear of scenery (`sceneryAt`). Floats (rowboats, a beach
 ball, bottles) bob at the surface. Far parallax layers: islands on the horizon (Shallows), faded peaks (Reef).
+
+## Day and night (`src/systems/dayNight.ts`, `src/scenes/LightScene.ts`, `balance.json` "dayNight")
+Four periods (Dawn, Day, Dusk, Night) loop; `DayNight.lightAt(seconds)` holds each period's look and blends
+neighbors over `blendSeconds` (smoothstep, centered on the change). GameScene keeps `dayTime` (saved in the
+checkpoint), `light` and `period`; it colors the sky, fades rays, moves the sun and moon, twinkles stars, and
+sets food `density`/`glow`. Brains read `AIWorld.light`: vision (prey vs predators, tier >= 3), predator hunger
+at dawn/dusk, sleepy small fish at night. LightScene (between Game and Hud, own unzoomed camera) draws the water
+tint, the darkness with a soft opening around the player, and glowing plankton dots above it; it positions them
+on PRE_RENDER so they line up with the game camera. HUD: clock (name + progress bar) and a calm period banner.
 
 ## Checkpoint Crab (`GameScene` "Checkpoint Crab" section, `balance.json` "checkpointCrab")
 Every `everyLevels` (10) levels a crab (species `checkpoint_crab`, look `crab-checkpoint`, drawn by

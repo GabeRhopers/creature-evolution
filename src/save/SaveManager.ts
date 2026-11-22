@@ -75,6 +75,8 @@ export interface Checkpoint {
   perks?: string[];
   /** Level saved by the last Checkpoint Crab defeated (0 or missing = none yet). */
   crabLevel?: number;
+  /** Seconds into the day-and-night cycle (missing = the run's start time). */
+  dayTime?: number;
 }
 
 /** What is actually written: the payload plus a header. */
@@ -209,6 +211,7 @@ export function sanitizeCheckpoint(raw: unknown, lim: SaveLimits): Checkpoint | 
     y: num(r.y, 0, lim.worldHeight, lim.worldHeight / 2),
     runTime: num(r.runTime, 0, 1e7, 0),
     crabLevel: int(r.crabLevel, 0, level, 0),
+    ...(typeof r.dayTime === 'number' && Number.isFinite(r.dayTime) ? { dayTime: num(r.dayTime, 0, 1e6, 0) } : {}),
     perks: Array.isArray(r.perks) ? r.perks.filter((x): x is string => typeof x === 'string' && /^[a-z]{2,16}$/.test(x)).slice(0, 30) : [],
     stats: {
       plankton: int(st.plankton, 0, 1e7, 0),

@@ -38,6 +38,7 @@ export class BootScene extends Phaser.Scene {
       .catch(() => undefined)
       .then(() => {
         this.scene.start('Game');
+        this.scene.launch('Light');
         this.scene.launch('Hud');
       });
   }
