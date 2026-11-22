@@ -7,6 +7,7 @@ import { Bubbles } from '../systems/Bubbles';
 import { C, makeKelp, makeRay, makeRock, makeSilhouette, makeWater } from '../systems/worldTextures';
 import { Terrain, type TerrainConfig } from '../systems/terrain';
 import { CORAL_KINDS, makeCoral, makeGround, makeIsland, makeShadow } from '../systems/terrainArt';
+import { SCENERY_SIZE, makeFarIslands, makeFarPeaks, makeFloat, makeScenery, type FloatKind, type SceneryKind } from '../systems/sceneryArt';
 
 /** World px per art px for the seabed, water and plants. */
 const WORLD_PX = 4;
@@ -97,6 +98,13 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** True while at least one AI fish is hunting the player (HUD warning). */
   playerHunted = false;
   playerHidden = false;
+  /** The player is resting by a warm vent (heals slowly). */
+  inVent = false;
+  /** Warm vents: centers of their healing circles. */
+  private vents: Array<{ x: number; y: number }> = [];
+  private ventBubbleTimer = 0;
+  /** World x ranges taken by scenery pieces (rocks and kelp stay out). */
+  private sceneryRanges: Array<[number, number]> = [];
   dead = false;
   /** Attract mode behind the home screen: no player, camera drifts over the reef. */
   menuMode = false;
@@ -209,6 +217,9 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.drawSeabed(W, H);
     this.drawIslands();
     this.plantCoral();
+    this.rocks = this.physics.add.staticGroup(); // rocks and the arch
+    this.placeScenery();
+    this.placeFloats();
     this.placeRocks(W);
     this.placeKelp(W);
     this.ambientBubbles = new Bubbles(this, 'bubble6', -5);
@@ -313,6 +324,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.playerHunted = hunted && !this.dead;
     this.collideTerrain();
     this.playerHidden = this.inKelp(this.player);
+    this.updateVents(dt);
 
     this.food.update(dt, this.cameras.main.worldView, time);
     if (!this.dead) {
@@ -1421,6 +1433,25 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         .setDepth(-90);
     }
 
+    // Far layers per depth (parallax): islands on the horizon above the Shallows,
+    // tall faded peaks behind the Reef.
+    makeFarIslands(this, 'w_far_islands', 300, 16);
+    this.add
+      .tileSprite(0, surfaceY, W * 1.2, 16 * P, 'w_far_islands')
+      .setOrigin(0, 1)
+      .setTileScale(P)
+      .setScrollFactor(0.5, 1)
+      .setAlpha(0.45)
+      .setDepth(-99);
+    makeFarPeaks(this, 'w_far_peaks', 420, 300);
+    this.add
+      .tileSprite(0, this.seabedTop + 10, W * 1.4, 300 * P, 'w_far_peaks')
+      .setOrigin(0, 1)
+      .setTileScale(P)
+      .setScrollFactor(0.6, 1)
+      .setAlpha(0.22)
+      .setDepth(-95);
+
     // One far silhouette layer that scrolls slower than the world (parallax).
     makeSilhouette(this, 'w_far', 360, 90);
     this.add
@@ -1487,6 +1518,92 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
   }
 
+  private sceneryAt(x: number): boolean {
+    return this.sceneryRanges.some(([a, b]) => x > a - 60 && x < b + 60);
+  }
+
+  /**
+   * Scenery on the ground (balance.json "scenery"): wrecks, a submarine, whale bones, ruins,
+   * an arch, warm vents and small props. Some are hiding places; the arch is solid rock with
+   * an opening; vents heal.
+   */
+  private placeScenery(): void {
+    const cfg = BALANCE.scenery;
+    const t = this.terrain;
+    const P = WORLD_PX;
+    for (const [i, pc] of cfg.pieces.entries()) {
+      const kind = pc.kind as SceneryKind;
+      const key = `w_scn_${kind}`;
+      makeScenery(this, key, kind, 70 + kind.length);
+      const [aw, ah] = SCENERY_SIZE[kind];
+      const scale = P * ((pc as { scale?: number }).scale ?? 1);
+      const w = aw * scale, h = ah * scale;
+      // Sit on the ground: the average height under the piece, sunk in a little.
+      let gy = 0;
+      for (let k = 0; k <= 4; k++) gy += t.groundAt(pc.x - w / 2 + (w * k) / 4);
+      gy = gy / 5 + ((pc as { sink?: number }).sink ?? 6);
+      const flip = kind !== 'arch' && kind !== 'vent' && i % 2 === 1;
+      const front = kind === 'whale';
+      this.add.image(pc.x, gy, key).setOrigin(0.5, 1).setScale(scale).setFlipX(flip).setDepth(front ? 18 : -14).setAlpha(front ? 0.95 : 1);
+      this.sceneryRanges.push([pc.x - w / 2, pc.x + w / 2]);
+      if (cfg.hide.includes(kind)) {
+        const zone = kind === 'arch' ? [pc.x - w * 0.25, gy - h * 0.62, w * 0.5, h * 0.62] : [pc.x - w * 0.45, gy - h * 0.7, w * 0.9, h * 0.7];
+        this.kelpZones.push(new Phaser.Geom.Rectangle(zone[0], zone[1], zone[2], zone[3]));
+      }
+      if (kind === 'arch') this.archRocks(pc.x, gy, w, h);
+      if (kind === 'vent') this.vents.push({ x: pc.x, y: gy - h + 4 * scale });
+    }
+  }
+
+  /** The arch is solid: a ring of rock circles along its band, open underneath. */
+  private archRocks(cx: number, baseY: number, w: number, h: number): void {
+    // Matches the art: outer ellipse (w/2, h) and inner opening about half as wide.
+    const band = w * 0.12;
+    const rx = w / 2 - band, ry = h - band;
+    for (let k = 0; k <= 10; k++) {
+      const a = (Math.PI * k) / 10;
+      const zone = this.add.zone(cx + Math.cos(a) * rx, baseY - Math.sin(a) * ry, band * 2, band * 2);
+      this.physics.add.existing(zone, true);
+      (zone.body as Phaser.Physics.Arcade.StaticBody).setCircle(band);
+      this.rocks.add(zone);
+    }
+  }
+
+  /** Floating at the surface: rowboats, a beach ball, bottles. They bob and drift a little. */
+  private placeFloats(): void {
+    const y = BALANCE.world.surfaceY;
+    for (const [i, f] of BALANCE.scenery.floats.entries()) {
+      const kind = f.kind as FloatKind;
+      makeFloat(this, `w_float_${kind}`, kind);
+      const img = this.add.image(f.x, y + (kind === 'rowboat' ? -2 : 4), `w_float_${kind}`).setScale(WORLD_PX).setFlipX(i % 2 === 1).setDepth(-17);
+      this.tweens.add({ targets: img, y: img.y + 6, angle: { from: -3, to: 3 }, duration: 1600 + i * 230, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      if (kind !== 'rowboat') this.tweens.add({ targets: img, x: img.x + (i % 2 ? -260 : 260), duration: 26000 + i * 3000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+  }
+
+  /** Warm vents: bubbles rise from them, and the player heals slowly beside one. */
+  private updateVents(dt: number): void {
+    const cfg = BALANCE.scenery.vent;
+    const view = this.cameras.main.worldView;
+    this.ventBubbleTimer -= dt;
+    const puff = this.ventBubbleTimer <= 0;
+    if (puff) this.ventBubbleTimer = 0.12;
+    this.inVent = false;
+    for (const v of this.vents) {
+      if (puff && view.contains(v.x, v.y - 100)) {
+        this.ambientBubbles.spawn(v.x + Phaser.Math.Between(-6, 6), v.y, {
+          vy: -Phaser.Math.Between(110, 180),
+          life: Phaser.Math.FloatBetween(3, 6),
+          scale: Phaser.Math.FloatBetween(0.08, 0.2),
+          alpha: 0.7,
+        });
+      }
+      const p = this.player;
+      if (!this.menuMode && !this.dead && p && Phaser.Math.Distance.Between(p.x, p.y, v.x, v.y - cfg.radius * 0.4) < cfg.radius) this.inVent = true;
+    }
+    if (this.inVent && this.player.hp < this.player.maxHp) this.player.heal(this.player.maxHp * cfg.healPerSecond * dt);
+  }
+
   /**
    * Keep every swimmer out of the seamounts, dunes and island sandbanks: push it back out along
    * the ground's normal and drop the part of its speed that points into the rock.
@@ -1513,7 +1630,6 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   }
 
   private placeRocks(W: number): void {
-    this.rocks = this.physics.add.staticGroup();
     // Rock art in four sizes (two shapes each), always at the same pixel density.
     const sizes = [1.0, 1.7, 2.4, 3.2];
     sizes.forEach((s, i) => {
@@ -1522,7 +1638,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     for (let i = 0; i < BALANCE.world.rockCount; i++) {
       // Rocks sit on fairly flat ground (dunes, ridges, seamount tops), never on steep walls.
       let x = Phaser.Math.Between(150, W - 150);
-      for (let k = 0; k < 10 && Math.abs(this.terrain.slopeAt(x)) > 0.35; k++) x = Phaser.Math.Between(150, W - 150);
+      for (let k = 0; k < 14 && (Math.abs(this.terrain.slopeAt(x)) > 0.35 || this.sceneryAt(x)); k++) x = Phaser.Math.Between(150, W - 150);
       const si = Phaser.Math.Between(0, sizes.length - 1);
       const s = sizes[si];
       const baseY = this.terrain.groundAt(x) + 50;
@@ -1561,7 +1677,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     });
     for (let p = 0; p < BALANCE.world.kelpPatches; p++) {
       let cx = Phaser.Math.Between(200, W - 200);
-      for (let k = 0; k < 10 && Math.abs(this.terrain.slopeAt(cx)) > 0.3; k++) cx = Phaser.Math.Between(200, W - 200);
+      for (let k = 0; k < 14 && (Math.abs(this.terrain.slopeAt(cx)) > 0.3 || this.sceneryAt(cx)); k++) cx = Phaser.Math.Between(200, W - 200);
       const count = Phaser.Math.Between(4, 9);
       const spread = count * 40;
       let tallest = 0;

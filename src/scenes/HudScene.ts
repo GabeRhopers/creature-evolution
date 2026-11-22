@@ -494,6 +494,8 @@ export class HudScene extends Phaser.Scene {
     } else if (g.depthBlocked) {
       const next = p.stage?.id === 'hatchling' ? 'juvenile' : 'adult';
       this.status.setText(`Too deep for a ${p.stage?.name.toLowerCase() ?? 'baby'}: grow into a ${next} to dive deeper`).setColor('#9fe8ff').setAlpha(0.95);
+    } else if (g.inVent && p.hp < p.maxHp) {
+      this.status.setText('Warm vent: healing').setColor('#ffb86b').setAlpha(0.95);
     } else if (g.playerHidden) {
       this.status.setText('Hidden in kelp').setColor('#7cff6b').setAlpha(0.9);
     } else {

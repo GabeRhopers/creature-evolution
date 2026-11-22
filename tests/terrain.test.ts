@@ -72,3 +72,26 @@ describe('terrain', () => {
     expect(t.plateaus()).toHaveLength(t.cfg.seamounts.length);
   });
 });
+
+describe('scenery layout', () => {
+  const sc = balance.scenery;
+  const kinds = ['galleon', 'wreck', 'submarine', 'whale', 'ruins', 'arch', 'vent', 'cannon', 'chest', 'helmet', 'anchor'];
+  it('uses known pieces inside the world', () => {
+    for (const pc of sc.pieces) {
+      expect(kinds).toContain(pc.kind);
+      expect(pc.x).toBeGreaterThan(100);
+      expect(pc.x).toBeLessThan(W - 100);
+    }
+    for (const k of sc.hide) expect(kinds).toContain(k);
+  });
+  it('puts big pieces on fairly flat ground, never on a steep seamount wall', () => {
+    for (const pc of sc.pieces) expect(Math.abs(t.slopeAt(pc.x)), pc.kind + ' at ' + pc.x).toBeLessThan(0.6);
+  });
+  it('puts the wreck on a seamount top in the Reef', () => {
+    const wreck = sc.pieces.find((p) => p.kind === 'wreck')!;
+    expect(t.kindAt(wreck.x)).toBe('seamount');
+  });
+  it('keeps floats in open water, away from islands', () => {
+    for (const f of sc.floats) expect(isFinite(t.ceilAt(f.x))).toBe(false);
+  });
+});

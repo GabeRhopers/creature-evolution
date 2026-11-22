@@ -73,6 +73,128 @@
     "rootsDepth": 120,
     "corals": 14
   },
+  "scenery": {
+    "_comment": "Scenery on the ground (x in world px; sits on the ground line there). Pieces in 'hide' are hiding places. 'arch' is solid rock you can swim through. Vents slowly heal the player (healPerSecond = share of max health). Floats bob at the surface. Keep pieces off steep seamount walls.",
+    "pieces": [
+      {
+        "kind": "ruins",
+        "x": 520
+      },
+      {
+        "kind": "chest",
+        "x": 640
+      },
+      {
+        "kind": "submarine",
+        "x": 1450,
+        "sink": 18
+      },
+      {
+        "kind": "helmet",
+        "x": 1660
+      },
+      {
+        "kind": "whale",
+        "x": 3250,
+        "scale": 1.4
+      },
+      {
+        "kind": "arch",
+        "x": 3930
+      },
+      {
+        "kind": "cannon",
+        "x": 4370
+      },
+      {
+        "kind": "galleon",
+        "x": 4700,
+        "sink": 14
+      },
+      {
+        "kind": "chest",
+        "x": 4600
+      },
+      {
+        "kind": "cannon",
+        "x": 5020
+      },
+      {
+        "kind": "vent",
+        "x": 5250
+      },
+      {
+        "kind": "vent",
+        "x": 5310,
+        "scale": 0.8
+      },
+      {
+        "kind": "wreck",
+        "x": 6150
+      },
+      {
+        "kind": "chest",
+        "x": 6370
+      },
+      {
+        "kind": "cannon",
+        "x": 6000
+      },
+      {
+        "kind": "vent",
+        "x": 7020
+      },
+      {
+        "kind": "anchor",
+        "x": 7560
+      },
+      {
+        "kind": "ruins",
+        "x": 7720
+      },
+      {
+        "kind": "vent",
+        "x": 8850
+      },
+      {
+        "kind": "vent",
+        "x": 8892,
+        "scale": 0.7
+      }
+    ],
+    "hide": [
+      "galleon",
+      "wreck",
+      "whale",
+      "arch"
+    ],
+    "vent": {
+      "healPerSecond": 0.04,
+      "radius": 170
+    },
+    "floats": [
+      {
+        "kind": "rowboat",
+        "x": 2000
+      },
+      {
+        "kind": "bottle",
+        "x": 3000
+      },
+      {
+        "kind": "ball",
+        "x": 4250
+      },
+      {
+        "kind": "rowboat",
+        "x": 6900
+      },
+      {
+        "kind": "bottle",
+        "x": 8500
+      }
+    ]
+  },
   "growth": {
     "sizePerLevel": 1.12,
     "hpExponent": 2.0,

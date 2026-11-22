@@ -50,5 +50,32 @@ await p.waitForTimeout(6000);
 const stuck = await G(() => { const g = window.game.scene.getScene('Game'); return g.creatures.filter((c) => !c.isPlayer && g.terrain.isSolid(c.fish.x, c.fish.y, 0)).length; });
 ok(stuck === 0, 'no AI fish inside the terrain after 6 seconds: ' + stuck);
 
+// Scenery: art, a solid arch you can swim through, a vent that heals, a wreck that hides you.
+ok(await G(() => { const g = window.game.scene.getScene('Game'); return ['w_scn_galleon', 'w_scn_arch', 'w_scn_vent', 'w_far_peaks', 'w_far_islands', 'w_float_rowboat'].every((k) => g.textures.exists(k)); }), 'scenery and far layers are drawn');
+const arch = await G(() => {
+  const g = window.game.scene.getScene('Game');
+  const pc = { x: 3930 };
+  // Arch rock circles live in the rocks group next to it.
+  const circles = g.rocks.getChildren().filter((z) => Math.abs(z.x - pc.x) < 200);
+  const top = Math.min(...circles.map((z) => z.y));
+  const legY = Math.max(...circles.map((z) => z.y));
+  return { n: circles.length, top, legY };
+});
+ok(arch.n >= 10, 'the arch is solid rock (' + arch.n + ' rock circles)');
+// A small fish fits through the opening: the middle at leg height is free of rock circles.
+ok(await G(() => { const g = window.game.scene.getScene('Game'); return !g.rocks.getChildren().some((z) => Math.abs(z.x - 3930) < 40 && z.y > g.terrain.groundAt(3930) - 160); }), 'the arch opening is free to swim through');
+// Vent: hurt the player, park it by a vent, it heals.
+const healed = await G(async () => {
+  const g = window.game.scene.getScene('Game');
+  const v = g.vents[0];
+  g.player.hp = g.player.maxHp * 0.5;
+  const before = g.player.hp;
+  g.creatures.forEach((c) => { if (c.brain) c.fish.setPosition(c.fish.x, 200); });
+  for (let i = 0; i < 20; i++) { g.player.setPosition(v.x, v.y - 60); g.player.body.velocity.set(0, 0); await new Promise((r) => setTimeout(r, 100)); }
+  return { inVent: g.inVent, before, after: g.player.hp, status: window.game.scene.getScene('Hud').status.text };
+});
+ok(healed.inVent && healed.after > healed.before, `a warm vent heals (${healed.before.toFixed(1)} -> ${healed.after.toFixed(1)})`);
+ok(await G(async () => { const g = window.game.scene.getScene('Game'); for (let i = 0; i < 10; i++) { g.player.setPosition(4700, g.terrain.groundAt(4700) - 80); g.player.body.velocity.set(0, 0); await new Promise((r) => setTimeout(r, 100)); } return g.playerHidden; }), 'the galleon hides you');
+
 ok(errs.length === 0, 'no page errors ' + errs.slice(0, 3).join(' | '));
 await b.close();
