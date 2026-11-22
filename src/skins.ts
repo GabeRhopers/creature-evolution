@@ -125,6 +125,8 @@ export interface SkinFrames {
   damage?: string;
   celebrate?: string[];
   dead?: string;
+  /** Frames per second set in the studio for each pose (the game plays them at that speed). */
+  fps?: { idle?: number; swim?: number; celebrate?: number };
 }
 
 interface TextureHost {
@@ -161,6 +163,11 @@ export function buildSkinTexture(host: TextureHost, key: string, p: StudioProjec
     damage: want(map.damage),
     celebrate: map.celebrate.map((f) => want(f)!),
     dead: want(map.dead),
+    fps: {
+      idle: poseFps(p, map.idle[0]?.[0]),
+      swim: poseFps(p, map.swim[0]?.[0]),
+      celebrate: poseFps(p, map.celebrate[0]?.[0]),
+    },
   };
 
   // Framework drawings keep their own canvas at 1 texture pixel per art pixel; the game
@@ -193,6 +200,13 @@ export function buildSkinTexture(host: TextureHost, key: string, p: StudioProjec
   order.forEach((_, slot) => tex.add(`${key}_${slot}`, 0, slot * fw, 0, fw, fh));
   if (framed) tex.setSmoothPixelArt?.(true);
   return { ...result, art: framed ? artFromProject(p) : null };
+}
+
+/** A pose's frames per second from the studio (undefined = the game's own timing). */
+export function poseFps(p: StudioProject, pose?: string): number | undefined {
+  if (!pose) return undefined;
+  const fps = p.poses.find((x) => x.name.toLowerCase() === pose)?.fps;
+  return typeof fps === 'number' && fps > 0 ? Math.min(30, fps) : undefined;
 }
 
 /** A drawing made on a sprite framework (it knows its body radius, mouth and scale). */

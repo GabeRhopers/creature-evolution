@@ -1102,7 +1102,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (!look) return null;
     if (this.speciesLooks.has(look)) return this.speciesLooks.get(look)!;
     let built: { key: string; frames: SkinFrames; art: SkinArt | null } | null = null;
-    const project = this.cache.json.get('look:' + look) as StudioProject | undefined;
+    // The studio design (edited or not) wins; the design shipped with the game is the fallback.
+    const project = getStageLook(look) ?? (this.cache.json.get('look:' + look) as StudioProject | undefined);
     if (project && !validateProject(project).length) {
       try {
         const key = 'look_' + look;

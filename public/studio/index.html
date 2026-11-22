@@ -606,7 +606,7 @@ function renderButtons() {
 
 /** Call after any change. `edit` marks the project as modified (autosave). */
 function changed(edit) {
-  if (edit) { S.dirty = true; scheduleSave(); }
+  if (edit) { S.dirty = true; S.stamp = null; scheduleSave(); }
   render(); renderPalette(); renderPoses(); renderFrames(); renderButtons();
 }
 
@@ -800,7 +800,9 @@ let lastHistoryAt = 0, sizeWarned = false;
 const setSave = (txt, cls) => { const el = $('saveState'); el.textContent = txt; el.className = cls || ''; el.title = cls === 'err' ? 'Tap to try again' : ''; };
 $('saveState').addEventListener('click', () => { if ($('saveState').className === 'err') { S.dirty = true; save(); } });
 
-function body() { return { ...serialize(P()), updatedAt: new Date().toISOString() }; }
+// Opening a project keeps its timestamp (S.stamp); only a real edit gives it a new one, so an
+// untouched starter design still gets newer versions shipped with the game.
+function body() { return { ...serialize(P()), updatedAt: S.stamp || new Date().toISOString() }; }
 /** Instant device copy. `pending` = not yet in the cloud. */
 function writeLocal(pending) {
   if (!S.id) return false;
@@ -896,7 +898,7 @@ async function loadProject(id, opts = {}) {
     S.id = id; S.rev = (cloud && cloud.rev) || 0; S.project = deserialize(d); S.pose = 0; S.frame = 0; S.sel = null; S.float = null; S.undo = []; S.redo = [];
     S.color = Math.min(1, P().palette.length - 1); $('projName').value = P().name;
     try { localStorage.setItem(LOCAL + 'last', id); } catch {}
-    fitZoom(); S.dirty = dirty; changed(dirty);
+    fitZoom(); S.dirty = dirty; changed(dirty); S.stamp = d.updatedAt || null;
     if (!dirty) { writeLocal(false); setSave(db ? 'Saved' : 'Saved on this device', 'ok'); }
   };
   // Startup recovery: unsaved device changes newer than the cloud copy.
@@ -1237,13 +1239,16 @@ async function boot() {
   let last = null; try { last = localStorage.getItem('spritestudio:last'); } catch {}
   const qs = new URLSearchParams(location.search);
   const want = qs.get('project');
+  // Starter designs first: a link like ?project=croc-hatchling must open that drawing even on a
+  // device that has never opened the studio (and get its newest shipped version).
+  await seedStarters();
   if (want && await loadProject(want)) {
     const pose = Math.min(P().poses.length - 1, Math.max(0, parseInt(qs.get('pose') || '0', 10) || 0));
     S.pose = pose; S.frame = 0; changed(false);
     try { history.replaceState(null, '', location.pathname); } catch {}
     return;
   }
-  await seedStarters();
+  if (want) toast('That drawing was not found, so your last project is open.');
   const list = await listProjects();
   const pick = (last && list.find((p) => p.id === last)) || list.find((p) => p.id === 'croc') || list[0];
   if (pick && await loadProject(pick.id)) return;

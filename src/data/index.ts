@@ -46,6 +46,8 @@ export interface SpeciesArt {
     dead?: string;
     /** Played on level-up. */
     celebrate?: string[];
+    /** Frames per second per pose, from Sprite Studio. */
+    fps?: { idle?: number; swim?: number; celebrate?: number };
   };
 }
 
@@ -179,6 +181,8 @@ export function getHero(): string {
 }
 /** Every stage design of every hero (to preload them all). */
 export const ALL_STAGE_SKINS: string[] = [...new Set(HEROES.flatMap((h) => heroStages(h.id).map((s) => s.skin)))];
+/** Every reef creature design (fish, crab, enemies): Sprite Studio project ids. */
+export const ALL_SPECIES_LOOKS: string[] = [...new Set(Object.values(SPECIES).map((sp) => sp.look).filter((l): l is string => !!l))];
 export const MAX_LEVEL: number = BALANCE.stages.maxLevel;
 
 // ------------------------------------------------------------------ tides (endless levels)
