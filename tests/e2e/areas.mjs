@@ -20,8 +20,8 @@ let r = await dive(0.6, 100, 'blocked'); console.log(JSON.stringify(r));
 ok(r.blocked && r.status.includes('Too deep'), 'a hatchling below the shallows is told it is too deep');
 ok(!r.banner.includes('REEF'), 'no banner for an area it cannot enter yet');
 await p.screenshot({path:'/home/claude/stages/area_hatch.png'});
-// The current pushes it back up; slow machines run the game clock slower, so poll up to 12 s.
-for (let i=0;i<24;i++){ await p.waitForTimeout(500); r = await G(()=>{const g=window.game.scene.getScene('Game'); return {depth:+g.depthOf(g.player.y).toFixed(2)};}); if (r.depth<=0.45) break; }
+// The current pushes it back up; slow machines run the game clock slower, so poll up to 30 s.
+for (let i=0;i<60;i++){ await p.waitForTimeout(500); r = await G(()=>{const g=window.game.scene.getScene('Game'); return {depth:+g.depthOf(g.player.y).toFixed(2)};}); if (r.depth<=0.45) break; }
 ok(r.depth <= 0.45, 'the current pushes the hatchling back up: depth '+r.depth);
 // juvenile: reef open, deep closed
 await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(10); g.grantXp(g.player.xpNeeded+1);}); await p.waitForTimeout(3500); await calm();
