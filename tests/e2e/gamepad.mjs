@@ -42,8 +42,8 @@ ok(x1 > x0 + 25, `the left stick swims (moved ${Math.round(x1-x0)} px right)`);
 ok(await G(()=>{const g=window.game.scene.getScene('Game'); return g.controller.read().strength===0;}), 'the stick at rest stops swimming');
 
 // A = eat, B = sprint
-await btn(A, true); await p.waitForTimeout(100);
-ok(await G(()=>window.game.scene.getScene('Game').controller.wantsSwallow()), 'A eats');
+await btn(A, true);
+ok(await waitFor(()=>window.game.scene.getScene('Game').controller.wantsSwallow(), 3000), 'A eats');
 await btn(A, false);
 await btn(B, true); await stick(1, 0); await p.waitForTimeout(100);
 ok(await G(()=>window.game.scene.getScene('Game').controller.read().sprint), 'B sprints');

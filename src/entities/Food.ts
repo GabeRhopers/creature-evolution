@@ -30,6 +30,8 @@ export class FoodField {
   constructor(
     private scene: Phaser.Scene,
     private swimArea: Phaser.Geom.Rectangle,
+    /** Terrain: food never appears inside it, and sinking meat rests on the ground. */
+    private terrain?: { isSolid(x: number, y: number, r?: number): boolean; groundAt(x: number): number },
   ) {
     this.tints = BALANCE.food.plankton.tints.map((h) => Phaser.Display.Color.HexStringToColor(h).color);
     this.meatTint = Phaser.Display.Color.HexStringToColor(BALANCE.combat.meatTint).color;
@@ -39,8 +41,10 @@ export class FoodField {
   fill(view: Phaser.Geom.Rectangle): void {
     const want = BALANCE.food.plankton.targetCount;
     const area = this.spawnArea(view);
-    while (this.items.length < want) {
-      this.spawnAt(Phaser.Math.Between(area.left, area.right), Phaser.Math.Between(area.top, area.bottom));
+    let tries = 0;
+    while (this.items.length < want && tries++ < want * 4) {
+      const x = Phaser.Math.Between(area.left, area.right), y = Phaser.Math.Between(area.top, area.bottom);
+      if (!this.terrain?.isSolid(x, y, 6)) this.spawnAt(x, y);
     }
   }
 
@@ -95,7 +99,7 @@ export class FoodField {
       f.img.x += f.driftX * dt;
       if (f.kind === 'meat') {
         f.driftX *= 0.98;
-        f.img.y = Math.min(f.img.y + BALANCE.combat.chunkSinkSpeed * dt, this.swimArea.bottom);
+        f.img.y = Math.min(f.img.y + BALANCE.combat.chunkSinkSpeed * dt, this.swimArea.bottom, this.terrain ? this.terrain.groundAt(f.img.x) - 6 : Infinity);
         f.life -= dt;
         if (f.life < 3) f.img.setAlpha(Math.max(0, f.life / 3));
         if (f.life <= 0) this.remove(f);
@@ -120,7 +124,7 @@ export class FoodField {
     while (plankton < want && tries++ < 40) {
       const x = Phaser.Math.Between(area.left, area.right);
       const y = Phaser.Math.Between(area.top, area.bottom);
-      if (!view.contains(x, y)) {
+      if (!view.contains(x, y) && !this.terrain?.isSolid(x, y, 6)) {
         this.spawnAt(x, y);
         plankton++;
       }
