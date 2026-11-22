@@ -412,5 +412,254 @@
     },
     "unlockLevel": 22,
     "intro": "Fast hunters in packs. Keep moving, or hide in kelp"
+  },
+  "archerfish": {
+    "displayName": "Archerfish",
+    "sprite": "fish_blue",
+    "tier": 1,
+    "baseSize": 12,
+    "baseHP": 14,
+    "baseBite": 2,
+    "accel": 450,
+    "maxSpeed": 215,
+    "sprintMultiplier": 1.7,
+    "drag": 0.97,
+    "turnSpeed": 6.5,
+    "devourRatio": 0.4,
+    "xpValue": 13,
+    "diet": [
+      "food"
+    ],
+    "behavior": {
+      "schooling": true,
+      "aggression": 0.0,
+      "visionRange": 320,
+      "fleeRatio": 1.2
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.3,
+      "weight": 0
+    },
+    "look": "fish-archerfish"
+  },
+  "polar_cod": {
+    "displayName": "Polar Cod",
+    "sprite": "fish_blue",
+    "tier": 1,
+    "baseSize": 11,
+    "baseHP": 13,
+    "baseBite": 2,
+    "accel": 440,
+    "maxSpeed": 205,
+    "sprintMultiplier": 1.7,
+    "drag": 0.97,
+    "turnSpeed": 6.6,
+    "devourRatio": 0.4,
+    "xpValue": 12,
+    "diet": [
+      "food"
+    ],
+    "behavior": {
+      "schooling": true,
+      "aggression": 0.0,
+      "visionRange": 290,
+      "fleeRatio": 1.2
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.5,
+      "weight": 0
+    },
+    "look": "fish-polar_cod"
+  },
+  "anglerfish": {
+    "displayName": "Anglerfish",
+    "sprite": "fish_grey",
+    "tier": 3,
+    "baseSize": 34,
+    "baseHP": 140,
+    "baseBite": 22,
+    "accel": 380,
+    "maxSpeed": 150,
+    "sprintMultiplier": 1.5,
+    "drag": 0.97,
+    "turnSpeed": 3.2,
+    "devourRatio": 0.7,
+    "xpValue": 260,
+    "diet": [
+      "tier1",
+      "tier2"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.9,
+      "visionRange": 260,
+      "fleeRatio": 2.0,
+      "ambush": true
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.82,
+      "depthMax": 1.0,
+      "weight": 0
+    },
+    "look": "fish-anglerfish",
+    "rankMul": 3.4,
+    "lure": [
+      1.06,
+      -1.06
+    ],
+    "unlockLevel": 21,
+    "intro": "Its glowing lure hides a huge mouth. Down in the Deep, a light in the dark means danger"
+  },
+  "bull_shark": {
+    "displayName": "Bull Shark",
+    "sprite": "fish_grey",
+    "tier": 4,
+    "baseSize": 64,
+    "baseHP": 380,
+    "baseBite": 30,
+    "accel": 480,
+    "maxSpeed": 230,
+    "sprintMultiplier": 1.7,
+    "drag": 0.975,
+    "turnSpeed": 2.8,
+    "devourRatio": 0.6,
+    "xpValue": 380,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 1.0,
+      "visionRange": 380,
+      "fleeRatio": 2.0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.15,
+      "depthMax": 0.85,
+      "weight": 0
+    },
+    "look": "fish-bull_shark",
+    "rankMul": 1.4,
+    "unlockLevel": 16,
+    "intro": "Bull sharks love the murky Mangrove Swamp. They bump, then bite"
+  },
+  "leopard_seal": {
+    "displayName": "Leopard Seal",
+    "sprite": "fish_grey",
+    "tier": 4,
+    "baseSize": 56,
+    "baseHP": 340,
+    "baseBite": 28,
+    "accel": 560,
+    "maxSpeed": 290,
+    "sprintMultiplier": 1.8,
+    "drag": 0.975,
+    "turnSpeed": 3.8,
+    "devourRatio": 0.6,
+    "xpValue": 400,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.9,
+      "visionRange": 520,
+      "fleeRatio": 2.0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.5,
+      "weight": 0
+    },
+    "look": "fish-leopard_seal",
+    "rankMul": 1.8,
+    "unlockLevel": 19,
+    "intro": "The hunter of the Frozen Sea. Fast and agile near the ice"
+  },
+  "great_white": {
+    "displayName": "Great White Shark",
+    "sprite": "fish_grey",
+    "tier": 4,
+    "baseSize": 115,
+    "baseHP": 900,
+    "baseBite": 60,
+    "accel": 520,
+    "maxSpeed": 270,
+    "sprintMultiplier": 1.8,
+    "drag": 0.975,
+    "turnSpeed": 2.4,
+    "devourRatio": 0.6,
+    "xpValue": 800,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 1.0,
+      "visionRange": 650,
+      "fleeRatio": 2.0,
+      "ambush": true
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.35,
+      "depthMax": 1.0,
+      "weight": 0
+    },
+    "look": "fish-great_white",
+    "rankMul": 1.2,
+    "armor": 0.1,
+    "unlockLevel": 25,
+    "intro": "Great whites strike from below in one fast rush. Watch the dark water under you"
+  },
+  "sperm_whale": {
+    "displayName": "Sperm Whale",
+    "sprite": "fish_grey",
+    "tier": 5,
+    "baseSize": 200,
+    "baseHP": 2600,
+    "baseBite": 80,
+    "accel": 260,
+    "maxSpeed": 170,
+    "sprintMultiplier": 1.5,
+    "drag": 0.98,
+    "turnSpeed": 1.4,
+    "devourRatio": 0.45,
+    "xpValue": 2000,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3",
+      "tier4"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.35,
+      "visionRange": 700,
+      "fleeRatio": 99
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.45,
+      "depthMax": 1.0,
+      "weight": 0
+    },
+    "look": "fish-sperm_whale",
+    "armor": 0.35,
+    "unlockLevel": 30,
+    "intro": "The giant of the deep. Mostly calm, but it hunts sharks, and you"
   }
 }

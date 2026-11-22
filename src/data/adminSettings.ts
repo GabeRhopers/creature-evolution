@@ -3,7 +3,7 @@
 // Each enemy (every reef creature that spawns, not the heroes) has a few safe numbers. Changes are
 // saved on this device (localStorage) and applied to the shared SPECIES / BALANCE data when the game
 // starts and when you press Save, so the next swim uses them. "Reset" brings back the shipped values.
-import { BALANCE, SPECIES } from './index';
+import { BALANCE, SPECIES, biomeWeight } from './index';
 
 export interface EnemyField {
   key: string;
@@ -17,6 +17,7 @@ export interface EnemyField {
 }
 
 const pop = BALANCE.population as Record<string, number>;
+const biomes = ((BALANCE as unknown as { biomes?: Record<string, Record<string, number>> }).biomes ??= {});
 const sp = (id: string) => SPECIES[id] as unknown as Record<string, unknown> & { behavior: Record<string, unknown> };
 
 /** The editable numbers for each enemy, with safe ranges. */
@@ -37,6 +38,13 @@ export const ENEMY_FIELDS: EnemyField[] = [
     get: (id) => Number(sp(id).baseBite), set: (id, v) => { sp(id).baseBite = v; } },
   { key: 'rankMul', label: 'Fights above its size', help: '1 = normal. Higher = it fights and hunts like a bigger fish.', min: 1, max: 5, step: 0.1,
     get: (id) => Number(sp(id).rankMul ?? 1), set: (id, v) => { sp(id).rankMul = v <= 1 ? undefined : v; } },
+  // Where it lives: one weight per region (balance "biomes"). 0 = never there.
+  ...(BALANCE.regions.list as Array<{ id: string; name: string }>).map((r): EnemyField => ({
+    key: 'biome_' + r.id, label: 'In ' + r.name, help: `How much it likes the ${r.name} (0 = never there, 1 = normal, 3 = crowded).`,
+    min: 0, max: 3, step: 0.05,
+    get: (id) => biomeWeight(id, r.id),
+    set: (id, v) => { (biomes[id] ??= {})[r.id] = v; },
+  })),
 ];
 
 /** Enemies = species that spawn in the sea (have a population entry). */

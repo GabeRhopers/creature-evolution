@@ -129,5 +129,19 @@
       12
     ],
     "notes": "The Checkpoint Crab, seen from the front (it scuttles sideways). Wide for both claws, tall for the eye stalks, claws and legs. The game keeps it upright: it never tilts, it only turns left and right."
+  },
+  "whale": {
+    "extends": "default",
+    "name": "Whale",
+    "canvas": [
+      192,
+      72
+    ],
+    "bodyRadius": 38,
+    "mouth": [
+      161,
+      52
+    ],
+    "notes": "The biggest creatures (Sperm Whale): long body, square head, flukes that swing up and down. About 5 world pixels per art pixel."
   }
 }

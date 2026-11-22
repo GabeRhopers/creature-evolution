@@ -155,6 +155,19 @@ skips them; `spawnUnlocked` adds them on level-up with a NEW banner and the spec
 Lionfish (6, `venom`: biting or swallowing it costs the player health), Moray Eel (14, `behavior.ambush`:
 lurks, one lunge per hunt, short chase), Barracuda (22, pack hunter). `rankMul` lets a slim fish fight
 above its size (AI rank and power = size x rankMul). Looks drawn by `tools/fish/draw_fish.py`.
+More creatures (`tools/fish/draw_more.py`, which imports the helpers from `draw_fish.py`): Archerfish (swamp prey),
+Polar Cod (ice prey), Bull Shark (16, swamp), Leopard Seal (19, ice, shallow), Anglerfish (21, the Deep, `ambush`,
+`lure`: a glowing dot drawn by LightScene at that offset in body radii), Great White Shark (25, `ambush`, strikes
+from below), Sperm Whale (30, framework `whale`, 192x72 canvas, `armor`, mostly calm, hunts tier 4). Drawings may be
+up to 192 px wide (`validateProject`, studio size inputs). When several enemies unlock at once, each gets a banner.
+
+## Region fish (`balance.json` "biomes", `pickHomeX` in `src/systems/regions.ts`)
+Each species has a weight per region (0 = never there; missing = 1, read with `biomeWeight`). `spawnAmbientFish`
+shares a species' fish out by weight x region width; each Creature gets `homeX(near?)`: Brains use it for wander
+targets (stay within `roam` px while the region suits them and the spot does not cross into a region they like less,
+otherwise head for a liked region) and `respawnAmbient` uses it too. Hunting and fleeing can still carry a fish
+across a border; wandering brings it home. The weights are editable per enemy in Options > Enemy settings
+("In Coral Sea", ...). E2E: `tests/e2e/creatures.mjs`; unit: `tests/creatures.test.ts`.
 
 ## Player damage rules (`GameScene.attackPlayer`)
 AI never swallows the player. Predators that could swallow you "chomp" (x1.5 damage);
