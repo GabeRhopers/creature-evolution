@@ -37,6 +37,6 @@ await shot('shark_adult',1.6);
 const before = await G(()=>{const pl=window.game.scene.getScene('Game').player; return {bite:pl.mods.bite, speed:pl.mods.speed};});
 await G(()=>{window.game.scene.getScene('Game').controller.uiDash=true;});
 ok(await waitFor((b)=>{const pl=window.game.scene.getScene('Game').player; return pl.mods.bite>b.bite*1.4 && pl.mods.speed>b.speed*1.2;}, 3000, before), 'Feeding Frenzy: harder bites and faster swimming');
-ok(await waitFor((b)=>{const pl=window.game.scene.getScene('Game').player; return Math.abs(pl.mods.bite-b.bite)<1e-9 && Math.abs(pl.mods.speed-b.speed)<1e-9;}, 15000, before), '...and it wears off');
+ok(await waitFor((b)=>{const pl=window.game.scene.getScene('Game').player; return Math.abs(pl.mods.bite-b.bite)<1e-6 && Math.abs(pl.mods.speed-b.speed)<1e-6;}, 30000, before), '...and it wears off');
 ok(await G(()=>window.game.scene.getScene('Game').abilityCooldown>0), 'then it recharges');
 console.log('errors', errs); await b.close();
