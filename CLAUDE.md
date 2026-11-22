@@ -92,10 +92,12 @@ circles in the `rocks` group (solid, open underneath); vents puff bubbles and he
 ball, bottles) bob at the surface. Far parallax layers: islands on the horizon (Shallows), faded peaks (Reef).
 
 ## The looping world and regions (`src/systems/regions.ts`, `balance.json` "world", "regions")
-The sea is `world.width` (18000) wide and loops: x and x + W are the same place. Regions left to right: Coral Sea
-(0-9000, the original map), Mangrove Swamp, Frozen Sea; each has water colors (`regionStops`), ground colors
-(`makeGround`, chunked to 1024 art px for iPads), kelp (reeds, brown kelp), rock tint and island style (`sand`,
-`mangrove`, `iceberg`); borders blend over `regions.blend` (dithered). Terrain shapes use loop distance and
+The sea is `world.width` (36000) wide and loops: x and x + W are the same place. Regions left to right: Coral Sea
+(0-12000; 0-9000 is the original map), Mangrove Swamp (12000-19000), Volcanic Rift (19000-28000), Frozen Sea
+(28000-36000); each has water colors (`regionStops`), ground colors (`makeGround`, chunked to 1024 art px for iPads),
+kelp (reeds, tube worms, brown kelp), rock tint, island style (`sand`, `mangrove`, `volcano`, `iceberg`) and music
+mood. Volcano islands (`makeVolcano`, cone shape `volcanoRows`/`VOLCANO_REACH`, shared with `landTopAt`) have a
+glowing crater, lava streams and cracks, no roots; LightScene makes every vent glow orange; borders blend over `regions.blend` (dithered). Terrain shapes use loop distance and
 `wrap(x)`, so the ground repeats. Scenery within `loopOverlap` of an edge is copied past the other edge
 (`mirrorEdges`, incl. rock circles, hide zones, vents, swaying kelp). The player wraps at the edges (`loopWorld`
 -> `loopShift` moves player, camera, food and bubbles by W in one frame); every fish is kept within W/2 of the
@@ -160,6 +162,10 @@ Polar Cod (ice prey), Bull Shark (16, swamp), Leopard Seal (19, ice, shallow), A
 `lure`: a glowing dot drawn by LightScene at that offset in body radii), Great White Shark (25, `ambush`, strikes
 from below), Sperm Whale (30, framework `whale`, 192x72 canvas, `armor`, mostly calm, hunts tier 4). Drawings may be
 up to 192 px wide (`validateProject`, studio size inputs). When several enemies unlock at once, each gets a banner.
+Not fish (`tools/fish/draw_beasts.py`, looks `beast-*`): Box Jellyfish (8, `alpha` see-through, `venom`), Sea Snake (12),
+Giant Octopus (17, Volcanic Rift, `ambush` + `camo`: while slower than `ai.camoStillSpeed` it fades to `ai.camoAlpha`
+and `isHidden` hides it from fish farther than kelpSeeThroughDistance x its size; `Fish.camouflaged`), Giant Squid
+(24, the Deep), Orca (33, Frozen Sea, pods via `schooling`, hunts tier 4). Soft-bodied animals leave a pale body, not a skeleton.
 
 ## Region fish (`balance.json` "biomes", `pickHomeX` in `src/systems/regions.ts`)
 Each species has a weight per region (0 = never there; missing = 1, read with `biomeWeight`). `spawnAmbientFish`

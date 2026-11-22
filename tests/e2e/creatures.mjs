@@ -12,7 +12,7 @@ const grow=async(level)=>{ await G((lv)=>{const g=window.game.scene.getScene('Ga
   await waitFor((lv)=>window.game.scene.getScene('Game').player.level===lv, 8000, level); };
 const has=(id)=>G((id)=>window.game.scene.getScene('Game').creatures.some(c=>c.fish.species.id===id), id);
 /** Where a species' fish are: count per region. */
-const where=(id)=>G((id)=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,ice:0};
+const where=(id)=>G((id)=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,volcano:0,ice:0};
   for (const c of g.creatures) if (c.fish.species.id===id) n[g.regions.at(c.fish.x).id]++; return n;}, id);
 
 await p.goto('http://localhost:4173/'); await G(()=>localStorage.clear()); await p.reload();
@@ -24,21 +24,39 @@ await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMod
 
 // Region mixes at the start of a run.
 const tang = await where('blue_tang'), archer = await where('archerfish'), cod = await where('polar_cod');
-ok(tang.coral > (tang.swamp + tang.ice) * 3 && tang.ice === 0, 'blue tangs crowd the Coral Sea, none in the ice: '+JSON.stringify(tang));
-ok(archer.swamp > 0 && archer.coral === 0 && archer.ice === 0, 'archerfish live in the Mangrove Swamp: '+JSON.stringify(archer));
-ok(cod.ice > 0 && cod.coral === 0 && cod.swamp === 0, 'polar cod live in the Frozen Sea: '+JSON.stringify(cod));
+ok(tang.coral > tang.swamp + tang.volcano + tang.ice && tang.ice === 0, 'blue tangs crowd the Coral Sea, none in the ice: '+JSON.stringify(tang));
+ok(archer.swamp > 0 && archer.coral + archer.volcano + archer.ice === 0, 'archerfish live in the Mangrove Swamp: '+JSON.stringify(archer));
+ok(cod.ice > 0 && cod.coral + cod.swamp + cod.volcano === 0, 'polar cod live in the Frozen Sea: '+JSON.stringify(cod));
 ok(!(await has('bull_shark')) && !(await has('sperm_whale')), 'no new hunters at level 1');
 
 // Hunters join at their levels, each with a NEW banner.
-for (const [lv, id, name] of [[16,'bull_shark','Bull Shark'],[19,'leopard_seal','Leopard Seal'],[21,'anglerfish','Anglerfish'],[25,'great_white','Great White Shark'],[30,'sperm_whale','Sperm Whale']]) {
+for (const [lv, id, name] of [[8,'box_jelly','Box Jellyfish'],[12,'sea_snake','Sea Snake'],[16,'bull_shark','Bull Shark'],[17,'giant_octopus','Giant Octopus'],[19,'leopard_seal','Leopard Seal'],[21,'anglerfish','Anglerfish'],[24,'giant_squid','Giant Squid'],[25,'great_white','Great White Shark'],[30,'sperm_whale','Sperm Whale'],[33,'orca','Orca']]) {
   await grow(lv);
   ok(await waitFor((id)=>window.game.scene.getScene('Game').creatures.some(c=>c.fish.species.id===id), 8000, id), `${name} joins at level ${lv}`);
   ok(await waitFor((n)=>window.__news.includes(n), 25000, name), `with a NEW banner for ${name}`);
 }
 const seal = await where('leopard_seal'), whale = await where('sperm_whale'), bull = await where('bull_shark');
-ok(seal.ice > seal.coral + seal.swamp, 'leopard seals stay mostly in the Frozen Sea: '+JSON.stringify(seal));
-ok(bull.swamp > bull.coral + bull.ice, 'bull sharks stay mostly in the swamp: '+JSON.stringify(bull));
+ok(seal.ice > seal.coral + seal.swamp + seal.volcano, 'leopard seals stay mostly in the Frozen Sea: '+JSON.stringify(seal));
+ok(bull.swamp >= bull.coral && bull.ice + bull.volcano === 0, 'bull sharks stay mostly in the swamp: '+JSON.stringify(bull));
 ok(whale.swamp === 0, 'no whales in the shallow swamp: '+JSON.stringify(whale));
+
+const octo = await where('giant_octopus'), orca = await where('orca');
+ok(octo.volcano > octo.coral + octo.swamp + octo.ice, 'octopuses live mostly in the Volcanic Rift: '+JSON.stringify(octo));
+ok(orca.ice > orca.coral + orca.swamp + orca.volcano, 'orca pods hunt mostly in the Frozen Sea: '+JSON.stringify(orca));
+ok(await G(()=>{const c=window.game.scene.getScene('Game').creatures.find(c=>c.fish.species.id==='box_jelly'); return c.fish.alpha < 1;}), 'the box jellyfish is see-through');
+// An octopus sitting still fades and hides from fish farther away.
+const camo = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.fish.species.id==='giant_octopus'); const f=c.fish;
+  f.arcadeBody.setVelocity(0,0); f.hp=f.maxHp; f.pose(0.016); const fish=g.creatures.find(o=>o.fish.species.id==='red_grouper').fish;
+  fish.setPosition(f.x + f.size*8, f.y); const far=g.isHidden(f, fish); fish.setPosition(f.x + f.size*2, f.y); const near=g.isHidden(f, fish);
+  return {alpha:f.alpha, camo:f.camouflaged, far, near};});
+ok(camo.camo && camo.alpha < 0.5 && camo.far && !camo.near, 'a still octopus fades and hides from fish farther away: '+JSON.stringify(camo));
+await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player;
+  const o=g.creatures.find(c=>c.fish.species.id==='orca'); o.fish.arcadeBody.reset(pl.x+600, pl.y-100);
+  const s=g.creatures.find(c=>c.fish.species.id==='giant_squid'); s.fish.arcadeBody.reset(pl.x-500, pl.y+150);
+  const j=g.creatures.find(c=>c.fish.species.id==='box_jelly'); j.fish.arcadeBody.reset(pl.x+150, pl.y+250);
+  const n=g.creatures.find(c=>c.fish.species.id==='sea_snake'); n.fish.arcadeBody.reset(pl.x-250, pl.y-200);
+  const q=g.creatures.find(c=>c.fish.species.id==='giant_octopus'); q.fish.arcadeBody.reset(pl.x+350, pl.y+120); pl.invulnTimer=30;});
+await p.waitForTimeout(500); await p.screenshot({path:'/home/claude/stages/creatures_beasts.png'});
 
 // Wandering keeps them home: a cod placed in the Coral Sea aims back for the ice.
 const back = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.fish.species.id==='polar_cod');

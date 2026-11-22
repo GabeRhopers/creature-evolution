@@ -87,6 +87,10 @@ export interface Species {
   armor?: number;
   /** A glowing lure (anglerfish): where it sits, in body radii from the body center, facing right. */
   lure?: [number, number];
+  /** See-through (jellyfish): drawn at this alpha. */
+  alpha?: number;
+  /** Camouflage (octopus): fades and hides from fish farther away while it sits still. */
+  camo?: boolean;
 }
 
 export type Balance = typeof balanceJson;

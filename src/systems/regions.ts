@@ -1,9 +1,9 @@
-// Regions of the looping sea (left to right): the Coral Sea, the Mangrove Swamp and the Frozen Sea.
+// Regions of the looping sea (left to right): the Coral Sea, the Mangrove Swamp, the Volcanic Rift and the Frozen Sea.
 // Each region has its own water colors, ground, rocks and plants; neighbors blend over `blend` px.
 // Pure data and math; numbers live in balance.json "regions".
 import { bayer, hash01 } from './worldTextures';
 
-export type RegionId = 'coral' | 'swamp' | 'ice';
+export type RegionId = 'coral' | 'swamp' | 'volcano' | 'ice';
 export interface RegionDef {
   id: RegionId;
   name: string;

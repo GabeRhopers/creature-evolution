@@ -20,10 +20,12 @@ await G(() => { const g = window.game.scene.getScene('Game'); g.dayTime = g.dayN
 ok(await waitFor(() => window.game.scene.getScene('Hud').wantMood === 'moonlit'), 'night: Moonlit Reef');
 await G(() => { const g = window.game.scene.getScene('Game'); g.dayTime = g.dayNight.startOf('dusk') + 25; });
 ok(await waitFor(() => window.game.scene.getScene('Hud').wantMood === 'golden'), 'dusk: Golden Hour');
-await G(() => { const g = window.game.scene.getScene('Game'); g.player.setPosition(11000, 600); });
+await G(() => { const g = window.game.scene.getScene('Game'); g.player.setPosition(15000, 600); });
 ok(await waitFor(() => window.game.scene.getScene('Hud').wantMood === 'swamp'), 'the Swamp has its own music');
-await G(() => { const g = window.game.scene.getScene('Game'); g.player.setPosition(15800, 600); });
+await G(() => { const g = window.game.scene.getScene('Game'); g.player.setPosition(32000, 600); });
 ok(await waitFor(() => window.game.scene.getScene('Hud').wantMood === 'ice'), 'so does the Frozen Sea');
+await G(() => { const g = window.game.scene.getScene('Game'); g.player.setPosition(23000, 600); });
+ok(await waitFor(() => window.game.scene.getScene('Hud').wantMood === 'volcano'), 'and the Volcanic Rift (Fire Below)');
 await G(() => { const g = window.game.scene.getScene('Game'); g.crabLevel = 20; g.player.setLevel(25); g.player.setPosition(4300, g.seabedTop - 160); });
 ok(await waitFor(() => window.game.scene.getScene('Hud').wantMood === 'deep'), 'deep water: Into the Deep');
 await G(() => { const g = window.game.scene.getScene('Game'); g.player.setPosition(4300, 600); if (!g.crab) g.spawnCrab(20); g.crab.fish.setPosition(4600, 700); });
