@@ -50,7 +50,7 @@ jobs:
           npx vite preview --port 4173 --strictPort &
           for i in $(seq 1 60); do curl -sf http://localhost:4173/ >/dev/null && break; sleep 1; done
           fail=0
-          for t in stages framework roundtrip save_e2e perks areas studio_save mosa shark crab enemies slots gamepad tides studio_game terrain; do
+          for t in stages framework roundtrip save_e2e perks areas studio_save mosa shark crab enemies slots gamepad tides studio_game terrain pad_map; do
             echo "::group::$t"
             node tests/e2e/$t.mjs | tee /tmp/$t.log || fail=1
             grep -q '^FAIL' /tmp/$t.log && fail=1

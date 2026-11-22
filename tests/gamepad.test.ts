@@ -81,3 +81,49 @@ describe('controller input', () => {
     expect(pads.inUse).toBe(false);
   });
 });
+
+import { DEFAULT_PAD_MAP, PAD as P2, Pads as Pads2, assignButton, padHint, sanitizePadMap } from '../src/input/gamepad';
+
+describe('controller button mapping', () => {
+  it('keeps a good map and rejects junk', () => {
+    expect(sanitizePadMap(null)).toBeNull();
+    expect(sanitizePadMap({ eat: [2], sprint: [1], ability: [0], pause: [9] })).toEqual({ eat: [2], sprint: [1], ability: [0], pause: [9] });
+    // A button used twice only counts once; the D-pad can't be mapped; an action left empty -> default map.
+    expect(sanitizePadMap({ eat: [0], sprint: [0], ability: [12], pause: [9] })).toBeNull();
+    expect(sanitizePadMap('x')).toBeNull();
+  });
+  it('moving a button takes it from the other action, and no action is left without a button', () => {
+    const m = assignButton(DEFAULT_PAD_MAP, 'eat', P2.X, true);
+    expect(m.eat).toEqual([P2.X]);
+    expect(m.ability).not.toContain(P2.X);
+    const m2 = assignButton({ eat: [0], sprint: [1], ability: [2], pause: [9] }, 'eat', 2, false);
+    expect(m2.eat).toEqual([0, 2]);
+    expect(m2.ability.length).toBeGreaterThan(0);
+    expect(m2.ability).not.toContain(2);
+  });
+  it('the game reads actions through the map', () => {
+    let pressed = [false, false, false];
+    const fake = () => [{ connected: true, id: 'Test pad', axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: !!pressed[i], value: pressed[i] ? 1 : 0 })) }] as unknown as Gamepad[];
+    let t = 0;
+    const p = new Pads2(fake, () => (t += 16));
+    p.map = assignButton(DEFAULT_PAD_MAP, 'eat', P2.X, true);
+    pressed = [false, false, true];
+    p.poll();
+    expect(p.act('eat')).toBe(true);
+    expect(p.actJust('ability')).toBe(false);
+    expect(p.firstPressed()).toBe(P2.X);
+    expect(padHint(p.map)).toContain('X eat');
+  });
+});
+
+import { buttonName, padStyle } from '../src/input/gamepad';
+describe('button names per controller', () => {
+  it('names buttons the way each controller prints them', () => {
+    expect(padStyle('Xbox Wireless Controller (STANDARD GAMEPAD Vendor: 045e)')).toBe('xbox');
+    expect(padStyle('DualSense Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 0ce6)')).toBe('playstation');
+    expect(padStyle('Pro Controller (STANDARD GAMEPAD Vendor: 057e Product: 2009)')).toBe('switch');
+    expect(buttonName(0, 'playstation')).toBe('Cross');
+    expect(buttonName(0, 'switch')).toBe('B');
+    expect(buttonName(9, 'xbox')).toBe('Menu');
+  });
+});

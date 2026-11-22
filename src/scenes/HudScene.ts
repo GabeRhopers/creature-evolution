@@ -5,10 +5,9 @@ import { BALANCE, legendLevel, tideOf } from '../data';
 import type { GameScene } from './GameScene';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Joystick } from '../ui/Joystick';
-import { PAD, pads } from '../input/gamepad';
+import { PAD, padHint, pads } from '../input/gamepad';
 
 /** Help line while a controller is in use. */
-const PAD_HINT = 'Controller: left stick swim | A eat (green swallow, orange bite) | B or triggers sprint | X ability | Start pause';
 
 /** Pixel font for labels, numbers and banners (loaded in index.html). */
 const FONT = '"Pixelify Sans", "Courier New", monospace';
@@ -434,7 +433,7 @@ export class HudScene extends Phaser.Scene {
     if (!p) return;
     // Controller: the help line shows its buttons while it is in use; the death screen answers A and B.
     pads.poll();
-    const hint = pads.inUse ? PAD_HINT : this.baseHint;
+    const hint = pads.inUse ? padHint(pads.map, pads.style) : this.baseHint;
     if (this.hint.text !== hint) this.hint.setText(hint);
     if (this.deathLayer.visible && this.deathLayer.alpha > 0.5) {
       if (pads.justDown(PAD.A)) this.respawn();

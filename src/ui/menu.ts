@@ -11,7 +11,7 @@ import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
 import { APP_VERSION, SLOT_COUNT, cleanSlotName, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
 import { perkIconUrl } from './perkIcons';
-import { PAD, pads } from '../input/gamepad';
+import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
 import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
 import type { PerkDef } from '../systems/perks';
 import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
@@ -42,6 +42,8 @@ export function initMenu(game: Phaser.Game): void {
   const loadedProfile = saves.loadProfile();
   const profile: Profile = loadedProfile.data;
   const opts = profile.settings;
+  // Controller buttons saved in Options.
+  pads.map = opts.padMap ?? DEFAULT_PAD_MAP;
   const saveProfile = () => {
     if (!saves.saveProfile(profile)) badge('Could not save on this device', true);
   };
@@ -344,7 +346,7 @@ export function initMenu(game: Phaser.Game): void {
           : `<li><b>Swim:</b> WASD or arrow keys, or hold the mouse button.</li>
              <li><b>Eat / bite:</b> Space or right-click. <b>Sprint:</b> Shift. <b>Dash:</b> E or Q.</li>`
       }
-      <li><b>Controller</b> (Xbox, PlayStation, most Bluetooth pads): left stick or D-pad to swim, <b>A</b> eat, <b>B</b> or a trigger sprint, <b>X</b> your stage ability, <b>Start</b> pause. In menus, move with the D-pad, <b>A</b> to choose, <b>B</b> to go back.</li></ul>
+      <li><b>Controller</b> (Xbox, PlayStation, most Bluetooth pads): left stick or D-pad to swim, <b>${buttonsLabel(pads.map, 'eat', pads.style)}</b> eat, <b>${buttonsLabel(pads.map, 'sprint', pads.style)}</b> sprint, <b>${buttonsLabel(pads.map, 'ability', pads.style)}</b> your stage ability, <b>${buttonsLabel(pads.map, 'pause', pads.style)}</b> pause. Change them in Options, Controller buttons. In menus, move with the D-pad, <b>A</b> to choose, <b>B</b> to go back.</li></ul>
       <h4>Eating</h4>
       <ul>
         <li>Plankton and meat chunks are eaten just by touching them with your mouth.</li>
@@ -423,6 +425,7 @@ export function initMenu(game: Phaser.Game): void {
     openPanel(
       `<h3>Options</h3>${optionsHtml()}
       <div class="toggle"><span>Your crocodile<br><span style="color:var(--muted);font-size:13px">Drawings from Sprite Studio</span></span><select id="oSkin" aria-label="Your crocodile"><option value="">Grows with each stage</option></select></div>
+      <div class="toggle"><span>Controller buttons<br><span style="color:var(--muted);font-size:13px">Choose which button does what</span></span><button class="btn" id="oPad">Set up</button></div>
       <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${profile.best.level ? `Level ${profile.best.level} · ${lt.runs} runs played` : 'None yet'}</span></span><button class="btn" id="oReset" data-label="Reset">Reset</button></div>
       <div class="toggle"><span>Reset everything<br><span style="color:var(--muted);font-size:13px">Settings, records and the saved run</span></span><button class="btn" id="oResetAll" data-label="Reset all">Reset all</button></div>
       <p style="color:var(--muted);font-size:13px">${
@@ -435,6 +438,7 @@ export function initMenu(game: Phaser.Game): void {
         bindOptions();
         $('pClose').onclick = closePanel;
         fillSkinPicker($('oSkin') as HTMLSelectElement);
+        $('oPad').onclick = openPadMap;
         confirmButton('oReset', 'Tap again to reset', () => {
           profile.best = { level: 0, kills: 0, fish: 0 };
           saveProfile();
@@ -449,6 +453,70 @@ export function initMenu(game: Phaser.Game): void {
     );
   }
   $('cardOptions').addEventListener('click', openOptions);
+
+  // ---------------------------------------------------------------- controller buttons (mapping)
+  /** Waiting for a controller button for this action (the menu's own pad handling pauses meanwhile). */
+  let capturing: { action: PadAction; replace: boolean; until: number } | null = null;
+  function savePadMap(map: typeof pads.map): void {
+    pads.map = map;
+    const isDefault = PAD_ACTIONS.every((a) => map[a].join() === DEFAULT_PAD_MAP[a].join());
+    opts.padMap = isDefault ? null : map;
+    saveProfile();
+  }
+  function openPadMap(): void {
+    capturing = null;
+    pads.poll();
+    const rows = PAD_ACTIONS.map(
+      (a) => `<div class="toggle pad-row"><span><b>${PAD_ACTION_NAMES[a]}</b><br><span class="pad-btns" id="pm_${a}">${esc(buttonsLabel(pads.map, a, pads.style))}</span></span>
+        <span class="row"><button class="btn" data-pm="${a}" data-mode="set">Change</button><button class="btn" data-pm="${a}" data-mode="add">Add</button></span></div>`,
+    ).join('');
+    openPanel(
+      `<h3>Controller buttons</h3>
+      <p class="saved-line" id="pmStatus">${pads.connected ? `Controller: ${esc(pads.name.replace(/\(.*\)/, '').trim().slice(0, 40) || 'connected')}` : 'No controller found yet. Connect one and press any button on it.'}</p>
+      ${rows}
+      <p style="color:var(--muted);font-size:13px">Change = only the button you press next. Add = one more button for it. Swimming stays on the left stick and D-pad; menus always use ${buttonName(0, pads.style)} to choose and ${buttonName(1, pads.style)} to go back.</p>
+      <div class="row"><button class="btn" id="pmReset">Default buttons</button><button class="btn" id="pmBack">Done</button></div>`,
+      () => {
+        panel.querySelectorAll<HTMLButtonElement>('[data-pm]').forEach((b) => {
+          b.onclick = () => {
+            const action = b.dataset.pm as PadAction;
+            capturing = { action, replace: b.dataset.mode === 'set', until: performance.now() + 8000 };
+            $('pmStatus').innerHTML = `Press a button on your controller for <b>${PAD_ACTION_NAMES[action]}</b>... <button class="btn" id="pmCancel">Cancel</button>`;
+            $('pmCancel').onclick = openPadMap;
+          };
+        });
+        $('pmReset').onclick = () => {
+          savePadMap(DEFAULT_PAD_MAP);
+          openPadMap();
+          badge('Controller buttons back to default');
+        };
+        $('pmBack').onclick = openOptions;
+      },
+    );
+  }
+  /** Called from the pad loop while waiting for a button. Returns true while it owns the controller. */
+  function capturePad(): boolean {
+    if (!capturing) return false;
+    if (!wrap.classList.contains('open')) {
+      capturing = null;
+      return false;
+    }
+    if (performance.now() > capturing.until) {
+      openPadMap();
+      return true;
+    }
+    const b = pads.firstPressed();
+    if (b < 0) return true;
+    const { action, replace } = capturing;
+    capturing = null;
+    savePadMap(assignButton(pads.map, action, b, replace));
+    openPadMap();
+    badge(`${PAD_ACTION_NAMES[action]}: ${buttonName(b, pads.style)}`);
+    // Keep the menu from also acting on this press.
+    padSkipUntil = performance.now() + 250;
+    return true;
+  }
+  let padSkipUntil = 0;
 
   async function fillSkinPicker(sel: HTMLSelectElement): Promise<void> {
     const list = await listStudioProjects();
@@ -659,10 +727,11 @@ export function initMenu(game: Phaser.Game): void {
   function padLoop(): void {
     requestAnimationFrame(padLoop);
     pads.poll();
+    if (capturePad() || performance.now() < padSkipUntil) return;
     if (!pads.connected) return;
     const panelOpen = wrap.classList.contains('open');
     const root = panelOpen ? panel : home.classList.contains('open') ? home : null;
-    if (pads.justDown(PAD.START)) {
+    if (pads.actJust('pause')) {
       if (paused && !choosingPerk) return void closePanel();
       if (!root && playing()) return void pause();
       if (root === home) return void (($('btnContinue') as HTMLButtonElement).hidden ? $('btnPlay') : $('btnContinue')).click();

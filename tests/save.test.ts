@@ -60,14 +60,14 @@ describe('profile', () => {
     store.setItem('ce.best', JSON.stringify({ level: 5, kills: 1, fish: 4 }));
     const { sm } = fresh(store);
     const p = sm.loadProfile();
-    expect(p.data.settings).toEqual({ music: false, sfx: true, difficulty: 'hard', skin: null, hero: null });
+    expect(p.data.settings).toEqual({ music: false, sfx: true, difficulty: 'hard', skin: null, hero: null, padMap: null });
     expect(p.data.best.level).toBe(5);
     expect(store.raw('ce.save.profile')).toBeTruthy();
   });
 
   it('cleans junk values', () => {
     const p = sanitizeProfile({ settings: { music: 'yes', difficulty: 'insane' }, best: { level: -4, kills: NaN } });
-    expect(p.settings).toEqual({ music: true, sfx: true, difficulty: 'normal', skin: null, hero: null });
+    expect(p.settings).toEqual({ music: true, sfx: true, difficulty: 'normal', skin: null, hero: null, padMap: null });
     expect(sanitizeProfile({ settings: { skin: 'croc' } }).settings.skin).toBe('croc');
     expect(sanitizeProfile({ settings: { skin: '<script>' } }).settings.skin).toBeNull();
     expect(p.best.level).toBe(0);
