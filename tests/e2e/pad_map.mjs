@@ -27,8 +27,11 @@ ok((await p.textContent('#pmStatus')).includes('Virtual Pad'), 'it names the con
 // Change Eat to X: tap Change, then press X on the controller.
 await p.click('[data-pm="eat"][data-mode="set"]');
 ok((await p.textContent('#pmStatus')).includes('Press a button'), 'it asks for a button');
-await tap(X);
-ok(await waitFor(()=>document.getElementById('pm_eat')?.textContent.startsWith('X'), 5000), 'Eat now shows the X button');
+// Hold X until the page takes it: slow CI runners can draw only a few frames a second.
+await btn(X,true);
+const took = await waitFor(()=>document.getElementById('pm_eat')?.textContent.startsWith('X'), 15000);
+await btn(X,false); await p.waitForTimeout(400);
+ok(took, 'Eat now shows the X button');
 ok(await G(()=>!document.getElementById('pm_ability').textContent.includes('X /')), 'X was taken off Ability');
 const m = await saved();
 ok(m && m.eat.join()==='2' && !m.ability.includes(2), 'the mapping is saved: ' + JSON.stringify(m));
