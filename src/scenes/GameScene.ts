@@ -327,6 +327,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     // Clamp dt so a background tab or hitch does not launch fish across the map.
     const dt = Math.min(deltaMs / 1000, 1 / 20);
     this.updateDayNight(dt);
+    this.updateMood(dt);
 
     if (this.menuMode) {
       this.updateAttract(dt, time);
@@ -1158,6 +1159,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.crab = c;
     this.crabMilestone = milestone;
     this.hud.crabAppeared(milestone);
+    this.sfx.crabHorn();
     this.sfx.stun();
     window.dispatchEvent(new CustomEvent('ce:crab', { detail: { appeared: milestone } }));
   }
@@ -1669,8 +1671,30 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (!this.menuMode && !this.dead) {
         const k = BALANCE.dayNight.periods[p];
         this.hud?.dayPeriod(k.name, k.line);
+        if (p === 'dawn' || p === 'dusk') this.sfx.periodChime(p === 'dawn');
       }
     }
+  }
+
+  // ---------------------------------------------------------------- soundtrack mood
+
+  private moodTimer = 0;
+  /** Pick the music for where and when you are: crab fight, the Deep, the region, then the time of day. */
+  private updateMood(dt: number): void {
+    this.moodTimer -= dt;
+    if (this.moodTimer > 0 || !this.light) return;
+    this.moodTimer = 1;
+    const p = this.player;
+    const x = this.menuMode || !p ? this.cameras.main.worldView.centerX : p.x;
+    const region = this.regions.at(x).id;
+    let mood = 'sunny';
+    const crabNear = this.crab && p && Phaser.Math.Distance.Between(this.crab.fish.x, this.crab.fish.y, p.x, p.y) < 1400;
+    if (!this.menuMode && crabNear) mood = 'crab';
+    else if (!this.menuMode && p && this.depthOf(p.y) > 0.72) mood = 'deep';
+    else if (region === 'swamp') mood = 'swamp';
+    else if (region === 'ice') mood = 'ice';
+    else mood = this.period === 'night' ? 'moonlit' : this.period === 'day' ? 'sunny' : 'golden';
+    this.hud?.setMood(mood, this.menuMode || !p ? 1 : tideOf(p.level), !this.menuMode && this.playerHunted);
   }
 
   // ---------------------------------------------------------------- the looping sea
@@ -1690,7 +1714,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (r !== this.region) {
         const first = this.region === null;
         this.region = r;
-        if (!first && !this.menuMode) this.hud.areaBanner(r.name);
+        if (!first && !this.menuMode) {
+          this.hud.areaBanner(r.name);
+          this.sfx.chime();
+        }
       }
     }
     this.keepNearFocus(p && !this.dead ? p.x : this.cameras.main.worldView.centerX);
@@ -2128,7 +2155,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (!fresh.length) return;
     this.spawnAmbientFish(BALANCE.world.width, fresh);
     const sp = SPECIES[fresh[0]];
-    this.time.delayedCall(1600, () => this.hud.newCreature(sp.displayName, sp.intro ?? ''));
+    this.time.delayedCall(1600, () => {
+      this.hud.newCreature(sp.displayName, sp.intro ?? '');
+      this.sfx.sting();
+    });
   }
 
   // ---------------------------------------------------------------- dev tools

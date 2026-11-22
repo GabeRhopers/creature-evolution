@@ -31,6 +31,11 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
   digesting drops it to `digestTo` (15%). Meat torn off a fish that is still alive is a `scrap`: it gives
   `biteScrapXpFraction` of its XP and does not fill the stomach (it can be eaten even when full); carcass meat fills.
 - `src/audio/Sfx.ts`: all sound effects synthesized with Web Audio (no files). Music: `public/assets/audio/`.
+  Soundtrack (`src/audio/Music.ts`, `balance.json` "music"): moods = the recorded CC0 track (Sunny Reef) plus
+  generated pieces (Golden Hour, Moonlit Reef, Mangrove Mist, Ice Shelf, Into the Deep, Crab Showdown: scale, key,
+  bpm, melody/bass/pad/ticks). `GameScene.updateMood` picks one each second (crab nearby > Deep > region > time
+  of day) and calls `HudScene.setMood`; moods cross-fade; each Tide shifts the key; being hunted adds a low pulse.
+  SFX added: region chime, dawn/dusk chime, crab horn, new-enemy sting, splash.
 - `src/ui/menu.ts` + overlays in `index.html`: home screen (game runs in attract mode behind it,
   `GameScene.menuMode`), how to play, options, credits, pause menu, best record (localStorage).
   Scene API: `startPlay(difficulty)`, `restartRun()`, `goHome()`; events `ce:pause`, `ce:home`, `ce:run`.

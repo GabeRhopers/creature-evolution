@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { Music } from '../audio/Music';
 import { saves } from '../save';
 import { PERK_ICONS, perkIconCanvas } from '../ui/perkIcons';
 import { BALANCE, legendLevel, tideOf } from '../data';
@@ -65,6 +66,7 @@ export class HudScene extends Phaser.Scene {
   private stomachBack!: Phaser.GameObjects.Rectangle;
   private bankFill!: Phaser.GameObjects.Rectangle;
   private music?: Phaser.Sound.BaseSound;
+  private soundtrack!: Music;
   /** Developer buttons (TUNE, GROW) only with ?dev in the URL. */
   private readonly dev = new URLSearchParams(window.location.search).has('dev');
   musicOn = true;
@@ -202,6 +204,10 @@ export class HudScene extends Phaser.Scene {
     this.game$.sfx.setMuted(!this.sfxOn);
 
     if (this.cache.audio.exists('music')) this.music = this.sound.add('music', { loop: true, volume: BALANCE.audio.musicVolume });
+    // Soundtrack: the recorded track plus generated moods (region, time of day, depth, crab).
+    this.soundtrack = new Music(this.sound, this.tweens);
+    this.soundtrack.setFile(this.music);
+    this.soundtrack.setEnabled(this.musicOn);
     this.growBtn = this.makeTapButton('DEV: GROW +1', () => this.game$.player.setLevel(this.game$.player.level + 1));
     this.gearBtn.setVisible(this.dev);
     this.growBtn.setVisible(this.dev);
@@ -237,15 +243,28 @@ export class HudScene extends Phaser.Scene {
 
   /** Start (or resume) the music loop if music is on. Call from a user gesture. */
   startMusic(): void {
-    if (!this.music || !this.musicOn) return;
-    if (!this.music.isPlaying) this.music.play();
+    if (!this.musicOn) return;
+    const ctx = (this.sound as Phaser.Sound.WebAudioSoundManager).context;
+    if (ctx && ctx.state !== 'running') void ctx.resume();
+    this.soundtrack.play(this.wantMood);
   }
 
   setMusicOn(on: boolean): void {
     this.musicOn = on;
-    if (!this.music) return;
+    this.soundtrack.setEnabled(on);
     if (on) this.startMusic();
-    else this.music.stop();
+  }
+
+  /** The game asks for a mood (region, time of day, depth, crab), the Tide and whether you are hunted. */
+  private wantMood = 'sunny';
+  setMood(id: string, tide: number, hunted: boolean): void {
+    if (!this.soundtrack) return;
+    this.soundtrack.setTide(tide);
+    if (id !== this.wantMood) {
+      this.wantMood = id;
+      if (this.musicOn) this.soundtrack.play(id);
+    }
+    this.soundtrack.setDanger(this.musicOn && hunted);
   }
 
   setSfxOn(on: boolean): void {

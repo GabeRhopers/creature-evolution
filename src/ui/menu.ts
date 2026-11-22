@@ -679,7 +679,7 @@ export function initMenu(game: Phaser.Game): void {
       <ul>
         <li><b>Crocodile design:</b> original pixel art by the developer's son, cleaned up and animated.</li>
         <li><b>Fish, kelp, rocks, sand:</b> Fish Pack by Kenney (kenney.nl), CC0.</li>
-        <li><b>Music:</b> "Aquaria" by cynicmusic, CC0.</li>
+        <li><b>Music:</b> "Aquaria" by cynicmusic, CC0 (Sunny Reef). The other pieces are generated live in the game's code.</li>
         <li><b>Sound effects:</b> generated in the game's code.</li>
         <li><b>Engine:</b> Phaser 4.</li>
       </ul>
