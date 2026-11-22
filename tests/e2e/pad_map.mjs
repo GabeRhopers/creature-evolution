@@ -27,8 +27,11 @@ ok((await p.textContent('#pmStatus')).includes('Virtual Pad'), 'it names the con
 // Change Eat to X: tap Change, then press X on the controller.
 await p.click('[data-pm="eat"][data-mode="set"]');
 ok((await p.textContent('#pmStatus')).includes('Press a button'), 'it asks for a button');
-await tap(X);
-ok(await waitFor(()=>document.getElementById('pm_eat')?.textContent.startsWith('X'), 5000), 'Eat now shows the X button');
+// Hold X until the page takes it: slow CI runners can draw only a few frames a second.
+await btn(X,true);
+const took = await waitFor(()=>document.getElementById('pm_eat')?.textContent.startsWith('X'), 15000);
+await btn(X,false); await p.waitForTimeout(400);
+ok(took, 'Eat now shows the X button');
 ok(await G(()=>!document.getElementById('pm_ability').textContent.includes('X /')), 'X was taken off Ability');
 const m = await saved();
 ok(m && m.eat.join()==='2' && !m.ability.includes(2), 'the mapping is saved: ' + JSON.stringify(m));
@@ -46,7 +49,11 @@ await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMod
 await btn(X,true);
 ok(await waitFor(()=>window.game.scene.getScene('Game').controller.wantsSwallow(), 3000), 'after a reload, X eats in the game');
 await btn(X,false);
-await btn(A,true); await p.waitForTimeout(600);
+// Let the game see X go up first (slow runners draw only a few frames a second), then hold A for a few frames.
+await waitFor(()=>!window.game.scene.getScene('Game').controller.wantsSwallow(), 8000);
+await btn(A,true);
+const f0 = await G(()=>window.game.loop.frame);
+await waitFor((f0)=>window.game.loop.frame >= f0 + 6, 15000, f0);
 ok(!(await G(()=>window.game.scene.getScene('Game').controller.wantsSwallow())), 'A no longer eats');
 await btn(A,false);
 await btn(X,true); await p.waitForTimeout(200);
