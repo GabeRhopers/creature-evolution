@@ -19,6 +19,8 @@
 // Pure logic (no Phaser, no DOM besides the injectable storage) so it can be
 // unit-tested.
 
+import { sanitizePadMap, type PadMap } from '../input/gamepad';
+
 export const SAVE_VERSION = 1;
 export const SLOT_COUNT = 3;
 
@@ -33,6 +35,8 @@ export interface Settings {
   skin: string | null;
   /** Hero picked on the home screen (species id; null = the crocodile). */
   hero: string | null;
+  /** Controller buttons per action (null = the default layout). */
+  padMap: PadMap | null;
 }
 export interface Best {
   level: number;
@@ -110,7 +114,7 @@ export interface SaveLimits {
 }
 
 export const DEFAULT_PROFILE: Profile = {
-  settings: { music: true, sfx: true, difficulty: 'normal', skin: null, hero: null },
+  settings: { music: true, sfx: true, difficulty: 'normal', skin: null, hero: null, padMap: null },
   best: { level: 0, kills: 0, fish: 0 },
   lifetime: { runs: 0, deaths: { swallowed: 0, bitten: 0, starved: 0 } },
   slots: { active: 1, names: defaultSlotNames() },
@@ -171,6 +175,7 @@ export function sanitizeProfile(raw: unknown): Profile {
       difficulty: diff(s.difficulty),
       skin: typeof s.skin === 'string' && /^[\w-]{1,40}$/.test(s.skin) ? s.skin : null,
       hero: typeof s.hero === 'string' && /^[\w-]{1,40}$/.test(s.hero) ? s.hero : null,
+      padMap: sanitizePadMap(s.padMap),
     },
     best: { level: int(b.level, 0, 999, 0), kills: int(b.kills, 0, 1e7, 0), fish: int(b.fish, 0, 1e7, 0) },
     lifetime: {

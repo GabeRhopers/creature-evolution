@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Fish, SwimIntent } from './Fish';
-import { PAD, pads } from '../input/gamepad';
+import { pads } from '../input/gamepad';
 
 /**
  * Turns keyboard, mouse and touch input into a SwimIntent for the player fish.
@@ -38,13 +38,13 @@ export class PlayerController {
   /** True while the player wants to eat: swallow or bite (Space, right mouse, EAT button). */
   wantsSwallow(): boolean {
     const mouse = this.scene.input.mousePointer;
-    return this.keys.SPACE.isDown || this.uiSwallow || (mouse.isDown && mouse.rightButtonDown()) || pads.down(PAD.A);
+    return this.keys.SPACE.isDown || this.uiSwallow || (mouse.isDown && mouse.rightButtonDown()) || pads.act('eat');
   }
 
   /** True once per Dash press (E, Q or DASH button). */
   consumeDash(): boolean {
     pads.poll();
-    const pad = pads.justDown(PAD.X) || pads.justDown(PAD.Y) || pads.justDown(PAD.RB);
+    const pad = pads.actJust('ability');
     const pressed = Phaser.Input.Keyboard.JustDown(this.keys.E) || Phaser.Input.Keyboard.JustDown(this.keys.Q) || this.uiDash || pad;
     this.uiDash = false;
     return pressed;
@@ -60,7 +60,7 @@ export class PlayerController {
     if (k.S.isDown || k.DOWN.isDown) dy += 1;
     let strength = dx !== 0 || dy !== 0 ? 1 : 0;
     pads.poll();
-    let sprint = k.SHIFT.isDown || this.uiSprint || pads.down(PAD.B) || pads.down(PAD.LT) || pads.down(PAD.RT);
+    let sprint = k.SHIFT.isDown || this.uiSprint || pads.act('sprint');
 
     // Controller: the left stick is analog (push a little to swim slowly), the D-pad is full speed.
     if (strength === 0 && (pads.x || pads.y)) {

@@ -141,6 +141,11 @@ invulnerability. Armor per species (`armor` in species.json).
   one poll per frame shared by game, HUD and menus). In game: stick/D-pad swim, A eat, B/LT/RT sprint,
   X/Y/RB ability, Start pause. Menus: D-pad moves focus (`.pad-focus`), A presses, B goes back (never skips
   a perk choice). Death screen: A swim again, B home. New actions need a controller button too.
+  Button mapping: in-game actions (`PadAction`: eat, sprint, ability, pause) go through `pads.map`
+  (`pads.act` / `pads.actJust`), set in Options > Controller buttons (Change / Add / Default buttons; the next
+  pressed button is captured while the menu's own pad handling pauses) and saved as `settings.padMap`
+  (null = defaults, checked by `sanitizePadMap`; a button does one action; no action is left without one).
+  Button names follow the controller family (`padStyle`: Xbox, PlayStation, Switch). Menus stay on D-pad, A, B.
 - Phaser 4 API reference for agents: `node_modules/phaser/skills/*/SKILL.md`.
   Read the relevant skill before using an unfamiliar API.
 - Only CC0 assets (or clearly licensed for commercial use). Log every asset in
