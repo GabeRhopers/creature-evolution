@@ -59,8 +59,8 @@ console.log(JSON.stringify(reacts));
 ok(reacts.juvBite && !reacts.adultBite, 'sharks bite juveniles but not adults');
 ok(reacts.sharkFears, 'a grown adult scares sharks');
 // level cap
-await G(()=>{const g=window.game.scene.getScene('Game'); g.grantXp(1e6);}); s=await S();
-ok(s.lv===30, 'level stays at 30 (max)');
+await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(30); g.grantXp(g.player.xpNeeded+1);}); s=await S();
+ok(s.lv===31 && s.stage==='adult', 'no level cap: 30 -> 31, still an adult (Legend levels)');
 // death after beating the level 20 Checkpoint Crab -> swim again from 20 (the crab's level); checkpoint at 20
 await G(()=>{const g=window.game.scene.getScene('Game'); g.crabLevel=20; g.player.setLevel(24); g.playerDied(null,'starved');}); await p.waitForTimeout(1500);
 ok((await G(()=>window.game.scene.getScene('Hud').deathAgain.text)).includes('20'), 'death screen offers SWIM AGAIN FROM LEVEL 20 (the last crab)');

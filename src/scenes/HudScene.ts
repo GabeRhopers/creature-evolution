@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { saves } from '../save';
 import { PERK_ICONS, perkIconCanvas } from '../ui/perkIcons';
-import { BALANCE } from '../data';
+import { BALANCE, legendLevel, tideOf } from '../data';
 import type { GameScene } from './GameScene';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Joystick } from '../ui/Joystick';
@@ -276,6 +276,14 @@ export class HudScene extends Phaser.Scene {
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 2200, duration: 600 });
   }
 
+  /** A new Tide (chapter of 10 levels) begins. */
+  newTide(tide: number, name: string): void {
+    this.banner.setText(`TIDE ${tide}: ${name.toUpperCase()}\nThe reef grows tougher. A new crab waits at its end`).setAlpha(1).setScale(0.5);
+    this.tweens.killTweensOf(this.banner);
+    this.tweens.add({ targets: this.banner, scale: 0.8, duration: 350, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: this.banner, alpha: 0, delay: 2800, duration: 600 });
+  }
+
   /** A new enemy joined the reef (it unlocks at a level). */
   newCreature(name: string, intro: string): void {
     this.banner.setText(`NEW: ${name.toUpperCase()}\n${intro}`).setAlpha(1).setScale(0.5);
@@ -456,7 +464,7 @@ export class HudScene extends Phaser.Scene {
     const starving = st.ratio < 0.1;
     this.stomachBack.setStrokeStyle(2, starving ? HUD.hp : HUD.edge, starving ? 0.6 + 0.4 * Math.sin(this.time.now / 100) : 1);
     this.info.setText(
-      `${p.stage ? `${p.stage.name} · ` : ''}Level ${p.level}${p.atMaxLevel ? ' (MAX)' : ''}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
+      `Tide ${tideOf(p.level)}  |  ${p.stage ? `${p.stage.name} · ` : ''}Level ${p.level}${legendLevel(p.level) ? ` (Legend ${legendLevel(p.level)})` : ''}  |  HP ${Math.ceil(p.hp)}/${p.maxHp}  |  Bite ${p.biteDamage.toFixed(0)}  |  Swallows up to size ${p.devourSize.toFixed(0)}  |  Kills ${g.stats.kills}`,
     );
     this.renderPerkIcons(g.perks);
     this.updateCrabArrow();

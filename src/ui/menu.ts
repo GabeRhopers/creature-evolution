@@ -352,6 +352,7 @@ export function initMenu(game: Phaser.Game): void {
       <ul>
         <li>Your run saves by itself every few seconds, when you level up, pause, or switch apps. Tap <b>CONTINUE</b> on the home screen to pick it up.</li>
         <li>Every 10 levels a <b>Checkpoint Crab</b> appears (an arrow points to it). Defeat it and that level is saved: if you die, you swim again from there instead of from level 1.</li>
+        <li>Every 10 levels is a <b>Tide</b>: the reef grows a little tougher, and a Checkpoint Crab waits at its end. There is no last level: after level 30 you earn <b>Legend levels</b>, a little stronger each time, with a perk every 3 levels.</li>
       </ul>
       <div class="row"><button class="btn" id="pClose">Got it</button></div>`,
       () => ($('pClose').onclick = closePanel),

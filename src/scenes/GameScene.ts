@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BALANCE, DEFAULT_HERO, DIFFICULTY, SPECIES, areaAt, getSpecies, isHero, setHero, type Difficulty, type DifficultyName } from '../data';
+import { BALANCE, DEFAULT_HERO, DIFFICULTY, SPECIES, aiLevelBonus, areaAt, getSpecies, isHero, setHero, tideName, tideOf, type Difficulty, type DifficultyName } from '../data';
 import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
 import { toggleTuningPanel } from '../ui/tuning';
@@ -1292,8 +1292,12 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   private grantXp(xp: number): void {
     const p = this.player;
     const stageBefore = stageIndex(p.level);
+    const tideBefore = tideOf(p.level);
     const levels = p.addXp(xp);
     if (levels > 0) this.spawnUnlocked();
+    // A new Tide: its banner comes after the level-up or evolution banner.
+    const tide = tideOf(p.level);
+    if (levels > 0 && tide > tideBefore) this.time.delayedCall(3200, () => !this.dead && this.hud.newTide(tide, tideName(tide)));
     if (levels > 0 && stageIndex(p.level) !== stageBefore) {
       this.stomach.setLevel(p.level);
       this.stats.maxLevel = Math.max(this.stats.maxLevel, p.level);
@@ -1370,7 +1374,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
     const y = Phaser.Math.Between(band.top, band.bottom);
     c.fish.arcadeBody.reset(x, y);
-    c.fish.setLevel(Phaser.Math.Between(1, 3));
+    c.fish.setLevel(Phaser.Math.Between(1, 3) + this.aiLevelBonus);
     c.fish.resetCombat();
     if (c.brain) c.brain.hunger = Phaser.Math.FloatBetween(0.5, 1);
   }
@@ -1541,6 +1545,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.trailBubbles.update(dt, surfaceY);
   }
 
+  /** Reef fish spawn this many levels higher in later Tides (none on the home screen). */
+  private get aiLevelBonus(): number {
+    return this.menuMode || !this.player ? 0 : aiLevelBonus(this.player.level);
+  }
+
   /** Species already swimming in this run (new enemies join once you reach their level). */
   private spawnedSpecies = new Set<string>();
 
@@ -1565,7 +1574,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       );
       for (let i = 0; i < count; i++) {
         const fish = new Fish(this, Phaser.Math.Between(band.left, band.right),
-          Phaser.Math.Between(band.top, band.bottom), sp, Phaser.Math.Between(1, 3));
+          Phaser.Math.Between(band.top, band.bottom), sp, Phaser.Math.Between(1, 3) + this.aiLevelBonus);
         const look = this.speciesLook(sp.look);
         if (look) {
           fish.applySkin(look.key, look.frames);

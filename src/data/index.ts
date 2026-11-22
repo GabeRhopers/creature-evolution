@@ -180,3 +180,28 @@ export function getHero(): string {
 /** Every stage design of every hero (to preload them all). */
 export const ALL_STAGE_SKINS: string[] = [...new Set(HEROES.flatMap((h) => heroStages(h.id).map((s) => s.skin)))];
 export const MAX_LEVEL: number = BALANCE.stages.maxLevel;
+
+// ------------------------------------------------------------------ tides (endless levels)
+const TIDES = BALANCE.tides;
+/** The Tide (chapter of 10 levels) a level belongs to: levels 1 to 10 = Tide 1. */
+export function tideOf(level: number): number {
+  return Math.max(1, Math.ceil(level / TIDES.levelsPerTide));
+}
+/** A Tide's name; after the list runs out, themes come back as harder "+" versions. */
+export function tideName(tide: number): string {
+  const n = TIDES.themes.length;
+  const plus = Math.floor((tide - 1) / n);
+  return TIDES.themes[(tide - 1) % n] + '+'.repeat(plus);
+}
+/** Last level of the last stage (the adult): Legend levels start after it. */
+export function lastStageLevel(): number {
+  return BASE_STAGES[BASE_STAGES.length - 1].to;
+}
+/** Legend level (0 before it starts): level 31 = Legend 1. */
+export function legendLevel(level: number): number {
+  return Math.max(0, level - lastStageLevel());
+}
+/** How many levels higher reef fish spawn in this Tide. */
+export function aiLevelBonus(level: number): number {
+  return Math.min(TIDES.aiLevelBonusMax, (tideOf(level) - 1) * TIDES.aiLevelsPerTide);
+}
