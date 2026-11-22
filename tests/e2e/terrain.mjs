@@ -16,7 +16,7 @@ await waitFor(() => window.game?.scene.getScene('Game')?.player);
 await p.click('#btnPlay');
 await waitFor(() => { const g = window.game.scene.getScene('Game'); return g.player && !g.menuMode; });
 
-ok(await G(() => { const g = window.game.scene.getScene('Game'); return ['w_ground', 'w_island_0', 'w_coral_brain_0'].every((k) => g.textures.exists(k)); }), 'ground, island and coral art are drawn');
+ok(await G(() => { const g = window.game.scene.getScene('Game'); return ['w_ground_0', 'w_island_0', 'w_coral_brain_0'].every((k) => g.textures.exists(k)); }), 'ground, island and coral art are drawn');
 
 // Nothing starts inside the terrain.
 const inside = await G(() => {

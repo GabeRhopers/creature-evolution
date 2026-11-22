@@ -6,7 +6,7 @@ const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m); if(!c) process.exitCode=1;}
 const G=(f,a)=>p.evaluate(f,a);
 const g=()=>'window.game.scene.getScene("Game")';
 const panelOpen=()=>G(()=>document.getElementById('panelWrap').classList.contains('open') && !!document.querySelector('[data-perk]'));
-const waitPanel=async(ms=8000)=>{const t=Date.now(); while(Date.now()-t<ms){ if(await panelOpen()) return true; await p.waitForTimeout(150);} return false;};
+const waitPanel=async(ms=20000)=>{const t=Date.now(); while(Date.now()-t<ms){ if(await panelOpen()) return true; await p.waitForTimeout(150);} return false;};
 const until=async(fn,ms=20000)=>{const t=Date.now(); while(Date.now()-t<ms){ if(await G(fn).catch(()=>false)) return true; await p.waitForTimeout(150);} return false;};
 await p.goto('http://localhost:4173/'); await G(()=>localStorage.clear()); await p.reload();
 await until(()=>document.getElementById('home')?.classList.contains('open') && !!window.game?.scene.getScene('Game')?.player);

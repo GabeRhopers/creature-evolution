@@ -252,6 +252,7 @@ footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: gri
     <button id="addPose" title="Add a custom pose">+ Pose</button>
     <button id="renPose" title="Rename this pose">Rename</button>
     <button id="delPose" title="Delete this pose">Delete pose</button>
+    <button id="origPose" title="Bring back the original (shipped) animation" hidden>Original</button>
   </div>
   <div class="framesrow">
     <div id="frames" class="framesrow"></div>
@@ -567,6 +568,7 @@ function renderPoses() {
     b.innerHTML = `${po.name}<span class="count">${po.frames.length}/${SLOTS}</span>`;
     b.onclick = () => { commitFloat(); S.pose = i; S.frame = 0; S.sel = null; changed(false); };
     el.appendChild(b); });
+  $('origPose').hidden = !seedIdOf(S.id);
 }
 
 function renderFrames() {
@@ -1132,6 +1134,54 @@ $('dupFrame').onclick = () => frameOp('dup'); $('delFrame').onclick = () => fram
 $('copyFrame').onclick = () => frameOp('copy'); $('pasteFrame').onclick = () => frameOp('paste');
 $('moveL').onclick = () => frameOp('L'); $('moveR').onclick = () => frameOp('R');
 $('addPose').onclick = () => askText('New pose', 'eat', (n) => { pushUndo(); P().poses.push({ name: n, fps: 6, frames: [] }); S.pose = P().poses.length - 1; S.frame = 0; changed(true); });
+// ------------------------------------------------------------------ restore the original design
+/** The starter design this project came from (its id, or a "-vN" new-design copy of it), or null. */
+function seedIdOf(id) {
+  if (!id) return null;
+  try { SEEDS; } catch { return null; } // the starter list is defined further down the page
+  if (SEEDS[id]) return id;
+  const m = /^(.+)-v\d+$/.exec(id);
+  return m && SEEDS[m[1]] ? m[1] : null;
+}
+async function loadSeed(id) {
+  try { const res = await fetch('seeds/' + id + '.json'); return res.ok ? await res.json() : null; } catch { return null; }
+}
+$('origPose').onclick = async () => {
+  const sid = seedIdOf(S.id); if (!sid) return;
+  const poseName = curPose().name;
+  openModal(`<h3>Bring back the original</h3><p>Go back to the design that came with the game. You can undo this.</p>
+    <div class="row"><button id="orPose" class="on">Only the “${poseName.replace(/</g, '&lt;')}” animation</button><button id="orAll">The whole drawing</button><button id="orNo">Cancel</button></div>`, () => {
+    $('orNo').onclick = closeModal;
+    $('orPose').onclick = async () => {
+      closeModal();
+      const seed = await loadSeed(sid); if (!seed) { toast('The original could not be loaded'); return; }
+      const orig = deserialize(seed);
+      const src = orig.poses.find((po) => po.name.toLowerCase() === poseName.toLowerCase());
+      if (!src) { toast('The original has no “' + poseName + '” pose'); return; }
+      if (orig.w !== P().w || orig.h !== P().h) { toast('The canvas size changed, so only the whole drawing can be restored'); return; }
+      commitFloat(); pushUndo();
+      // Same colors as the original, so its frames look right (existing colors keep their places).
+      for (const col of orig.palette) if (!P().palette.includes(col) && P().palette.length < MAX_COLORS) P().palette.push(col);
+      const map = orig.palette.map((col, i) => (P().palette[i] === col ? i : P().palette.indexOf(col)));
+      curPose().fps = src.fps;
+      curPose().frames = src.frames.map((f) => f.map((v) => (v < 0 ? -1 : map[v] ?? -1)));
+      S.frame = 0; changed(true);
+      toast('Original “' + poseName + '” animation is back');
+    };
+    $('orAll').onclick = async () => {
+      closeModal();
+      const seed = await loadSeed(sid); if (!seed) { toast('The original could not be loaded'); return; }
+      commitFloat(); pushUndo();
+      const name = P().name;
+      S.project = deserialize(seed); P().name = name; S.pose = 0; S.frame = 0;
+      changed(true);
+      // Restored to the shipped design: keep its stamp, so newer shipped versions can still replace it.
+      S.stamp = seed.updatedAt || null;
+      toast('The original drawing is back');
+    };
+  });
+};
+
 $('renPose').onclick = () => askText('Rename pose', curPose().name, (n) => { pushUndo(); curPose().name = n; changed(true); });
 $('delPose').onclick = () => askConfirm(`Delete pose "${curPose().name}"?`, 'Its frames are removed too. You can undo this.', () => { pushUndo(); P().poses.splice(S.pose, 1); S.pose = Math.max(0, S.pose - 1); S.frame = 0; changed(true); });
 $('projName').onchange = () => { pushUndo(); P().name = $('projName').value.trim() || 'Untitled'; changed(true); };

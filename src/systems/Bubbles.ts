@@ -63,4 +63,9 @@ export class Bubbles {
   get count(): number {
     return this.live.length;
   }
+
+  /** Move every live bubble sideways (the sea looped). */
+  shiftX(dx: number): void {
+    for (const b of this.live) b.img.x += dx;
+  }
 }

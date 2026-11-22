@@ -26,6 +26,8 @@ export interface AIWorld {
   terrain?: { isSolid(x: number, y: number, r?: number): boolean; avoid(x: number, y: number, margin?: number): [number, number] };
   /** Time of day: how far fish see, how hungry predators get, how sleepy small fish are. */
   light?: { preyVision: number; predatorVision: number; predatorHunger: number; sleepy: number };
+  /** The sea loops: the copy of x nearest to `near`. */
+  wrapNear?(x: number, near: number): number;
 }
 
 export type BrainState = 'wander' | 'flee' | 'hunt' | 'forage' | 'rest';
@@ -422,6 +424,8 @@ export class Brain {
     for (let i = 0; i < 8; i++) {
       this.wanderX = Phaser.Math.Between(b.left, b.right);
       this.wanderY = Phaser.Math.Between(b.top, b.bottom);
+      // Aim at the nearest copy of that spot (the sea loops), not across the whole world.
+      if (this.world.wrapNear) this.wanderX = this.world.wrapNear(this.wanderX, this.fish.x);
       if (!this.world.terrain?.isSolid(this.wanderX, this.wanderY, this.fish.size)) break;
     }
     this.wanderTimer = Phaser.Math.FloatBetween(3, 8);

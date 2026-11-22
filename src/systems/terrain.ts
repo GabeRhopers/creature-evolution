@@ -21,6 +21,8 @@ export interface RidgeDef {
 export interface IslandDef {
   x: number;
   width: number;
+  /** Look: sandy island with palms (default), a mangrove clump, or an iceberg. */
+  style?: 'sand' | 'mangrove' | 'iceberg';
   /** How far the island's sandbank reaches below the surface, in world px. */
   depth: number;
 }
@@ -67,22 +69,29 @@ export class Terrain {
     this.kinds = new Uint8Array(n);
     const waterH = seabedTop - surfaceY;
     let highest = seabedTop;
+    // The sea loops: x and x + width are the same place, so every shape uses the
+    // shortest distance around the loop, and the dune waves fit a whole number of times.
+    const near = (x: number, c: number) => {
+      const d = Math.abs(x - c) % width;
+      return Math.min(d, width - d);
+    };
+    const d = cfg.dunes;
+    const waves = Math.max(1, Math.round(width / d.wavelength));
     for (let i = 0; i < n; i++) {
       const x = i * STEP;
-      // Dunes: gentle sand waves, lower near the world's edges.
-      const edge = smooth(0, 600, x) * smooth(0, 600, width - x);
-      const d = cfg.dunes;
-      const dune = edge * d.amplitude * (0.55 + 0.3 * Math.sin((x / d.wavelength) * Math.PI * 2) + 0.15 * Math.sin((x / d.wavelength) * Math.PI * 5.3 + 1));
+      // Dunes: gentle sand waves.
+      const a = (x / width) * Math.PI * 2 * waves;
+      const dune = d.amplitude * (0.55 + 0.3 * Math.sin(a) + 0.15 * Math.sin(a * 3 + 1));
       let h = dune;
       let kind = 0;
       for (const r of cfg.ridges) {
-        const t = Math.abs(x - r.x) / (r.width / 2);
+        const t = near(x, r.x) / (r.width / 2);
         if (t >= 1) continue;
         const v = r.height * (1 - smooth(0.15, 1, t)) * (0.9 + 0.1 * wobble(x, r.x));
         if (v > h) { h = v; kind = 1; }
       }
       for (const s of cfg.seamounts) {
-        const t = Math.abs(x - s.x) / (s.width / 2);
+        const t = near(x, s.x) / (s.width / 2);
         if (t >= 1) continue;
         const full = seabedTop - (surfaceY + waterH * s.top);
         // A plateau with a bumpy top and steep, slightly stepped sides.
@@ -95,7 +104,7 @@ export class Terrain {
       // Islands: the sandbank under each island is solid down to its depth.
       let c = 0;
       for (const isl of cfg.islands) {
-        const t = Math.abs(x - isl.x) / (isl.width / 2);
+        const t = near(x, isl.x) / (isl.width / 2);
         if (t >= 1) continue;
         c = Math.max(c, isl.depth * Math.pow(1 - t * t, 0.7) * (0.95 + 0.05 * wobble(x, isl.x)));
       }
@@ -104,8 +113,13 @@ export class Terrain {
     this.highestGround = highest;
   }
 
+  /** Any x folded into the loop [0, width). */
+  wrap(x: number): number {
+    return ((x % this.width) + this.width) % this.width;
+  }
+
   private sample(arr: Float32Array, x: number): number {
-    const f = Math.min(Math.max(x, 0), this.width) / STEP;
+    const f = this.wrap(x) / STEP;
     const i = Math.floor(f);
     const a = arr[i], b = arr[Math.min(arr.length - 1, i + 1)];
     if (!isFinite(a) || !isFinite(b)) return isFinite(a) ? a : b;
@@ -121,7 +135,7 @@ export class Terrain {
     return this.sample(this.ceil, x);
   }
   kindAt(x: number): GroundKind {
-    const k = this.kinds[Math.round(Math.min(Math.max(x, 0), this.width) / STEP)];
+    const k = this.kinds[Math.round(this.wrap(x) / STEP)];
     return k === 2 ? 'seamount' : k === 1 ? 'ridge' : 'sand';
   }
   /** Ground slope (dy/dx) at x. */
@@ -183,9 +197,11 @@ export class Terrain {
 
   /** Mangrove root hiding places under each island (world rectangles: x, y, w, h). */
   rootZones(): Array<[number, number, number, number]> {
-    return this.cfg.islands.map((isl) => {
+    // Icebergs have no roots; mangroves have a deep tangle.
+    return this.cfg.islands.filter((isl) => isl.style !== 'iceberg').map((isl) => {
       const w = isl.width * 0.6;
-      return [isl.x - w / 2, this.surfaceY + isl.depth * 0.55, w, isl.depth * 0.45 + this.cfg.rootsDepth];
+      const roots = this.cfg.rootsDepth * (isl.style === 'mangrove' ? 1.4 : 1);
+      return [isl.x - w / 2, this.surfaceY + isl.depth * 0.55, w, isl.depth * 0.45 + roots];
     });
   }
 

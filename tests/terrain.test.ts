@@ -27,9 +27,9 @@ describe('terrain', () => {
     }
   });
 
-  it('keeps the player start (world center) clear', () => {
+  it('keeps the player start clear', () => {
     const startY = surfaceY + waterH * balance.playerStartDepth;
-    expect(t.isSolid(W / 2, startY, 120)).toBe(false);
+    expect(t.isSolid(balance.world.startX, startY, 120)).toBe(false);
   });
 
   it('the ground never goes below the seabed and dunes stay low', () => {
@@ -68,7 +68,7 @@ describe('terrain', () => {
   });
 
   it('gives hiding places under every island and on every seamount', () => {
-    expect(t.rootZones()).toHaveLength(t.cfg.islands.length);
+    expect(t.rootZones()).toHaveLength(t.cfg.islands.filter((i) => i.style !== 'iceberg').length);
     expect(t.plateaus()).toHaveLength(t.cfg.seamounts.length);
   });
 });

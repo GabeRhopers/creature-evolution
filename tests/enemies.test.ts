@@ -33,9 +33,10 @@ describe('higher-level enemies', () => {
     expect(bites('moray_eel', 14)).toBe(true);
     expect(bites('moray_eel', 25)).toBe(false);
   });
-  it('barracuda: slim, but strong enough to bite adults (rankMul)', () => {
+  it('barracuda: slim, fights above its size, a danger to juveniles but no longer too strong for adults (Nov 22)', () => {
     expect(ai('barracuda').rank).toBeCloseTo(ai('barracuda').size * (SPECIES.barracuda.rankMul ?? 1));
-    expect(bites('barracuda', 22)).toBe(true);
+    expect(bites('barracuda', 20)).toBe(true);
+    expect(bites('barracuda', 22)).toBe(false);
     expect(SPECIES.barracuda.behavior.schooling).toBe(true);
   });
 });
