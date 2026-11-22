@@ -64,6 +64,17 @@ then the shipped seed; Boot's `look:` seed cache is only the last fallback. Stud
 its `updatedAt` (`S.stamp`); only a real edit stamps a new time. The home Sprite Studio card lists every design
 with a direct link. `tests/e2e/studio_game.mjs` covers the whole chain.
 
+## Terrain (`src/systems/terrain.ts`, art in `src/systems/terrainArt.ts`, `balance.json` "terrain")
+The seabed is a ground line (`groundAt(x)`): dunes everywhere, rocky ridges, and seamounts whose plateau tops
+reach into the Reef (so juveniles, who can't swim deeper, still see scenery) with coral gardens on top. Islands
+break the surface; their sandbank is a ceiling line (`ceilAt(x)`) and their mangrove roots hang below. Hatchlings
+see the islands. Solid = below the ground or above an island's underside. `GameScene.collideTerrain` pushes every
+swimmer out along the normal each frame (no Arcade bodies for terrain; ramming it fast stuns the player like a rock).
+Brains steer away (`AIWorld.terrain.avoid`) and never pick wander points inside it; fish, food, rocks, kelp,
+bubbles, skeletons and the crab's home all use the ground line. Mangrove roots and coral gardens are hiding
+places (pushed into `kelpZones`). `seabedTop` is still the base of the depth math (areas, depth limits).
+Keep the world center clear: the player starts there.
+
 ## Checkpoint Crab (`GameScene` "Checkpoint Crab" section, `balance.json` "checkpointCrab")
 Every `everyLevels` (10) levels a crab (species `checkpoint_crab`, look `crab-checkpoint`, drawn by
 `tools/heroes/draw_crab.py`, `upright` so it never tilts) appears near the deepest water the player may swim in.
@@ -107,8 +118,8 @@ invulnerability. Armor per species (`armor` in species.json).
 - **Pixel art direction** (plan in the Game Design Plan doc): every sprite uses the Endesga 32 palette
   (`public/studio/palette-endesga32.json`) plus at most 3 signature colors per creature; textures hold
   1 pixel per art pixel and use smooth pixel art (`texture.setSmoothPixelArt(true)`); small effects
-  (bubbles, food) come from `src/systems/pixelTextures.ts`. The world (water bands, sand, rocks, kelp,
-  light rays, far silhouettes) is generated in `src/systems/worldTextures.ts` and drawn at
+  (bubbles, food) come from `src/systems/pixelTextures.ts`. The world (water bands, rocks, kelp,
+  light rays, far silhouettes; ground, islands and coral in `terrainArt.ts`) is generated in `src/systems/worldTextures.ts` and drawn at
   `WORLD_PX` = 4 world px per art px; rock collision circles and kelp zones keep their old sizes. Camera zoom changes only per stage.
   Reef fish looks are Sprite Studio starter designs (`public/studio/seeds/fish-*.json`, drawn by
   `tools/fish/draw_fish.py`), linked by `look` in species.json, built once per scene.

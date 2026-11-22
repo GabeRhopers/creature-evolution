@@ -8,6 +8,71 @@
     "rockCount": 26,
     "kelpPatches": 18
   },
+  "terrain": {
+    "_comment": "Shape of the sea. Ground: sand dunes everywhere, rocky ridges, and seamounts whose flat tops (top = share of the water, 0 surface, 1 seabed) reach into the Reef with coral gardens. Islands break the surface; their sandbank (depth, px) is solid and their mangrove roots (rootsDepth) are a hiding place. Keep the player start (world center) clear.",
+    "dunes": {
+      "amplitude": 70,
+      "wavelength": 900
+    },
+    "ridges": [
+      {
+        "x": 1000,
+        "width": 500,
+        "height": 170
+      },
+      {
+        "x": 3600,
+        "width": 420,
+        "height": 140
+      },
+      {
+        "x": 7300,
+        "width": 560,
+        "height": 200
+      }
+    ],
+    "seamounts": [
+      {
+        "x": 2400,
+        "width": 1300,
+        "top": 0.5
+      },
+      {
+        "x": 6200,
+        "width": 1500,
+        "top": 0.56
+      },
+      {
+        "x": 8350,
+        "width": 900,
+        "top": 0.62
+      }
+    ],
+    "islands": [
+      {
+        "x": 1300,
+        "width": 700,
+        "depth": 170
+      },
+      {
+        "x": 3500,
+        "width": 520,
+        "depth": 130
+      },
+      {
+        "x": 5900,
+        "width": 820,
+        "depth": 200
+      },
+      {
+        "x": 7950,
+        "width": 600,
+        "depth": 150
+      }
+    ],
+    "rootsDepth": 120,
+    "corals": 14
+  },
   "growth": {
     "sizePerLevel": 1.12,
     "hpExponent": 2.0,

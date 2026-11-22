@@ -28,6 +28,15 @@ export const C = {
   coralLight: '#f77622',
   pink: '#b55088',
   pinkLight: '#f6757a',
+  red: '#a22633',
+  orange: '#be4a2f',
+  gold: '#feae34',
+  yellow: '#fee761',
+  bone: '#ead4aa',
+  plum: '#68386c',
+  bark: '#3e2731',
+  peach: '#e8b796',
+  sea: '#193c3e',
 };
 
 /** Seeded random numbers (mulberry32), so the generated art is the same every run. */
@@ -69,17 +78,17 @@ export function waterColor(depth: number, x: number, row: number, blend = 0.06):
   return WATER_STOPS[0][1];
 }
 
-function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+export function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
   return [c, c.getContext('2d')!];
 }
-function px(g: CanvasRenderingContext2D, x: number, y: number, col: string): void {
+export function px(g: CanvasRenderingContext2D, x: number, y: number, col: string): void {
   g.fillStyle = col;
   g.fillRect(x, y, 1, 1);
 }
-function add(scene: Phaser.Scene, key: string, c: HTMLCanvasElement): void {
+export function add(scene: Phaser.Scene, key: string, c: HTMLCanvasElement): void {
   if (scene.textures.exists(key)) return; // made once; scene restarts reuse it
   scene.textures.addCanvas(key, c)!.setSmoothPixelArt(true);
 }

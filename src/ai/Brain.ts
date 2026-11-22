@@ -22,6 +22,8 @@ export interface AIWorld {
   swimArea: Phaser.Geom.Rectangle;
   /** True if `target` is hidden from `observer` (e.g. inside kelp). */
   isHidden(target: Fish, observer: Fish): boolean;
+  /** Terrain (seamounts, dunes, islands): solid test and a steer away from it. */
+  terrain?: { isSolid(x: number, y: number, r?: number): boolean; avoid(x: number, y: number, margin?: number): [number, number] };
 }
 
 export type BrainState = 'wander' | 'flee' | 'hunt' | 'forage' | 'rest';
@@ -395,14 +397,24 @@ export class Brain {
         dy = dy * 0.35 + (hy / n) * 0.35 + (ty / tl) * 0.2 + sy * 0.6;
       }
     }
+    // Slide around seamounts and islands instead of pressing into them.
+    const t = this.world.terrain?.avoid(me.x, me.y, 120 + me.size * 2);
+    if (t) {
+      dx += t[0];
+      dy += t[1];
+    }
     // Ambushers barely move while they wait.
     return { dirX: dx, dirY: dy, strength: me.species.behavior.ambush ? ai.ambushLurkStrength : ai.wanderStrength, sprint: false };
   }
 
   private pickWanderPoint(): void {
     const b = this.self.band ?? this.world.swimArea;
-    this.wanderX = Phaser.Math.Between(b.left, b.right);
-    this.wanderY = Phaser.Math.Between(b.top, b.bottom);
+    // Never aim inside a seamount or an island: try a few points.
+    for (let i = 0; i < 8; i++) {
+      this.wanderX = Phaser.Math.Between(b.left, b.right);
+      this.wanderY = Phaser.Math.Between(b.top, b.bottom);
+      if (!this.world.terrain?.isSolid(this.wanderX, this.wanderY, this.fish.size)) break;
+    }
     this.wanderTimer = Phaser.Math.FloatBetween(3, 8);
   }
 
@@ -415,6 +427,11 @@ export class Brain {
     if (a.right - x < m) ax -= 1 - (a.right - x) / m;
     if (y - a.top < m) ay += 1 - (y - a.top) / m;
     if (a.bottom - y < m) ay -= 1 - (a.bottom - y) / m;
+    const t = this.world.terrain?.avoid(x, y, m);
+    if (t) {
+      ax += t[0];
+      ay += t[1];
+    }
     return [ax * 1.5, ay * 1.5];
   }
 }

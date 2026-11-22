@@ -4,7 +4,9 @@ import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Bubbles } from '../systems/Bubbles';
-import { C, makeKelp, makeRay, makeRock, makeSand, makeSilhouette, makeWater } from '../systems/worldTextures';
+import { C, makeKelp, makeRay, makeRock, makeSilhouette, makeWater } from '../systems/worldTextures';
+import { Terrain, type TerrainConfig } from '../systems/terrain';
+import { CORAL_KINDS, makeCoral, makeGround, makeIsland, makeShadow } from '../systems/terrainArt';
 
 /** World px per art px for the seabed, water and plants. */
 const WORLD_PX = 4;
@@ -85,6 +87,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** Rectangles covered by kelp: fish inside are hidden from AI. */
   kelpZones: Phaser.Geom.Rectangle[] = [];
   seabedTop = 0;
+  /** Seabed dunes, ridges, seamounts and islands (solid ground and hiding places). */
+  terrain!: Terrain;
   food!: FoodField;
   swimArea!: Phaser.Geom.Rectangle;
   difficulty!: Difficulty;
@@ -200,8 +204,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.physics.world.setBounds(0, swimTop, W, this.seabedTop + 40 - swimTop);
     this.swimArea = new Phaser.Geom.Rectangle(40, swimTop + 30, W - 80, this.seabedTop - swimTop - 40);
 
+    this.terrain = new Terrain(BALANCE.terrain as TerrainConfig, W, swimTop, this.seabedTop);
     this.drawWater(W, H);
     this.drawSeabed(W, H);
+    this.drawIslands();
+    this.plantCoral();
     this.placeRocks(W);
     this.placeKelp(W);
     this.ambientBubbles = new Bubbles(this, 'bubble6', -5);
@@ -251,7 +258,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       playtestLog().run++;
     }
 
-    this.food = new FoodField(this, this.swimArea);
+    this.food = new FoodField(this, this.swimArea, this.terrain);
     this.spawnAmbientFish(W);
 
     // Camera.
@@ -304,6 +311,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (c.brain.state === 'hunt' && c.brain.target === this.playerCreature) hunted = true;
     }
     this.playerHunted = hunted && !this.dead;
+    this.collideTerrain();
     this.playerHidden = this.inKelp(this.player);
 
     this.food.update(dt, this.cameras.main.worldView, time);
@@ -1054,7 +1062,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const a = this.swimArea;
     const side = p.x > a.centerX ? -1 : 1;
     const x = Phaser.Math.Clamp(p.x + side * cfg.spawnDistance, a.left + cfg.homeWidth / 2, a.right - cfg.homeWidth / 2);
-    const floor = Math.min(this.depthLimitY ?? this.seabedTop, this.seabedTop) - 40;
+    // The crab waits above the ground (a seamount top counts), never inside it.
+    let ground = this.seabedTop;
+    for (let dx = -cfg.homeWidth / 2; dx <= cfg.homeWidth / 2; dx += 40) ground = Math.min(ground, this.terrain.groundAt(x + dx));
+    const floor = Math.min(this.depthLimitY ?? this.seabedTop, ground) - 40;
     const home = new Phaser.Geom.Rectangle(x - cfg.homeWidth / 2, floor - cfg.homeHeight, cfg.homeWidth, cfg.homeHeight);
     // As big as you (a little bigger), and as tough as `hitsToDefeat` of your bites.
     let level = 1;
@@ -1121,14 +1132,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     // A fish with a pixel look leaves its pixel skeleton.
     if (t.deadFrame) {
       const bone = this.add.image(t.x, t.y, t.texture.key, t.deadFrame).setScale(t.scaleX).setRotation(t.rotation).setFlipY(t.flipY).setDepth(3);
-      this.tweens.add({ targets: bone, y: Math.min(t.y + 400, this.seabedTop + 10), angle: bone.angle + 160, alpha: 0, duration: 6000, ease: 'Sine.easeIn', onComplete: () => bone.destroy() });
+      this.tweens.add({ targets: bone, y: Math.min(t.y + 400, this.terrain.groundAt(t.x) + 10), angle: bone.angle + 160, alpha: 0, duration: 6000, ease: 'Sine.easeIn', onComplete: () => bone.destroy() });
       return;
     }
     // The player (and other animated species) sink belly-up, greyed out, in their current look.
     const rest = t.species.art?.frames?.rest;
     if (rest || t === this.player || t.species.upright) {
       const body = this.add.image(t.x, t.y, t.texture.key, t.frame.name).setScale(t.scaleX).setFlipY(!t.flipY).setRotation(t.rotation).setTint(0x7a8a7a).setDepth(3);
-      this.tweens.add({ targets: body, y: Math.min(t.y + 400, this.seabedTop + 10), alpha: 0, duration: 6000, ease: 'Sine.easeIn', onComplete: () => body.destroy() });
+      this.tweens.add({ targets: body, y: Math.min(t.y + 400, this.terrain.groundAt(t.x) + 10), alpha: 0, duration: 6000, ease: 'Sine.easeIn', onComplete: () => body.destroy() });
       return;
     }
     const frames = ['fish_blue', 'fish_green', 'fish_orange', 'fish_pink', 'fish_red'];
@@ -1141,7 +1152,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       .setDepth(3);
     this.tweens.add({
       targets: bone,
-      y: Math.min(t.y + 400, this.seabedTop + 10),
+      y: Math.min(t.y + 400, this.terrain.groundAt(t.x) + 10),
       angle: bone.angle + 160,
       alpha: 0,
       duration: 6000,
@@ -1421,13 +1432,84 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       .setDepth(-70);
   }
 
-  private drawSeabed(W: number, H: number): void {
-    makeSand(this, 'w_sand');
-    this.add
-      .tileSprite(0, this.seabedTop - 20, W, H - this.seabedTop + 20, 'w_sand')
-      .setOrigin(0, 0)
-      .setTileScale(WORLD_PX)
-      .setDepth(-20);
+  private drawSeabed(_W: number, H: number): void {
+    // One image for the whole ground line: dunes, rocky ridges and seamounts.
+    const top = makeGround(this, 'w_ground', this.terrain, H, WORLD_PX);
+    this.add.image(0, top, 'w_ground').setOrigin(0, 0).setScale(WORLD_PX).setDepth(-20);
+  }
+
+  /** Islands at the surface: palms above, a sandbank and mangrove roots (a hiding place) below. */
+  private drawIslands(): void {
+    const t = this.terrain;
+    const above = BALANCE.world.surfaceY - 4;
+    t.cfg.islands.forEach((isl, i) => {
+      const key = `w_island_${i}`;
+      makeIsland(this, key, t, isl.x, isl.width, isl.depth, t.cfg.rootsDepth, above, WORLD_PX, 60 + i);
+      this.add.image(isl.x, t.surfaceY - Math.floor(above / WORLD_PX) * WORLD_PX, key).setOrigin(0.5, 0).setScale(WORLD_PX).setDepth(-18);
+      const sw = Math.round((isl.width * 0.9) / WORLD_PX);
+      makeShadow(this, `w_shadow_${i}`, sw, 70);
+      this.add
+        .image(isl.x, t.surfaceY + isl.depth * 0.6, `w_shadow_${i}`)
+        .setOrigin(0.5, 0)
+        .setScale(WORLD_PX)
+        .setAlpha(0.22)
+        .setDepth(-60);
+    });
+    for (const [x, y, w, h] of t.rootZones()) this.kelpZones.push(new Phaser.Geom.Rectangle(x, y, w, h));
+  }
+
+  /** Coral gardens on the seamount tops: brain coral, branching coral, sea fans, anemones, sponges. */
+  private plantCoral(): void {
+    const t = this.terrain;
+    CORAL_KINDS.forEach((k, i) => {
+      for (let v = 0; v < 2; v++) makeCoral(this, `w_coral_${k}_${v}`, k, 200 + i * 7 + v);
+    });
+    const per = Math.max(3, Math.round(BALANCE.terrain.corals));
+    for (const top of t.plateaus()) {
+      for (let i = 0; i < per; i++) {
+        const x = top.x + Phaser.Math.FloatBetween(-top.half, top.half);
+        if (Math.abs(t.slopeAt(x)) > 0.6) continue;
+        const kind = Phaser.Utils.Array.GetRandom(CORAL_KINDS as unknown as string[]);
+        const front = Math.random() < 0.3;
+        const piece = this.add
+          .image(x, t.groundAt(x) + WORLD_PX * 2, `w_coral_${kind}_${Phaser.Math.Between(0, 1)}`)
+          .setOrigin(0.5, 1)
+          .setScale(WORLD_PX * Phaser.Math.FloatBetween(0.9, 1.3))
+          .setFlipX(Math.random() < 0.5)
+          .setDepth(front ? 19 : -12)
+          .setAlpha(front ? 0.92 : 1);
+        if (kind === 'anemone' || kind === 'fan') {
+          this.tweens.add({ targets: piece, angle: { from: -4, to: 4 }, duration: Phaser.Math.Between(1400, 2600), yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: Phaser.Math.Between(0, 1200) });
+        }
+      }
+      // Coral gardens are hiding places, like kelp.
+      this.kelpZones.push(new Phaser.Geom.Rectangle(top.x - top.half, top.y - 150, top.half * 2, 160));
+    }
+  }
+
+  /**
+   * Keep every swimmer out of the seamounts, dunes and island sandbanks: push it back out along
+   * the ground's normal and drop the part of its speed that points into the rock.
+   * Ramming the terrain fast stuns you, like a rock.
+   */
+  private collideTerrain(): void {
+    for (const c of this.creatures) {
+      const f = c.fish;
+      const body = f.body as Phaser.Physics.Arcade.Body | null;
+      if (!body || !f.active) continue;
+      const r = body.halfWidth;
+      const hit = this.terrain.resolve(f.x, f.y, r);
+      if (!hit) continue;
+      f.setPosition(hit.x, hit.y);
+      const into = body.velocity.x * hit.nx + body.velocity.y * hit.ny;
+      if (into < 0) body.velocity.set(body.velocity.x - into * hit.nx, body.velocity.y - into * hit.ny);
+      if (c.isPlayer && !f.stunned && -into > f.cruiseSpeed * BALANCE.combat.ramSpeedRatio) {
+        f.stun(BALANCE.combat.rockStunSeconds);
+        this.sfx.stun();
+        this.cameras.main.shake(120, 0.004);
+        this.burst(f.x, f.y, f.size * 0.6);
+      }
+    }
   }
 
   private placeRocks(W: number): void {
@@ -1438,10 +1520,12 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       for (let v = 0; v < 2; v++) makeRock(this, `w_rock_${i}_${v}`, 100 + i * 10 + v, Math.round(26 * s), Math.round(16 * s));
     });
     for (let i = 0; i < BALANCE.world.rockCount; i++) {
-      const x = Phaser.Math.Between(150, W - 150);
+      // Rocks sit on fairly flat ground (dunes, ridges, seamount tops), never on steep walls.
+      let x = Phaser.Math.Between(150, W - 150);
+      for (let k = 0; k < 10 && Math.abs(this.terrain.slopeAt(x)) > 0.35; k++) x = Phaser.Math.Between(150, W - 150);
       const si = Phaser.Math.Between(0, sizes.length - 1);
       const s = sizes[si];
-      const baseY = this.seabedTop + 50;
+      const baseY = this.terrain.groundAt(x) + 50;
       this.add
         .image(x, baseY, `w_rock_${si}_${Phaser.Math.Between(0, 1)}`)
         .setOrigin(0.5, 1)
@@ -1476,7 +1560,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       return { key, h };
     });
     for (let p = 0; p < BALANCE.world.kelpPatches; p++) {
-      const cx = Phaser.Math.Between(200, W - 200);
+      let cx = Phaser.Math.Between(200, W - 200);
+      for (let k = 0; k < 10 && Math.abs(this.terrain.slopeAt(cx)) > 0.3; k++) cx = Phaser.Math.Between(200, W - 200);
       const count = Phaser.Math.Between(4, 9);
       const spread = count * 40;
       let tallest = 0;
@@ -1484,8 +1569,9 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         const k = Phaser.Utils.Array.GetRandom(keys);
         tallest = Math.max(tallest, k.h * WORLD_PX);
         const front = Math.random() < 0.45;
+        const kx = cx + Phaser.Math.Between(-spread / 2, spread / 2);
         const kelp = this.add
-          .image(cx + Phaser.Math.Between(-spread / 2, spread / 2), this.seabedTop + 40, k.key)
+          .image(kx, this.terrain.groundAt(kx) + 40, k.key)
           .setOrigin(0.5, 1)
           .setScale(WORLD_PX)
           .setFlipX(Math.random() < 0.5)
@@ -1502,7 +1588,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         });
       }
       this.kelpZones.push(
-        new Phaser.Geom.Rectangle(cx - spread / 2 - 30, this.seabedTop + 40 - tallest * 0.9, spread + 60, tallest * 0.9),
+        new Phaser.Geom.Rectangle(cx - spread / 2 - 30, this.terrain.groundAt(cx) + 40 - tallest * 0.9, spread + 60, tallest * 0.9),
       );
     }
   }
@@ -1518,7 +1604,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.ambientTimer += 0.06;
       if (this.ambientBubbles.count > 160) break;
       const x = Phaser.Math.Between(view.left - 100, view.right + 100);
-      const y = Math.min(this.seabedTop + 10, view.bottom + 40);
+      const y = Math.min(this.terrain.groundAt(x) + 10, view.bottom + 40);
       this.ambientBubbles.spawn(x, y, {
         vy: -Phaser.Math.Between(40, 95),
         life: Phaser.Math.FloatBetween(8, 15),
@@ -1574,8 +1660,12 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         Math.max(80, waterH * (sp.spawn.depthMax - sp.spawn.depthMin) - 80),
       );
       for (let i = 0; i < count; i++) {
-        const fish = new Fish(this, Phaser.Math.Between(band.left, band.right),
-          Phaser.Math.Between(band.top, band.bottom), sp, Phaser.Math.Between(1, 3) + this.aiLevelBonus);
+        let fx = Phaser.Math.Between(band.left, band.right), fy = Phaser.Math.Between(band.top, band.bottom);
+        for (let k = 0; k < 12 && this.terrain.isSolid(fx, fy, 40); k++) {
+          fx = Phaser.Math.Between(band.left, band.right);
+          fy = Phaser.Math.Between(band.top, band.bottom);
+        }
+        const fish = new Fish(this, fx, fy, sp, Phaser.Math.Between(1, 3) + this.aiLevelBonus);
         const look = this.speciesLook(sp.look);
         if (look) {
           fish.applySkin(look.key, look.frames);
