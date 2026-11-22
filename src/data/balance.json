@@ -195,6 +195,83 @@
       }
     ]
   },
+  "dayNight": {
+    "_comment": "Day and night: four periods that blend smoothly (blendSeconds, centered on each change). Each period: sky and water tint colors, light rays, darkness around the player, stars, plankton glow, and gameplay: how far prey and predators see, how fast predators get hungry, how much plankton (zooplankton rise at night), how sleepy small fish are. A new run starts at startAt.",
+    "seconds": {
+      "dawn": 50,
+      "day": 150,
+      "dusk": 50,
+      "night": 130
+    },
+    "blendSeconds": 24,
+    "startAt": "day",
+    "periods": {
+      "dawn": {
+        "name": "Dawn",
+        "line": "Hunters wake up hungry",
+        "sky": "#f6757a",
+        "tint": "#f77622",
+        "tintAlpha": 0.1,
+        "rays": 0.6,
+        "dark": 0.12,
+        "stars": 0.2,
+        "glow": 0.25,
+        "preyVision": 0.9,
+        "predatorVision": 1.15,
+        "predatorHunger": 1.4,
+        "plankton": 1.2,
+        "sleepy": 0.2
+      },
+      "day": {
+        "name": "Day",
+        "line": "Bright water: everyone sees far",
+        "sky": "#c0cbdc",
+        "tint": "#ffffff",
+        "tintAlpha": 0.0,
+        "rays": 1.0,
+        "dark": 0.0,
+        "stars": 0.0,
+        "glow": 0.0,
+        "preyVision": 1.0,
+        "predatorVision": 1.0,
+        "predatorHunger": 1.0,
+        "plankton": 1.0,
+        "sleepy": 0.0
+      },
+      "dusk": {
+        "name": "Dusk",
+        "line": "The evening hunt begins",
+        "sky": "#f77622",
+        "tint": "#b55088",
+        "tintAlpha": 0.16,
+        "rays": 0.35,
+        "dark": 0.3,
+        "stars": 0.35,
+        "glow": 0.5,
+        "preyVision": 0.85,
+        "predatorVision": 1.15,
+        "predatorHunger": 1.4,
+        "plankton": 1.2,
+        "sleepy": 0.3
+      },
+      "night": {
+        "name": "Night",
+        "line": "Dark water: sneak and hide. Plankton rises and glows",
+        "sky": "#262b44",
+        "tint": "#181425",
+        "tintAlpha": 0.42,
+        "rays": 0.0,
+        "dark": 0.62,
+        "stars": 1.0,
+        "glow": 1.0,
+        "preyVision": 0.6,
+        "predatorVision": 0.8,
+        "predatorHunger": 1.0,
+        "plankton": 1.4,
+        "sleepy": 1.0
+      }
+    }
+  },
   "growth": {
     "sizePerLevel": 1.12,
     "hpExponent": 2.0,
@@ -314,18 +391,24 @@
     "enabled": true,
     "capacityBase": 24,
     "capacityExponent": 1.25,
+    "capacityStepMin": 0.15,
+    "capacityStepMaxLevels": 40,
+    "_capacityStepMin": "Each level the stomach holds at least this much more than the level before (0.15 = 15%), up to capacityStepMaxLevels; after that it grows with the normal curve. A bigger stomach takes more food to fill.",
     "immediateXpFraction": 0.34,
     "fullAt": 0.95,
     "restReadyAt": 0.75,
     "restSeconds": 1.8,
     "restSpeedRatio": 0.12,
-    "digestTo": 0.5,
+    "digestTo": 0.15,
+    "_digestTo": "After digesting, the stomach drops to this share (0.15 = nearly empty), so you have to eat a lot again.",
     "digestSeconds": 1.2,
     "metabolismPerSecond": 0.012,
     "starveDamagePerSecond": 0.01,
     "hpPerXp": 1.5,
     "startFill": 0.3,
-    "metabolismLevelExponent": 0.9
+    "metabolismLevelExponent": 0.9,
+    "biteScrapXpFraction": 0.34,
+    "_biteScrapXpFraction": "Meat torn off by a bite (the fish still alive) does not fill the stomach: it only gives this share of its XP right away. Kill the fish and eat the carcass to fill up."
   },
   "audio": {
     "musicVolume": 0.35,

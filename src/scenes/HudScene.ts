@@ -42,6 +42,10 @@ export class HudScene extends Phaser.Scene {
   private staminaBack!: Phaser.GameObjects.Rectangle;
   private xpFill!: Phaser.GameObjects.Rectangle;
   private info!: Phaser.GameObjects.Text;
+  /** Time of day: the period's name and how far through it we are. */
+  private clock!: Phaser.GameObjects.Text;
+  private clockBar!: Phaser.GameObjects.Rectangle;
+  private clockBack!: Phaser.GameObjects.Rectangle;
   private hint!: Phaser.GameObjects.Text;
   private banner!: Phaser.GameObjects.Text;
   private sprintBtn!: Phaser.GameObjects.Arc;
@@ -98,6 +102,9 @@ export class HudScene extends Phaser.Scene {
     for (const y of [28, 62, 96, 130]) for (let i = 1; i < 10; i++) this.add.rectangle(18 + 21.6 * i, y, 2, 8, HUD.ink, 0.45).setOrigin(0.5, 0);
 
     this.info = this.add.text(16, 148, '', style);
+    this.clock = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '16px', color: '#ffffff', stroke: '#181425', strokeThickness: 4 }).setOrigin(1, 0);
+    this.clockBack = this.add.rectangle(0, 0, 64, 4, HUD.ink, 0.7).setOrigin(1, 0);
+    this.clockBar = this.add.rectangle(0, 0, 0, 4, 0xffffff).setOrigin(0, 0);
     this.hint = this.add.text(16, 0, '', { fontFamily: BODY, fontSize: '12px', color: '#c0cbdc', stroke: '#181425', strokeThickness: 3 }).setAlpha(0.9);
     // Perk icons (16x16 pixel art) in a row under the info line.
     for (const id of Object.keys(PERK_ICONS)) {
@@ -283,6 +290,15 @@ export class HudScene extends Phaser.Scene {
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 2800, duration: 600 });
   }
 
+  /** The time of day changed: a short, calm banner (it does not cover a NEW enemy or a Tide banner). */
+  dayPeriod(name: string, line: string): void {
+    if (this.banner.alpha > 0.2) return;
+    this.banner.setText(`${name.toUpperCase()}\n${line}`).setAlpha(0).setScale(0.6);
+    this.tweens.killTweensOf(this.banner);
+    this.tweens.add({ targets: this.banner, alpha: 0.9, duration: 700 });
+    this.tweens.add({ targets: this.banner, alpha: 0, delay: 3000, duration: 900 });
+  }
+
   /** A new enemy joined the reef (it unlocks at a level). */
   newCreature(name: string, intro: string): void {
     this.banner.setText(`NEW: ${name.toUpperCase()}\n${intro}`).setAlpha(1).setScale(0.5);
@@ -405,6 +421,9 @@ export class HudScene extends Phaser.Scene {
     this.dashLabel.setPosition(width - 122, height - 165);
     this.hurtFlash.setSize(width, height);
     this.menuBtn.setPosition(width - 12, 12);
+    this.clock.setPosition(width - 130, 14);
+    this.clockBack.setPosition(width - 130, 36);
+    this.clockBar.setPosition(width - 194, 36);
     this.gearBtn.setPosition(width - 12, 58);
     this.growBtn.setPosition(width - 12, 92);
     this.status.setPosition(width / 2, 14);
@@ -434,6 +453,14 @@ export class HudScene extends Phaser.Scene {
     // Controller: the help line shows its buttons while it is in use; the death screen answers A and B.
     pads.poll();
     const hint = pads.inUse ? padHint(pads.map, pads.style) : this.baseHint;
+    // Clock: period name in its color, and a bar for how far through it we are.
+    if (g.dayNight) {
+      const per = g.period;
+      const cfg = BALANCE.dayNight.periods[per];
+      if (this.clock.text !== cfg.name.toUpperCase()) this.clock.setText(cfg.name.toUpperCase()).setColor(per === 'night' ? '#c0cbdc' : per === 'day' ? '#fee761' : cfg.sky);
+      this.clockBar.width = 64 * g.dayNight.progressAt(g.dayTime);
+      this.clockBar.fillColor = per === 'night' ? 0xc0cbdc : per === 'day' ? 0xfee761 : parseInt(cfg.sky.slice(1), 16);
+    }
     if (this.hint.text !== hint) this.hint.setText(hint);
     if (this.deathLayer.visible && this.deathLayer.alpha > 0.5) {
       if (pads.justDown(PAD.A)) this.respawn();

@@ -24,6 +24,8 @@ export interface AIWorld {
   isHidden(target: Fish, observer: Fish): boolean;
   /** Terrain (seamounts, dunes, islands): solid test and a steer away from it. */
   terrain?: { isSolid(x: number, y: number, r?: number): boolean; avoid(x: number, y: number, margin?: number): [number, number] };
+  /** Time of day: how far fish see, how hungry predators get, how sleepy small fish are. */
+  light?: { preyVision: number; predatorVision: number; predatorHunger: number; sleepy: number };
 }
 
 export type BrainState = 'wander' | 'flee' | 'hunt' | 'forage' | 'rest';
@@ -137,7 +139,9 @@ export class Brain {
   think(dt: number): SwimIntent {
     if (this.self.guardian) return this.guardIntent(dt);
     const ai = BALANCE.ai;
-    this.hunger = Math.max(0, this.hunger - ai.hungerDrainPerSecond * dt);
+    // Predators get hungry faster at dawn and dusk (the twilight hunting hours).
+    const hungerMul = this.fish.species.tier >= 3 ? (this.world.light?.predatorHunger ?? 1) : 1;
+    this.hunger = Math.max(0, this.hunger - ai.hungerDrainPerSecond * hungerMul * dt);
     this.stateTime += dt;
     this.sinceThreat += dt;
     if (this.foodTarget && !this.foodTarget.alive) this.foodTarget = null;
@@ -168,7 +172,10 @@ export class Brain {
   private decide(): void {
     const me = this.fish;
     const sp = me.species;
-    const vision = sp.behavior.visionRange * (this.desperate ? BALANCE.ai.desperateVisionMul : 1) * Math.max(1, me.size / sp.baseSize);
+    // Time of day: everyone sees less at night; predators see better than prey in the dim light.
+    const light = this.world.light;
+    const dayMul = light ? (sp.tier >= 3 ? light.predatorVision : light.preyVision) : 1;
+    const vision = sp.behavior.visionRange * dayMul * (this.desperate ? BALANCE.ai.desperateVisionMul : 1) * Math.max(1, me.size / sp.baseSize);
 
     let threat: Creature | null = null;
     let threatD = Infinity;
@@ -404,7 +411,9 @@ export class Brain {
       dy += t[1];
     }
     // Ambushers barely move while they wait.
-    return { dirX: dx, dirY: dy, strength: me.species.behavior.ambush ? ai.ambushLurkStrength : ai.wanderStrength, sprint: false };
+    // Small fish rest at night: they drift slowly.
+    const sleepy = me.species.tier <= 1 ? 1 - 0.6 * (this.world.light?.sleepy ?? 0) : 1;
+    return { dirX: dx, dirY: dy, strength: (me.species.behavior.ambush ? ai.ambushLurkStrength : ai.wanderStrength) * sleepy, sprint: false };
   }
 
   private pickWanderPoint(): void {
