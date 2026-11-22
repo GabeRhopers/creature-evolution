@@ -205,6 +205,8 @@
     "_levelHardness": "Each level needs this much more XP on top of the normal curve, compounding (0.03 = 3%: about +30% by level 10, 2.3x by level 30). Food fills the stomach the same, so you eat more per level.",
     "levelHardnessMaxLevels": 40,
     "_levelHardnessMaxLevels": "The extra step stops compounding after this many levels (endless levels would otherwise explode); later levels still need more each time through the normal curve.",
+    "levelStepMin": 0.15,
+    "_levelStepMin": "Every level needs at least this much more XP than the level before (0.15 = 15%), up to levelHardnessMaxLevels. Early levels already grow faster than this; from about level 13 each level is 15% harder. After the cap, levels keep growing with the normal curve (a few % each), so endless levels stay reachable.",
     "speedExponent": 0.35,
     "turnExponent": -0.25
   },

@@ -21,11 +21,29 @@ export function biteDamageAt(species: Species, level: number): number {
   return species.baseBite * Math.pow(sizeRatio(species, level), g().biteExponent);
 }
 
-/** XP needed to go from `level` to the next: the normal curve, a little harder every level (levelHardness). */
-export function xpToNext(level: number): number {
+/** The normal curve with the small compounding extra (levelHardness), before the minimum step. */
+function curveXp(level: number): number {
   const steps = Math.min(Math.max(0, level - 1), g().levelHardnessMaxLevels ?? Infinity);
-  const hardness = Math.pow(1 + (g().levelHardness ?? 0), steps);
-  return Math.round(g().xpBase * Math.pow(level, g().xpExponent) * hardness);
+  return g().xpBase * Math.pow(level, g().xpExponent) * Math.pow(1 + (g().levelHardness ?? 0), steps);
+}
+let stepCache: { key: string; xp: number[] } | null = null;
+/**
+ * XP needed to go from `level` to the next. Each level needs at least `levelStepMin` (15%) more than the
+ * level before, up to `levelHardnessMaxLevels`; after that the normal curve carries on from there.
+ */
+export function xpToNext(level: number): number {
+  const lv = Math.max(1, Math.floor(level));
+  const cap = Math.max(1, g().levelHardnessMaxLevels ?? 40);
+  const step = 1 + (g().levelStepMin ?? 0);
+  const key = `${g().xpBase}|${g().xpExponent}|${g().levelHardness}|${cap}|${step}`;
+  if (!stepCache || stepCache.key !== key) {
+    const xp = [0, curveXp(1)];
+    for (let l = 2; l <= cap; l++) xp[l] = Math.max(curveXp(l), xp[l - 1] * step);
+    stepCache = { key, xp };
+  }
+  const xp = stepCache.xp;
+  const v = lv <= cap ? xp[lv] : xp[cap] * (curveXp(lv) / curveXp(cap));
+  return Math.round(v);
 }
 
 /** Anything with a body radius at or below this can be swallowed whole. */
