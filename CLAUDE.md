@@ -163,6 +163,8 @@ invulnerability. Armor per species (`armor` in species.json).
   Reef fish looks are Sprite Studio starter designs (`public/studio/seeds/fish-*.json`, drawn by
   `tools/fish/draw_fish.py`), linked by `look` in species.json, built once per scene.
   Target pixel density: about 3.5 world pixels per art pixel (size / bodyRadius).
+  Play screen is minimal (Rhopers): compact bars with 8x8 pixel icons (`hudIcon`, `BAR_X/BAR_W`), an LV badge,
+  perk icons; the help line fades after `HINT_SECONDS`; full numbers are in the pause menu (`detailsHtml`).
   Interface: labels, numbers and banners use the pixel font Pixelify Sans (`--font-display`, HUD `FONT`);
   longer help text stays in the plain body font. Perk icons are 16x16 pixel grids in `src/ui/perkIcons.ts`
   (no emoji). The home logo animates the picked hero's adult design.

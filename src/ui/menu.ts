@@ -5,7 +5,7 @@
 // one; HOME (pause or death screen) returns here. Settings, records and the
 // run checkpoint go through the SaveManager (src/save).
 import type Phaser from 'phaser';
-import { ALL_SPECIES_LOOKS, ALL_STAGE_SKINS, DEFAULT_HERO, HEROES, SPECIES, heroStages, isHero, type DifficultyName } from '../data';
+import { ALL_SPECIES_LOOKS, ALL_STAGE_SKINS, BALANCE, DEFAULT_HERO, HEROES, SPECIES, heroStages, isHero, legendLevel, tideName, tideOf, type DifficultyName } from '../data';
 import { levelToSwallow } from '../systems/growth';
 import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
@@ -14,7 +14,7 @@ import { perkIconUrl } from './perkIcons';
 import { ENEMY_FIELDS, enemiesChanged, enemyIds, resetEnemies, saveEnemy, shippedValue } from '../data/adminSettings';
 import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
 import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
-import type { PerkDef } from '../systems/perks';
+import { perkById, type PerkDef } from '../systems/perks';
 import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
 
 /** Sprite Studio lives in the same artifact, so both pages share saves. */
@@ -694,6 +694,28 @@ export function initMenu(game: Phaser.Game): void {
     const g = scene();
     return !!g && !g.menuMode && !g.dead && !!g.player;
   }
+  /** Everything the play screen no longer shows (it stays minimal): shown when you pause (Start / MENU). */
+  function detailsHtml(): string {
+    const g = scene();
+    const p = g?.player;
+    if (!g || !p) return '';
+    const mins = Math.floor(g.runTime / 60), secs = Math.floor(g.runTime % 60);
+    const legend = legendLevel(p.level);
+    const rows: Array<[string, string]> = [
+      ['Where', `${g.region?.name ?? ''} · ${BALANCE.dayNight.periods[g.period].name}`],
+      ['Tide', `${tideOf(p.level)}: ${tideName(tideOf(p.level))}`],
+      ['Stage', `${p.stage?.name ?? ''} · level ${p.level}${legend ? ` (Legend ${legend})` : ''}`],
+      ['Health', `${Math.ceil(p.hp)} / ${p.maxHp}`],
+      ['Bite', `${p.biteDamage.toFixed(0)}`],
+      ['Swallows up to', `size ${p.devourSize.toFixed(0)}`],
+      ['Stomach', `${Math.round(g.stomach.ratio * 100)}% full`],
+      ['Kills', `${g.stats.kills} (fish eaten ${g.stats.fish})`],
+      ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
+    ];
+    const perks = g.perks.map((id) => perkById(id)?.name).filter(Boolean).join(', ');
+    if (perks) rows.push(['Perks', perks]);
+    return `<div class="details">${rows.map(([k, v]) => `<span class="dk">${esc(k)}</span><span class="dv">${esc(v)}</span>`).join('')}</div>`;
+  }
   function pause(): void {
     const g = scene();
     if (!g || !playing() || paused) return;
@@ -703,6 +725,7 @@ export function initMenu(game: Phaser.Game): void {
     openPanel(
       `<h3>Paused</h3>
       <p class="saved-line">${testing ? 'Test swim: nothing here is saved, and your real run is untouched.' : saved ? (saves.persistent ? 'Saved just now' : 'Saved until this tab closes') : 'Could not save right now'}</p>
+      ${detailsHtml()}
       <div class="pause-btns">
         <button class="btn btn-play" id="pResume">RESUME</button>
         <button class="btn" id="pRestart" data-label="Restart run">Restart run</button>
