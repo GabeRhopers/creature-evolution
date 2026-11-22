@@ -13,7 +13,7 @@ await p.click('#btnPlay'); await p.waitForTimeout(1200);
 const calm = ()=>G(()=>{const g=window.game.scene.getScene('Game'); g.creatures.forEach(c=>{ if(c.brain) c.fish.setPosition(c.fish.x, 200); });});
 const dive = async (depth, ms=1500, until=null)=>{ await G((d)=>{const g=window.game.scene.getScene('Game'); const top=120; g.player.setPosition(g.player.x, top+(g.seabedTop-top)*d); g.player.arcadeBody.setVelocity(0,0);}, depth); await p.waitForTimeout(ms);
   // Slow machines: wait (up to 3 s) for the game to notice the new depth.
-  if (until) for (let i=0;i<30 && !(await G(()=>window.game.scene.getScene('Game').depthBlocked));i++) await p.waitForTimeout(100);
+  if (until) for (let i=0;i<50 && !(await G(()=>window.game.scene.getScene('Game').depthBlocked && window.game.scene.getScene('Hud').status.text.includes('Too deep')));i++) await p.waitForTimeout(100);
   return G(()=>{const g=window.game.scene.getScene('Game'); return {depth:+g.depthOf(g.player.y).toFixed(2), blocked:g.depthBlocked, status:window.game.scene.getScene('Hud').status.text, banner:window.game.scene.getScene('Hud').banner.text+' '+window.__areaBanners.join(' ')};}); };
 await calm();
 let r = await dive(0.6, 100, 'blocked'); console.log(JSON.stringify(r));
