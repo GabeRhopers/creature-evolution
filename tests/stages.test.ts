@@ -6,18 +6,22 @@ const croc = SPECIES[BALANCE.playerSpecies];
 const f = (lv: number) => formAt(croc, lv, true);
 
 describe('stages', () => {
-  it('has three stages covering levels 1 to 30 without gaps', () => {
+  it('has three stages covering levels 1 to 30 without gaps (Legend levels go on after)', () => {
     expect(STAGES.map((s) => s.id)).toEqual(['hatchling', 'juvenile', 'adult']);
     expect(STAGES[0].from).toBe(1);
     for (let i = 1; i < STAGES.length; i++) expect(STAGES[i].from).toBe(STAGES[i - 1].to + 1);
-    expect(STAGES[STAGES.length - 1].to).toBe(MAX_LEVEL);
+    expect(STAGES[STAGES.length - 1].to).toBe(30);
+    expect(stageAt(45).id).toBe('adult');
     expect(stageAt(10).id).toBe('hatchling');
     expect(stageAt(11).id).toBe('juvenile');
     expect(stageAt(21).id).toBe('adult');
   });
-  it('caps the level at 30', () => {
-    expect(clampLevel(45)).toBe(30);
+  it('levels are endless; past 30 the body stays adult-sized but strength keeps growing', () => {
+    expect(MAX_LEVEL).toBeGreaterThanOrEqual(500);
+    expect(clampLevel(45)).toBe(45);
     expect(f(45).size).toBe(f(30).size);
+    expect(f(31).rank / f(30).rank).toBeCloseTo(1 + BALANCE.tides.legendRankPerLevel);
+    expect(f(60).rank).toBeGreaterThan(f(30).rank * 2);
   });
   it('size grows only a little inside a stage, and jumps when evolving', () => {
     for (const s of STAGES) {
@@ -34,7 +38,7 @@ describe('stages', () => {
     expect(sizeAt(croc, 30) / sizeAt(croc, 1)).toBeGreaterThan(20); // the old formula, for reference
   });
   it('never shrinks when leveling up', () => {
-    for (let lv = 1; lv < MAX_LEVEL; lv++) {
+    for (let lv = 1; lv < 120; lv++) {
       expect(f(lv + 1).size).toBeGreaterThanOrEqual(f(lv).size);
       expect(f(lv + 1).rank).toBeGreaterThanOrEqual(f(lv).rank);
     }
@@ -48,7 +52,7 @@ describe('stages', () => {
   });
   it('stageIndex changes exactly at evolution levels', () => {
     const changes = [];
-    for (let lv = 1; lv < MAX_LEVEL; lv++) if (stageIndex(lv + 1) !== stageIndex(lv)) changes.push(lv + 1);
+    for (let lv = 1; lv < 120; lv++) if (stageIndex(lv + 1) !== stageIndex(lv)) changes.push(lv + 1);
     expect(changes).toEqual([11, 21]);
   });
 });

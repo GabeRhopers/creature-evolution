@@ -37,3 +37,7 @@ with a confirm step, and New game in an empty slot.
 `gamepad.mjs` plugs in a virtual controller (navigator.getGamepads replaced before load) and drives
 the home screen, swimming, eating, sprint, the ability, pause and resume, a perk choice and the
 death screen with it.
+
+`tides.mjs` checks Tides and endless levels: the HUD names the Tide, a banner starts Tide 2, levels
+go past 30 as Legend levels (adult body, more strength, Legend perks), respawned fish are stronger in
+later Tides, and a crab still waits at level 40.

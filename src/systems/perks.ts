@@ -1,6 +1,6 @@
 // Perks: at a few levels the player picks 1 of 3 small, stacking upgrades.
 // Pure logic, so it can be unit-tested.
-import { BALANCE } from '../data';
+import { BALANCE, lastStageLevel } from '../data';
 
 export interface PerkDef {
   id: string;
@@ -44,7 +44,13 @@ export function perkMods(taken: string[]): PerkMods {
 
 /** How many perk picks the player has earned but not made yet. */
 export function perksOwed(level: number, takenCount: number): number {
-  return Math.max(0, PERK_LEVELS.filter((l) => l <= level).length - takenCount);
+  return Math.max(0, perksEarned(level) - takenCount);
+}
+
+/** Perk picks earned by a level: the fixed levels, then one every few Legend levels (33, 36, 39...). */
+export function perksEarned(level: number): number {
+  const legend = Math.max(0, level - lastStageLevel());
+  return PERK_LEVELS.filter((l) => l <= level).length + Math.floor(legend / BALANCE.tides.legendPerkEvery);
 }
 
 /** Three different perks to choose from. */

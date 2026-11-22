@@ -64,6 +64,14 @@ bites) and pinch (`pinchHpFraction` of the player's health + stun) are set from 
 Defeating it sets `crabLevel` (saved in the checkpoint). After dying, SWIM AGAIN restarts at `crabLevel`
 (or level 1), with perks. This replaced the old "back to the start of your stage" rule.
 
+## Tides and endless levels (`balance.json` "tides", helpers in `src/data/index.ts`)
+No level cap (`stages.maxLevel` is a practical 999). A Tide is 10 levels (`tideOf`, `tideName`: themes repeat
+as "+" versions); the Checkpoint Crab ends each Tide. Past the adult stage (level 30) are Legend levels
+(`legendLevel`): the body stays adult-sized (stage `to` 30, `across` clamps), rank and power grow
+`legendRankPerLevel` per level (`formAt`), and a perk comes every `legendPerkEvery` levels (`perksEarned`).
+Reef fish spawn `aiLevelBonus` levels higher in later Tides. The XP step (`levelHardness`) stops compounding
+after `levelHardnessMaxLevels`, so endless levels stay reachable. Tide visuals and music come later.
+
 ## Save slots
 `SaveManager` keeps `SLOT_COUNT` (3) checkpoint slots; the game writes to `saves.activeSlot`. Slot 1 uses the
 original key (`ce.save.checkpoint`), so older saves are slot 1; slots 2+ are `ce.save.checkpoint.N`, each with

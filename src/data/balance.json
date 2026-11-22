@@ -16,6 +16,8 @@
     "xpExponent": 1.5,
     "levelHardness": 0.03,
     "_levelHardness": "Each level needs this much more XP on top of the normal curve, compounding (0.03 = 3%: about +30% by level 10, 2.3x by level 30). Food fills the stomach the same, so you eat more per level.",
+    "levelHardnessMaxLevels": 40,
+    "_levelHardnessMaxLevels": "The extra step stops compounding after this many levels (endless levels would otherwise explode); later levels still need more each time through the normal curve.",
     "speedExponent": 0.35,
     "turnExponent": -0.25
   },
@@ -154,7 +156,7 @@
   },
   "stages": {
     "_comment": "Player growth by stage. body = [size at the first level, size at the last level] (look, physics, what fits in the mouth). rank = how strong the reef thinks you are (who hunts, who flees, health and bite). Both grow a little inside a stage and jump when you evolve.",
-    "maxLevel": 30,
+    "maxLevel": 999,
     "list": [
       {
         "id": "hatchling",
@@ -225,7 +227,8 @@
         "ability": "roll",
         "maxDepth": 1.0
       }
-    ]
+    ],
+    "_maxLevel": "Practical cap only: levels are endless. Past the last stage (adult, level 30) are Legend levels: the body stays adult-sized, strength grows a little each level."
   },
   "abilities": {
     "shell": {
@@ -440,5 +443,22 @@
     "homeHeight": 180,
     "spawnDistance": 700,
     "rewardLevels": 0.5
+  },
+  "tides": {
+    "_comment": "A Tide is a chapter of `levelsPerTide` levels, ending with the Checkpoint Crab. Themes repeat as harder '+' versions after the list runs out. Each Tide from the 2nd on, reef fish spawn `aiLevelsPerTide` levels higher (up to `aiLevelBonusMax`). Legend levels (past the adult stage): strength x(1 + legendRankPerLevel) per level, and a perk every `legendPerkEvery` levels.",
+    "levelsPerTide": 10,
+    "aiLevelsPerTide": 1,
+    "aiLevelBonusMax": 8,
+    "legendRankPerLevel": 0.03,
+    "legendPerkEvery": 3,
+    "themes": [
+      "Sunny Reef",
+      "Kelp Forest",
+      "Shipwreck Graveyard",
+      "Volcanic Vents",
+      "Frozen Sea",
+      "Sunken City",
+      "Midnight Zone"
+    ]
   }
 }

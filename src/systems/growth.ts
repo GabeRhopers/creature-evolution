@@ -23,7 +23,8 @@ export function biteDamageAt(species: Species, level: number): number {
 
 /** XP needed to go from `level` to the next: the normal curve, a little harder every level (levelHardness). */
 export function xpToNext(level: number): number {
-  const hardness = Math.pow(1 + (g().levelHardness ?? 0), Math.max(0, level - 1));
+  const steps = Math.min(Math.max(0, level - 1), g().levelHardnessMaxLevels ?? Infinity);
+  const hardness = Math.pow(1 + (g().levelHardness ?? 0), steps);
   return Math.round(g().xpBase * Math.pow(level, g().xpExponent) * hardness);
 }
 
@@ -89,7 +90,9 @@ export function formAt(species: Species, level: number, staged: boolean): Form {
   }
   const s = stageAt(level);
   const size = across(s.body, s, level);
-  const rank = across(s.rank, s, level);
+  // Legend levels (past the last stage): the body stays adult-sized, strength keeps growing a little.
+  const legend = Math.max(0, clampLevel(level) - s.to);
+  const rank = across(s.rank, s, level) * Math.pow(1 + BALANCE.tides.legendRankPerLevel, legend);
   return { stage: s, size, rank, power: rank / species.baseSize, devourRatio: s.devourRatio };
 }
 
