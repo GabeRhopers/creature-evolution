@@ -4,6 +4,10 @@ import { GameScene } from './scenes/GameScene';
 import { HudScene } from './scenes/HudScene';
 import { LightScene } from './scenes/LightScene';
 import { initMenu } from './ui/menu';
+import { applyEnemySettings } from './data/adminSettings';
+
+// Enemy settings changed on this device (Options > Enemy settings) apply before anything spawns.
+applyEnemySettings();
 
 // Add ?canvas to the URL to force the Canvas renderer (debug fallback for
 // devices with WebGL driver problems).

@@ -384,11 +384,11 @@
     "look": "fish-barracuda",
     "tier": 3,
     "baseSize": 30,
-    "rankMul": 4.0,
-    "baseHP": 160,
-    "baseBite": 20,
-    "accel": 560,
-    "maxSpeed": 290,
+    "rankMul": 2.2,
+    "baseHP": 130,
+    "baseBite": 13,
+    "accel": 500,
+    "maxSpeed": 255,
     "sprintMultiplier": 1.8,
     "drag": 0.975,
     "turnSpeed": 3.4,
@@ -401,8 +401,8 @@
     ],
     "behavior": {
       "schooling": true,
-      "aggression": 1.0,
-      "visionRange": 520,
+      "aggression": 0.85,
+      "visionRange": 430,
       "fleeRatio": 2.0
     },
     "spawn": {

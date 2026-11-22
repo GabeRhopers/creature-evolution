@@ -1,12 +1,18 @@
 {
   "playerSpecies": "crocodile",
   "world": {
-    "width": 9000,
+    "width": 18000,
     "height": 3200,
+    "startX": 4500,
+    "_startX": "Where a new run starts (the middle of the Coral Sea). The world loops: x = 0 and x = width are the same place.",
+    "loopOverlap": 3600,
+    "_loopOverlap": "Scenery within this many px of the world's edges is copied past the other edge, so the loop is seamless at every zoom.",
+    "populationScale": 1.6,
+    "_populationScale": "Reef fish counts (balance population) are multiplied by this for the whole world.",
     "surfaceY": 120,
     "seabedDepth": 260,
-    "rockCount": 26,
-    "kelpPatches": 18
+    "rockCount": 52,
+    "kelpPatches": 34
   },
   "terrain": {
     "_comment": "Shape of the sea. Ground: sand dunes everywhere, rocky ridges, and seamounts whose flat tops (top = share of the water, 0 surface, 1 seabed) reach into the Reef with coral gardens. Islands break the surface; their sandbank (depth, px) is solid and their mangrove roots (rootsDepth) are a hiding place. Keep the player start (world center) clear.",
@@ -29,6 +35,26 @@
         "x": 7300,
         "width": 560,
         "height": 200
+      },
+      {
+        "x": 9900,
+        "width": 600,
+        "height": 160
+      },
+      {
+        "x": 11700,
+        "width": 700,
+        "height": 220
+      },
+      {
+        "x": 14600,
+        "width": 500,
+        "height": 180
+      },
+      {
+        "x": 17000,
+        "width": 500,
+        "height": 200
       }
     ],
     "seamounts": [
@@ -46,6 +72,16 @@
         "x": 8350,
         "width": 900,
         "top": 0.62
+      },
+      {
+        "x": 15100,
+        "width": 1100,
+        "top": 0.6
+      },
+      {
+        "x": 16300,
+        "width": 1200,
+        "top": 0.55
       }
     ],
     "islands": [
@@ -68,10 +104,106 @@
         "x": 7950,
         "width": 600,
         "depth": 150
+      },
+      {
+        "x": 9700,
+        "width": 500,
+        "depth": 220,
+        "style": "mangrove"
+      },
+      {
+        "x": 10500,
+        "width": 700,
+        "depth": 260,
+        "style": "mangrove"
+      },
+      {
+        "x": 11350,
+        "width": 450,
+        "depth": 200,
+        "style": "mangrove"
+      },
+      {
+        "x": 12150,
+        "width": 800,
+        "depth": 280,
+        "style": "mangrove"
+      },
+      {
+        "x": 12950,
+        "width": 500,
+        "depth": 220,
+        "style": "mangrove"
+      },
+      {
+        "x": 14200,
+        "width": 600,
+        "depth": 320,
+        "style": "iceberg"
+      },
+      {
+        "x": 15450,
+        "width": 900,
+        "depth": 420,
+        "style": "iceberg"
+      },
+      {
+        "x": 16750,
+        "width": 700,
+        "depth": 360,
+        "style": "iceberg"
+      },
+      {
+        "x": 17350,
+        "width": 400,
+        "depth": 240,
+        "style": "iceberg"
       }
     ],
     "rootsDepth": 120,
     "corals": 14
+  },
+  "regions": {
+    "_comment": "Regions of the looping sea, left to right. Water colors: surface, Reef band, Deep band, seabed. Neighbors blend over `blend` px.",
+    "blend": 1000,
+    "list": [
+      {
+        "id": "coral",
+        "name": "Coral Sea",
+        "from": 0,
+        "to": 9000,
+        "water": [
+          "#0099db",
+          "#124e89",
+          "#262b44",
+          "#181425"
+        ]
+      },
+      {
+        "id": "swamp",
+        "name": "Mangrove Swamp",
+        "from": 9000,
+        "to": 13500,
+        "water": [
+          "#265c42",
+          "#193c3e",
+          "#262b44",
+          "#181425"
+        ]
+      },
+      {
+        "id": "ice",
+        "name": "Frozen Sea",
+        "from": 13500,
+        "to": 18000,
+        "water": [
+          "#8b9bb4",
+          "#5a6988",
+          "#3a4466",
+          "#262b44"
+        ]
+      }
+    ]
   },
   "scenery": {
     "_comment": "Scenery on the ground (x in world px; sits on the ground line there). Pieces in 'hide' are hiding places. 'arch' is solid rock you can swim through. Vents slowly heal the player (healPerSecond = share of max health). Floats bob at the surface. Keep pieces off steep seamount walls.",
@@ -332,7 +464,7 @@
     "grey_shark": 2,
     "lionfish": 10,
     "moray_eel": 5,
-    "barracuda": 9
+    "barracuda": 6
   },
   "ai": {
     "hungerDrainPerSecond": 0.014,

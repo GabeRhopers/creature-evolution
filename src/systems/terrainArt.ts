@@ -4,66 +4,89 @@
 import type Phaser from 'phaser';
 import { add, bayer, C, canvas, px, rng } from './worldTextures';
 import type { Terrain } from './terrain';
+import type { RegionId, Regions } from './regions';
 
 const hex = (h: string): [number, number, number] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 
+/** Ground colors per region: sand (top, body, speckle), rock (outline, top, body, deep), and moss on tops. */
+const GROUND: Record<RegionId, { sand: string; sandDark: string; speck: string; speck2: string; outline: string; rockTop: string; rock: string; rockDeep: string; moss: string[] }> = {
+  coral: { sand: C.sand, sandDark: C.sandDark, speck: C.clay, speck2: C.brown, outline: C.navy, rockTop: C.stone, rock: C.grey, rockDeep: C.slate, moss: [C.leaf, C.pinkLight] },
+  swamp: { sand: C.clay, sandDark: C.brown, speck: C.bark, speck2: C.leafDark, outline: C.ink, rockTop: C.leaf, rock: C.bark, rockDeep: C.ink, moss: [C.leafDark, C.leaf] },
+  ice: { sand: C.white, sandDark: C.mist, speck: C.stone, speck2: C.cyan, outline: C.slate, rockTop: C.white, rock: C.mist, rockDeep: C.stone, moss: [C.cyan, C.white] },
+};
+
+/** Widest ground image, in art pixels (iPads can't load very wide textures). */
+const CHUNK = 1024;
+
 /**
- * The whole ground as one image: `P` world px per art pixel, from just above the highest
- * point down to the bottom of the world. Returns the world y of its top edge.
+ * The ground as a row of images (chunks of `CHUNK` art pixels): `P` world px per art pixel, from just
+ * above the highest point down to the bottom of the world. Colors follow the region (sand, mud or
+ * snow; grey, mossy or icy rock), blending across region borders. Returns the top edge and the chunks.
  */
-export function makeGround(scene: Phaser.Scene, key: string, t: Terrain, worldH: number, P: number): number {
+export function makeGround(scene: Phaser.Scene, prefix: string, t: Terrain, regions: Regions, worldH: number, P: number): { top: number; chunks: Array<{ key: string; x: number }> } {
   const top = Math.max(0, Math.floor(t.highestGround / P) - 2);
-  if (scene.textures.exists(key)) return top * P;
-  const cols = Math.ceil(t.width / P);
+  const totalCols = Math.ceil(t.width / P);
   const rows = Math.ceil(worldH / P) - top;
-  const [c, g] = canvas(cols, rows);
-  const img = g.createImageData(cols, rows);
-  const r = rng(21);
-  const col = (n: number) => t.groundAt(n * P + P / 2) / P - top;
-  const tops = Float32Array.from({ length: cols + 2 }, (_, i) => Math.round(col(i - 1)));
+  const chunks: Array<{ key: string; x: number }> = [];
   const sandLine = (t.seabedTop + 6) / P - top;
-  const pal = Object.fromEntries(Object.entries(C).map(([k, v]) => [k, hex(v)])) as Record<keyof typeof C, [number, number, number]>;
-  const put = (x: number, y: number, rgb: [number, number, number]) => {
-    const i = (y * cols + x) * 4;
-    img.data[i] = rgb[0]; img.data[i + 1] = rgb[1]; img.data[i + 2] = rgb[2]; img.data[i + 3] = 255;
-  };
-  for (let x = 0; x < cols; x++) {
-    const gy = Math.max(0, tops[x + 1]);
-    const kind = t.kindAt(x * P + P / 2);
-    const rock = kind !== 'sand';
-    for (let y = gy; y < rows; y++) {
-      const d = y - gy;
-      // Exposed side faces of steep rock: the neighbor column starts lower.
-      const side = rock && (y < tops[x] || y < tops[x + 2]);
-      if (!rock || y > sandLine) {
-        // Sand: light top, dithered into darker sand, clay speckles.
-        const sd = rock ? y - sandLine : d;
-        let p = sd < 2 ? pal.sand : sd < 8 ? (bayer(x, y) < (8 - sd) / 8 ? pal.sand : pal.sandDark) : pal.sandDark;
-        if (sd >= 3 && r() < 0.05) p = pal.clay;
-        if (sd >= 9 && r() < 0.008) p = pal.brown;
+  const pals = Object.fromEntries(
+    Object.entries(GROUND).map(([id, g]) => [id, Object.fromEntries(Object.entries(g).map(([k, v]) => [k, Array.isArray(v) ? v.map(hex) : hex(v)]))]),
+  ) as Record<RegionId, Record<string, [number, number, number] & [number, number, number][]>>;
+  for (let c0 = 0; c0 < totalCols; c0 += CHUNK) {
+    const key = `${prefix}_${c0}`;
+    chunks.push({ key, x: c0 * P });
+    if (scene.textures.exists(key)) continue;
+    const cols = Math.min(CHUNK, totalCols - c0);
+    const [c, g] = canvas(cols, rows);
+    const img = g.createImageData(cols, rows);
+    const r = rng(21 + c0);
+    const tops = Float32Array.from({ length: cols + 2 }, (_, i) => Math.round(t.groundAt((c0 + i - 1) * P + P / 2) / P - top));
+    const put = (x: number, y: number, rgb: [number, number, number]) => {
+      const i = (y * cols + x) * 4;
+      img.data[i] = rgb[0]; img.data[i + 1] = rgb[1]; img.data[i + 2] = rgb[2]; img.data[i + 3] = 255;
+    };
+    for (let x = 0; x < cols; x++) {
+      const wx = (c0 + x) * P + P / 2;
+      const gy = Math.max(0, tops[x + 1]);
+      const kind = t.kindAt(wx);
+      const rock = kind !== 'sand';
+      for (let y = gy; y < rows; y++) {
+        const pal = pals[regions.lookAt(wx, c0 + x, y).id];
+        const d = y - gy;
+        // Exposed side faces of steep rock: the neighbor column starts lower.
+        const side = rock && (y < tops[x] || y < tops[x + 2]);
+        if (!rock || y > sandLine) {
+          // Sand (mud, snow): light top, dithered into the darker shade, speckles.
+          const sd = rock ? y - sandLine : d;
+          let p = sd < 2 ? pal.sand : sd < 8 ? (bayer(x, y) < (8 - sd) / 8 ? pal.sand : pal.sandDark) : pal.sandDark;
+          if (sd >= 3 && r() < 0.05) p = pal.speck;
+          if (sd >= 9 && r() < 0.008) p = pal.speck2;
+          put(x, y, p);
+          continue;
+        }
+        if (d === 0 || side) { put(x, y, pal.outline); continue; }
+        // Rock: a light top, then flat bands that darken toward the seabed, with short dithered blends.
+        const band = (a: number, b: number) => (d - a) / (b - a);
+        let p: [number, number, number];
+        if (d <= 2) p = pal.rockTop;
+        else if (d < 36) p = pal.rock;
+        else if (d < 48) p = bayer(x, y) < band(36, 48) ? pal.rockDeep : pal.rock;
+        else p = pal.rockDeep;
+        // Strata: short dark ledges.
+        if (d > 6 && (y + (x >> 4) * 7) % 29 === 0 && ((x >> 2) & 3) !== 0) p = d < 42 ? pal.rockDeep : pal.outline;
+        if (d > 3 && r() < 0.012) p = d < 42 ? pal.rockDeep : pal.outline;
+        // Moss, tiny coral or frost on the tops of seamounts.
+        if (kind === 'seamount' && d <= 3 && r() < 0.18) {
+          const moss = pal.moss as unknown as Array<[number, number, number]>;
+          p = r() < 0.6 ? moss[0] : moss[1];
+        }
         put(x, y, p);
-        continue;
       }
-      if (d === 0 || side) { put(x, y, pal.navy); continue; }
-      // Rock: a light top, then grey strata that darken toward the seabed.
-      // Flat color bands with short dithered blends, so big seamounts don't look noisy.
-      const band = (a: number, b: number) => (d - a) / (b - a);
-      let p: [number, number, number];
-      if (d <= 2) p = pal.stone;
-      else if (d < 36) p = pal.grey;
-      else if (d < 48) p = bayer(x, y) < band(36, 48) ? pal.slate : pal.grey;
-      else p = pal.slate;
-      // Strata: short dark ledges.
-      if (d > 6 && (y + (x >> 4) * 7) % 29 === 0 && ((x >> 2) & 3) !== 0) p = d < 42 ? pal.slate : pal.navy;
-      if (d > 3 && r() < 0.012) p = d < 42 ? pal.slate : pal.navy;
-      // Moss and tiny coral on the top of seamounts.
-      if (kind === 'seamount' && d <= 3 && r() < 0.18) p = r() < 0.6 ? pal.leaf : pal.pinkLight;
-      put(x, y, p);
     }
+    g.putImageData(img, 0, 0);
+    add(scene, key, c);
   }
-  g.putImageData(img, 0, 0);
-  add(scene, key, c);
-  return top * P;
+  return { top: top * P, chunks };
 }
 
 /** An island: sand hump and palm trees above the water, a sandbank and mangrove roots below. */
@@ -237,5 +260,110 @@ export function makeCoral(scene: Phaser.Scene, key: string, kind: CoralKind, see
       dot(x0 + 1, h - th, C.orange); dot(x0, h - th, C.yellow);
     }
   }
+  add(scene, key, c);
+}
+
+/** Shared: the underside line of an island (rows below the surface) at art column x, or -1. */
+function undersideOf(t: Terrain, left: number, P: number) {
+  return (x: number) => {
+    const y = t.ceilAt(left + x * P + P / 2);
+    return isFinite(y) ? Math.round((y - t.surfaceY) / P) : -1;
+  };
+}
+
+/** An iceberg: a jagged white peak above the water and a big blue-white body below (no roots). */
+export function makeIceberg(scene: Phaser.Scene, key: string, t: Terrain, cx: number, width: number, depth: number, above: number, P: number, seed: number): void {
+  if (scene.textures.exists(key)) return;
+  const cols = Math.ceil(width / P) + 4;
+  const aboveRows = Math.floor(above / P);
+  const rows = aboveRows + Math.ceil(depth / P) + 2;
+  const [c, g] = canvas(cols, rows);
+  const r = rng(seed);
+  const left = cx - (cols * P) / 2;
+  const bottom = undersideOf(t, left, P);
+  const half = cols / 2;
+  // Above water: a jagged peak, highest a little off center.
+  const peakX = half + (r() - 0.5) * half * 0.5;
+  const jag = Array.from({ length: cols }, () => r());
+  const peak = (x: number) => {
+    const u = Math.abs(x - peakX) / (half * 0.85);
+    return u >= 1 ? 0 : Math.round((aboveRows - 3) * Math.pow(1 - u, 1.1) + jag[x] * 2);
+  };
+  for (let x = 0; x < cols; x++) {
+    const h = peak(x);
+    for (let k = 0; k < h; k++) {
+      const y = aboveRows - 1 - k;
+      const edge = k === h - 1 || peak(x - 1) <= k || peak(x + 1) <= k;
+      px(g, x, y, edge ? C.stone : x > peakX + 2 && bayer(x, y) < 0.5 ? C.mist : C.white);
+    }
+  }
+  // Below water: the ice body (follows the terrain's ceiling line), lighter at the top, cyan streaks.
+  for (let x = 0; x < cols; x++) {
+    const b = bottom(x);
+    if (b < 0) continue;
+    for (let y = 0; y <= b; y++) {
+      const edge = y === b || bottom(x - 1) < y || bottom(x + 1) < y;
+      const u = y / Math.max(1, b);
+      let col = u < 0.3 ? C.white : u < 0.65 ? (bayer(x, y) < (u - 0.3) / 0.35 ? C.mist : C.white) : bayer(x, y) < (u - 0.65) / 0.35 ? C.stone : C.mist;
+      // Short frozen cracks, lit cyan.
+      if (y % 9 === 4 && (x + (y >> 3) * 5) % 13 < 3 && u < 0.85) col = C.cyan;
+      px(g, x, aboveRows + y, edge ? C.slate : col);
+    }
+  }
+  for (let x = 0; x < cols; x++) if (bottom(x) >= 0 && bayer(x, 0) < 0.5) px(g, x, aboveRows, C.cyan);
+  add(scene, key, c);
+}
+
+/** A mangrove clump: bushy trees above the water, a mud bank and a thick tangle of roots below. */
+export function makeMangrove(scene: Phaser.Scene, key: string, t: Terrain, cx: number, width: number, depth: number, roots: number, above: number, P: number, seed: number): void {
+  if (scene.textures.exists(key)) return;
+  const cols = Math.ceil(width / P) + 4;
+  const aboveRows = Math.floor(above / P);
+  const rows = aboveRows + Math.ceil((depth + roots) / P) + 2;
+  const [c, g] = canvas(cols, rows);
+  const r = rng(seed);
+  const left = cx - (cols * P) / 2;
+  const bottom = undersideOf(t, left, P);
+  const half = cols / 2;
+  const dot = (x: number, y: number, col: string) => { if (x >= 0 && x < cols && y >= 0 && y < rows) px(g, Math.round(x), Math.round(y), col); };
+  // Mud bank under the water.
+  for (let x = 0; x < cols; x++) {
+    const b = bottom(x);
+    if (b < 0) continue;
+    for (let y = 0; y <= b; y++) {
+      const edge = y === b || bottom(x - 1) < y || bottom(x + 1) < y;
+      const u = y / Math.max(1, b);
+      px(g, x, aboveRows + y, edge ? C.bark : u < 0.3 ? C.clay : bayer(x, y) < u ? C.bark : C.brown);
+    }
+  }
+  // Many arching prop roots (the hiding place).
+  const nRoots = Math.max(8, Math.round(cols / 5));
+  for (let i = 0; i < nRoots; i++) {
+    const x0 = Math.round(half * 0.3 + r() * half * 1.4);
+    const b = bottom(x0);
+    if (b < 1) continue;
+    const len = Math.round((roots / P) * (0.6 + r() * 0.5));
+    const lean = (r() - 0.5) * 1.2;
+    for (let k = 0; k < len; k++) {
+      const x = Math.round(x0 + lean * k + Math.sin(k / 4 + i) * 1.5);
+      dot(x, aboveRows + b + k, k > len - 2 ? C.clay : C.brown);
+      dot(x + 1, aboveRows + b + k, C.bark);
+    }
+  }
+  // Above water: roots arching out of the water, thin trunks and round bushy crowns.
+  const trees = Math.max(2, Math.round(width / 180));
+  for (let i = 0; i < trees; i++) {
+    const bx = Math.round(half * 0.35 + ((i + 0.5) / trees) * half * 1.3);
+    const h = Math.min(aboveRows - 6, 8 + Math.floor(r() * 5));
+    for (let k = 0; k < h; k++) dot(bx + (k > h / 2 ? 1 : 0), aboveRows - 1 - k, C.brown);
+    for (const s of [-1, 1]) for (let k = 0; k < 4; k++) dot(bx + s * (k + 1), aboveRows - 1 - Math.round(Math.sin((k / 3) * Math.PI) * 2), C.bark);
+    const cy = aboveRows - 1 - h, rr = 4 + Math.floor(r() * 3);
+    for (let y = -rr; y <= rr; y++)
+      for (let x = -rr - 1; x <= rr + 1; x++) {
+        if ((x * x) / ((rr + 1) * (rr + 1)) + (y * y) / (rr * rr) > 1) continue;
+        dot(bx + x, cy + y, y < -rr / 2 ? C.leafLight : bayer(x, y) < 0.3 ? C.leafDark : C.leaf);
+      }
+  }
+  for (let x = 0; x < cols; x++) if (bottom(x) >= 0 && bayer(x, 0) < 0.5) px(g, x, aboveRows, C.leaf);
   add(scene, key, c);
 }

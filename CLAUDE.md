@@ -65,7 +65,9 @@ copy wins unless it is an untouched, outdated starter (shipped `SEED_STAMPS` tim
 then the shipped seed; Boot's `look:` seed cache is only the last fallback. Studio pose fps reach the game
 (`SkinFrames.fps`). Studio rules: `seedStarters()` runs before opening `?project=`, and opening a project keeps
 its `updatedAt` (`S.stamp`); only a real edit stamps a new time. The home Sprite Studio card lists every design
-with a direct link. `tests/e2e/studio_game.mjs` covers the whole chain.
+with a direct link. `tests/e2e/studio_game.mjs` covers the whole chain. The studio's **Original** button (starter
+designs and their `-vN` copies) restores one pose or the whole drawing from `studio/seeds` (with undo; a whole
+restore keeps the shipped stamp, so later shipped versions still apply).
 
 ## Terrain (`src/systems/terrain.ts`, art in `src/systems/terrainArt.ts`, `balance.json` "terrain")
 The seabed is a ground line (`groundAt(x)`): dunes everywhere, rocky ridges, and seamounts whose plateau tops
@@ -83,6 +85,24 @@ arch, vents, cannons, chests, a helmet, an anchor). Kinds in `hide` are hiding p
 circles in the `rocks` group (solid, open underneath); vents puff bubbles and heal the player (`inVent`,
 `healPerSecond` of max health). Rocks and kelp keep clear of scenery (`sceneryAt`). Floats (rowboats, a beach
 ball, bottles) bob at the surface. Far parallax layers: islands on the horizon (Shallows), faded peaks (Reef).
+
+## The looping world and regions (`src/systems/regions.ts`, `balance.json` "world", "regions")
+The sea is `world.width` (18000) wide and loops: x and x + W are the same place. Regions left to right: Coral Sea
+(0-9000, the original map), Mangrove Swamp, Frozen Sea; each has water colors (`regionStops`), ground colors
+(`makeGround`, chunked to 1024 art px for iPads), kelp (reeds, brown kelp), rock tint and island style (`sand`,
+`mangrove`, `iceberg`); borders blend over `regions.blend` (dithered). Terrain shapes use loop distance and
+`wrap(x)`, so the ground repeats. Scenery within `loopOverlap` of an edge is copied past the other edge
+(`mirrorEdges`, incl. rock circles, hide zones, vents, swaying kelp). The player wraps at the edges (`loopWorld`
+-> `loopShift` moves player, camera, food and bubbles by W in one frame); every fish is kept within W/2 of the
+focus (`keepNearFocus`); Brains aim at the nearest copy (`AIWorld.wrapNear`); `inKelp` folds x. Far parallax
+layers use texture widths that make W x scrollFactor a whole number of tiles (no jump). Far fish think every third
+frame (`LOD_DISTANCE`); far scenery is hidden (`cullStatics`). A region banner shows on entering. New runs start at
+`world.startX`. Gates between regions and region gameplay come next (plan doc).
+
+## Enemy settings (`src/data/adminSettings.ts`, Options > Enemy settings)
+Per enemy (species with a population): appears from level, how many, aggression, vision, top speed, health, bite,
+fights-above-its-size. Saved on the device (`ce.admin.enemies`, only differences from shipped), clamped to safe
+ranges, applied at startup (`main.ts`) and on Save to the shared SPECIES/BALANCE objects; Reset all.
 
 ## Day and night (`src/systems/dayNight.ts`, `src/scenes/LightScene.ts`, `balance.json` "dayNight")
 Four periods (Dawn, Day, Dusk, Night) loop; `DayNight.lightAt(seconds)` holds each period's look and blends

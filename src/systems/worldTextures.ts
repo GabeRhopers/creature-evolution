@@ -54,6 +54,12 @@ export function rng(seed: number): () => number {
 /** 4x4 ordered-dither threshold (0..1). */
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 export const bayer = (x: number, y: number) => BAYER[(y & 3) * 4 + (x & 3)];
+/** A repeatable 0..1 noise value per pixel (for wide, stripe-free blends). */
+export function hash01(x: number, y: number): number {
+  let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
 
 /**
  * Water color at a depth share (0 = surface, 1 = seabed): flat bands with a
@@ -65,17 +71,34 @@ export const WATER_STOPS: Array<[number, string]> = [
   [0.7, C.navy],
   [0.95, C.ink],
 ];
-export function waterColor(depth: number, x: number, row: number, blend = 0.06): string {
-  for (let i = WATER_STOPS.length - 1; i >= 0; i--) {
-    const [at, col] = WATER_STOPS[i];
+export function waterColor(depth: number, x: number, row: number, blend = 0.06, stops: Array<[number, string]> = WATER_STOPS): string {
+  for (let i = stops.length - 1; i >= 0; i--) {
+    const [at, col] = stops[i];
     if (depth >= at) {
       // Dither into the band above over `blend` of the depth just below a boundary.
       const into = (depth - at) / blend;
-      if (i > 0 && into < 1 && bayer(x, row) > into) return WATER_STOPS[i - 1][1];
+      if (i > 0 && into < 1 && bayer(x, row) > into) return stops[i - 1][1];
       return col;
     }
   }
-  return WATER_STOPS[0][1];
+  return stops[0][1];
+}
+
+/** A region's water colors (surface, Reef band, Deep band, seabed) as stops at the same depths. */
+export function regionStops(colors: string[]): Array<[number, string]> {
+  return WATER_STOPS.map(([at], i) => [at, colors[i] ?? WATER_STOPS[i][1]]);
+}
+
+/** A water strip that blends from one region's colors to the next, dithered sideways. */
+export function makeWaterBlend(scene: Phaser.Scene, key: string, from: Array<[number, string]>, to: Array<[number, string]>, cols: number, rows: number): void {
+  if (scene.textures.exists(key)) return;
+  const [c, g] = canvas(cols, rows);
+  for (let y = 0; y < rows; y++) {
+    const d = y / (rows - 1);
+    // Scattered (not ordered) dither, so a wide blend has no stripes.
+    for (let x = 0; x < cols; x++) px(g, x, y, waterColor(d, x, y, 0.06, 0.7 * bayer(x, y) + 0.3 * hash01(x, y) < (x + 0.5) / cols ? to : from));
+  }
+  add(scene, key, c);
 }
 
 export function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
@@ -94,13 +117,13 @@ export function add(scene: Phaser.Scene, key: string, c: HTMLCanvasElement): voi
 }
 
 /** Water: `cols` x `rows` art pixels from surface to seabed (a plain image draws faster than a tile). */
-export function makeWater(scene: Phaser.Scene, key: string, cols: number, rows: number): void {
+export function makeWater(scene: Phaser.Scene, key: string, cols: number, rows: number, stops: Array<[number, string]> = WATER_STOPS): void {
   if (scene.textures.exists(key)) return;
   const [c, g] = canvas(cols, rows);
   // Each row is one band color, or a 4-pixel dither pattern repeated along the row.
   for (let y = 0; y < rows; y++) {
     const d = y / (rows - 1);
-    const row = [0, 1, 2, 3].map((x) => waterColor(d, x, y));
+    const row = [0, 1, 2, 3].map((x) => waterColor(d, x, y, 0.06, stops));
     if (row.every((col) => col === row[0])) { g.fillStyle = row[0]; g.fillRect(0, y, cols, 1); continue; }
     for (let x = 0; x < cols; x++) px(g, x, y, row[x & 3]);
   }

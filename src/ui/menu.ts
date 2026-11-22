@@ -11,6 +11,7 @@ import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
 import { APP_VERSION, SLOT_COUNT, cleanSlotName, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
 import { perkIconUrl } from './perkIcons';
+import { ENEMY_FIELDS, enemiesChanged, enemyIds, resetEnemies, saveEnemy, shippedValue } from '../data/adminSettings';
 import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
 import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
 import type { PerkDef } from '../systems/perks';
@@ -426,6 +427,7 @@ export function initMenu(game: Phaser.Game): void {
       `<h3>Options</h3>${optionsHtml()}
       <div class="toggle"><span>Your crocodile<br><span style="color:var(--muted);font-size:13px">Drawings from Sprite Studio</span></span><select id="oSkin" aria-label="Your crocodile"><option value="">Grows with each stage</option></select></div>
       <div class="toggle"><span>Controller buttons<br><span style="color:var(--muted);font-size:13px">Choose which button does what</span></span><button class="btn" id="oPad">Set up</button></div>
+      <div class="toggle"><span>Enemy settings<br><span style="color:var(--muted);font-size:13px">${enemiesChanged() ? 'Changed on this device' : 'When enemies appear, how strong they are'}</span></span><button class="btn" id="oEnemies">Edit</button></div>
       <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${profile.best.level ? `Level ${profile.best.level} · ${lt.runs} runs played` : 'None yet'}</span></span><button class="btn" id="oReset" data-label="Reset">Reset</button></div>
       <div class="toggle"><span>Reset everything<br><span style="color:var(--muted);font-size:13px">Settings, records and the saved run</span></span><button class="btn" id="oResetAll" data-label="Reset all">Reset all</button></div>
       <p style="color:var(--muted);font-size:13px">${
@@ -439,6 +441,7 @@ export function initMenu(game: Phaser.Game): void {
         $('pClose').onclick = closePanel;
         fillSkinPicker($('oSkin') as HTMLSelectElement);
         $('oPad').onclick = openPadMap;
+        $('oEnemies').onclick = openEnemies;
         confirmButton('oReset', 'Tap again to reset', () => {
           profile.best = { level: 0, kills: 0, fish: 0 };
           saveProfile();
@@ -453,6 +456,63 @@ export function initMenu(game: Phaser.Game): void {
     );
   }
   $('cardOptions').addEventListener('click', openOptions);
+
+  // ---------------------------------------------------------------- enemy settings (admin)
+  function openEnemies(): void {
+    const rows = enemyIds()
+      .map((id) => {
+        const sp = SPECIES[id];
+        const lv = ENEMY_FIELDS[0].get(id);
+        return `<button class="btn enemy-row" data-enemy="${esc(id)}"><b>${esc(sp.displayName)}</b><span>from level ${lv} · ${ENEMY_FIELDS[1].get(id)} in the sea</span></button>`;
+      })
+      .join('');
+    openPanel(
+      `<h3>Enemy settings</h3>
+      <p class="saved-line">Change when enemies appear and how strong they are. Saved on this device; your next swim uses them.</p>
+      <div class="enemy-list">${rows}</div>
+      <div class="row"><button class="btn" id="enReset" data-label="Reset all">Reset all</button><button class="btn" id="enBack">Done</button></div>`,
+      () => {
+        panel.querySelectorAll<HTMLButtonElement>('[data-enemy]').forEach((b) => (b.onclick = () => openEnemy(b.dataset.enemy!)));
+        confirmButton('enReset', 'Tap again to reset all', () => {
+          resetEnemies();
+          badge('Enemies back to the shipped settings');
+          openEnemies();
+        });
+        $('enBack').onclick = openOptions;
+      },
+    );
+  }
+  function openEnemy(id: string): void {
+    const sp = SPECIES[id];
+    const fields = ENEMY_FIELDS.map((f) => {
+      const v = f.get(id);
+      return `<div class="en-field"><label for="en_${f.key}"><b>${esc(f.label)}</b> <output id="eo_${f.key}">${fmt(v)}</output><br><span class="en-help">${esc(f.help)} Shipped: ${fmt(shippedValue(id, f.key))}.</span></label>
+        <input type="range" id="en_${f.key}" min="${f.min}" max="${f.max}" step="${f.step}" value="${v}"></div>`;
+    }).join('');
+    openPanel(
+      `<h3>${esc(sp.displayName)}</h3>${fields}
+      <div class="row"><button class="btn" id="enSave">Save</button><button class="btn" id="enShipped">Shipped values</button><button class="btn" id="enBack2">Back</button></div>`,
+      () => {
+        for (const f of ENEMY_FIELDS) {
+          const input = $(`en_${f.key}`) as HTMLInputElement;
+          input.oninput = () => ($(`eo_${f.key}`).textContent = fmt(+input.value));
+        }
+        $('enSave').onclick = () => {
+          saveEnemy(id, Object.fromEntries(ENEMY_FIELDS.map((f) => [f.key, +($(`en_${f.key}`) as HTMLInputElement).value])));
+          badge(`${sp.displayName} saved: your next swim uses it`);
+          openEnemies();
+        };
+        $('enShipped').onclick = () => {
+          for (const f of ENEMY_FIELDS) {
+            ($(`en_${f.key}`) as HTMLInputElement).value = String(shippedValue(id, f.key));
+            $(`eo_${f.key}`).textContent = fmt(shippedValue(id, f.key));
+          }
+        };
+        $('enBack2').onclick = openEnemies;
+      },
+    );
+  }
+  const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(2));
 
   // ---------------------------------------------------------------- controller buttons (mapping)
   /** Waiting for a controller button for this action (the menu's own pad handling pauses meanwhile). */
