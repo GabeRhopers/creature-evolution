@@ -143,7 +143,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   }
 
   /** Use frames from another texture (a Sprite Studio drawing). Same frame size as the original art. */
-  applySkin(texture: string, frames: { swim: string[]; idle?: string[]; bite?: string; biteSeq?: string[]; rest?: string; damage?: string; celebrate?: string[]; dead?: string }): void {
+  applySkin(texture: string, frames: { swim: string[]; idle?: string[]; bite?: string; biteSeq?: string[]; rest?: string; damage?: string; celebrate?: string[]; dead?: string; fps?: { idle?: number; swim?: number; celebrate?: number } }): void {
     if (!frames.swim.length) return;
     this.skinFrames = { ...frames, celebrate: frames.celebrate?.length ? frames.celebrate : undefined };
     this.setTexture(texture, frames.swim[0]);
@@ -418,6 +418,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   private animate(dt: number): void {
     const frames = this.skinFrames ?? this.species.art?.frames;
     if (!frames) return;
+    const fps = this.skinFrames?.fps;
     this.biteAnim = Math.max(0, this.biteAnim - dt);
     this.celebrateAnim = Math.max(0, this.celebrateAnim - dt);
     let frame: string;
@@ -431,7 +432,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     } else if (this.sinceHurt < 0.35 && frames.damage) {
       frame = frames.damage;
     } else if (this.celebrateAnim > 0 && frames.celebrate) {
-      frame = frames.celebrate[Math.floor((1.1 - this.celebrateAnim) * 8) % frames.celebrate.length];
+      frame = frames.celebrate[Math.floor((1.1 - this.celebrateAnim) * (fps?.celebrate ?? 8)) % frames.celebrate.length];
     } else if (still && this.digestPose && frames.rest) {
       // Lying flat while digesting.
       frame = frames.rest;
@@ -440,13 +441,14 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
       this.idleClock += dt;
       const blinkPhase = this.idleClock % 3.4;
       if (frames.blink && blinkPhase > 3.25) frame = frames.blink;
-      else frame = frames.idle[Math.floor(this.idleClock * 1.6) % frames.idle.length];
+      else frame = frames.idle[Math.floor(this.idleClock * (fps?.idle ?? 1.6)) % frames.idle.length];
     } else if (still && frames.rest) {
       frame = frames.rest;
     } else {
       this.idleClock = 0;
       // Paddle faster the faster we swim.
-      this.animClock += dt * (2 + (speed / this.cruiseSpeed) * 6);
+      // With a studio speed: that many frames per second at cruising speed, a third of it when slow.
+      this.animClock += fps?.swim ? dt * fps.swim * (1 / 3 + (speed / this.cruiseSpeed) * (2 / 3)) : dt * (2 + (speed / this.cruiseSpeed) * 6);
       frame = frames.swim[Math.floor(this.animClock) % frames.swim.length];
     }
     if (this.frame.name !== frame) this.setFrame(frame, false, false);

@@ -55,6 +55,15 @@ helpers (eye-anchored placement, bite frames, blink, egg) live in `tools/heroes/
 Abilities: croc Shell Guard / Lunge / Death Roll; Mosa Dart / Tail Slam / Crushing Bite;
 White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks).
 
+## Sprite Studio -> game (`src/skins.ts`, `public/studio/index.html`)
+Every creature look (hero stages and reef creatures) is a studio project id. The menu loads them all with
+`loadStageLooks([...ALL_STAGE_SKINS, ...ALL_SPECIES_LOOKS])` (again on focus and on returning home): the studio
+copy wins unless it is an untouched, outdated starter (shipped `SEED_STAMPS` timestamp and lower `seedVersion`),
+then the shipped seed; Boot's `look:` seed cache is only the last fallback. Studio pose fps reach the game
+(`SkinFrames.fps`). Studio rules: `seedStarters()` runs before opening `?project=`, and opening a project keeps
+its `updatedAt` (`S.stamp`); only a real edit stamps a new time. The home Sprite Studio card lists every design
+with a direct link. `tests/e2e/studio_game.mjs` covers the whole chain.
+
 ## Checkpoint Crab (`GameScene` "Checkpoint Crab" section, `balance.json` "checkpointCrab")
 Every `everyLevels` (10) levels a crab (species `checkpoint_crab`, look `crab-checkpoint`, drawn by
 `tools/heroes/draw_crab.py`, `upright` so it never tilts) appears near the deepest water the player may swim in.
@@ -102,7 +111,7 @@ invulnerability. Armor per species (`armor` in species.json).
   light rays, far silhouettes) is generated in `src/systems/worldTextures.ts` and drawn at
   `WORLD_PX` = 4 world px per art px; rock collision circles and kelp zones keep their old sizes. Camera zoom changes only per stage.
   Reef fish looks are Sprite Studio starter designs (`public/studio/seeds/fish-*.json`, drawn by
-  `tools/fish/draw_fish.py`), linked by `look` in species.json, loaded by Boot, built once per scene.
+  `tools/fish/draw_fish.py`), linked by `look` in species.json, built once per scene.
   Target pixel density: about 3.5 world pixels per art pixel (size / bodyRadius).
   Interface: labels, numbers and banners use the pixel font Pixelify Sans (`--font-display`, HUD `FONT`);
   longer help text stays in the plain body font. Perk icons are 16x16 pixel grids in `src/ui/perkIcons.ts`

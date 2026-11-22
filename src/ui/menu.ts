@@ -5,7 +5,7 @@
 // one; HOME (pause or death screen) returns here. Settings, records and the
 // run checkpoint go through the SaveManager (src/save).
 import type Phaser from 'phaser';
-import { ALL_STAGE_SKINS, DEFAULT_HERO, HEROES, SPECIES, heroStages, isHero, type DifficultyName } from '../data';
+import { ALL_SPECIES_LOOKS, ALL_STAGE_SKINS, DEFAULT_HERO, HEROES, SPECIES, heroStages, isHero, type DifficultyName } from '../data';
 import { levelToSwallow } from '../systems/growth';
 import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
@@ -57,8 +57,17 @@ export function initMenu(game: Phaser.Game): void {
 
   // ---------------------------------------------------------------- creature look (Sprite Studio)
   let skinReady: Promise<void> = Promise.resolve();
-  // Every hero's stage designs (hatchling, juvenile, adult): loaded in the background.
-  const looksReady = loadStageLooks(ALL_STAGE_SKINS).catch(() => undefined);
+  // Every hero's stage designs and every reef creature design, studio edits included: loaded in the background.
+  const loadLooks = () => loadStageLooks([...ALL_STAGE_SKINS, ...ALL_SPECIES_LOOKS]).catch(() => undefined);
+  let looksReady = loadLooks();
+  // Designs edited in the studio (another tab, or after Back to game) are picked up on the next run.
+  const refreshLooks = () => {
+    looksReady = loadLooks();
+  };
+  window.addEventListener('focus', refreshLooks);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshLooks();
+  });
   /** Load the chosen studio drawing in the background so PLAY starts instantly. */
   function prepareSkin(id: string | null, quiet = false): Promise<boolean> {
     let ok = true;
@@ -163,6 +172,7 @@ export function initMenu(game: Phaser.Game): void {
     endTest();
     closePanel();
     home.classList.add('open');
+    refreshLooks();
     renderBest();
     renderContinue();
   }
@@ -511,6 +521,29 @@ export function initMenu(game: Phaser.Game): void {
       } else if (Date.now() > until) window.clearInterval(wait);
     }, 200);
   }
+
+  // ---------------------------------------------------------------- Sprite Studio: pick a design to edit
+  // Every creature in the game is a studio project. Editing it here changes it in the game.
+  $('cardStudio').addEventListener('click', (e) => {
+    e.preventDefault();
+    const link = (id: string, label: string) => `<a class="btn" href="${studioUrl(id)}">${esc(label)}</a>`;
+    const heroes = HEROES.map(
+      (h) => `<p class="studio-group">${esc(h.name)}</p><div class="row">${heroStages(h.id).map((st) => link(st.skin, st.name)).join('')}</div>`,
+    ).join('');
+    const seen = new Set<string>();
+    const reef = Object.values(SPECIES)
+      .filter((sp) => sp.look && !isHero(sp.id) && !seen.has(sp.look) && seen.add(sp.look))
+      .map((sp) => link(sp.look!, sp.displayName))
+      .join('');
+    openPanel(
+      `<h3>Sprite Studio</h3>
+      <p>Pick a creature to change how it looks in the game. Your changes show up on your next swim.</p>
+      ${heroes}
+      <p class="studio-group">Reef creatures</p><div class="row">${reef}</div>
+      <div class="row"><a class="btn" href="${STUDIO_URL}">Open Sprite Studio</a><button class="btn" id="pClose">Close</button></div>`,
+      () => ($('pClose').onclick = closePanel),
+    );
+  });
 
   $('cardCredits').addEventListener('click', () =>
     openPanel(
