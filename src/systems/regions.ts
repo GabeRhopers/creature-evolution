@@ -56,3 +56,37 @@ export class Regions {
     return this.cfg.list.map((r, i) => ({ x: r.to % this.width, left: r, right: this.cfg.list[(i + 1) % this.cfg.list.length] }));
   }
 }
+
+/**
+ * A spot (world x) for a fish of a species with these region weights. With `near`, it stays around
+ * there (within `roam` px) as long as the region there suits it (the better it suits, the likelier);
+ * otherwise it picks a region by weight x width and a spot inside it. Null if it lives nowhere.
+ */
+export function pickHomeX(
+  regions: Regions,
+  weight: (regionId: RegionId) => number,
+  near?: number,
+  roam = 1500,
+  rand: () => number = Math.random,
+): number | null {
+  const list = regions.cfg.list;
+  const w = list.map((r) => Math.max(0, weight(r.id)) * (r.to - r.from));
+  const total = w.reduce((a, b) => a + b, 0);
+  if (total <= 0) return null;
+  if (near !== undefined) {
+    const best = Math.max(...list.map((r) => weight(r.id)));
+    if (best > 0 && rand() < weight(regions.at(near).id) / best) {
+      // A spot nearby, as long as it doesn't cross into a region it likes less.
+      const x = near + (rand() * 2 - 1) * roam;
+      if (rand() < weight(regions.at(x).id) / best) return x;
+    }
+  }
+  let k = rand() * total;
+  for (let i = 0; i < list.length; i++) {
+    k -= w[i];
+    if (k <= 0 && w[i] > 0) return list[i].from + rand() * (list[i].to - list[i].from);
+  }
+  let last = list.length - 1;
+  while (w[last] <= 0) last--;
+  return list[last].from + rand() * (list[last].to - list[last].from);
+}

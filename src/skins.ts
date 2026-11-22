@@ -84,7 +84,7 @@ export function validateProject(p: unknown): string[] {
   const out: string[] = [];
   const d = p as StudioProject | null;
   if (!d || typeof d !== 'object') return ['The drawing could not be read.'];
-  if (!(d.w >= 4 && d.w <= 128 && d.h >= 4 && d.h <= 128)) out.push('The canvas size is not supported.');
+  if (!(d.w >= 4 && d.w <= 192 && d.h >= 4 && d.h <= 192)) out.push('The canvas size is not supported.');
   if (!Array.isArray(d.palette) || !d.palette.every((c) => /^#[0-9a-fA-F]{6}$/.test(c))) out.push('The colors could not be read.');
   if (!Array.isArray(d.poses)) out.push('The poses could not be read.');
   else {

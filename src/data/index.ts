@@ -85,6 +85,8 @@ export interface Species {
   rankMul?: number;
   /** Damage reduction 0..1 (thick hide). */
   armor?: number;
+  /** A glowing lure (anglerfish): where it sits, in body radii from the body center, facing right. */
+  lure?: [number, number];
 }
 
 export type Balance = typeof balanceJson;
@@ -183,6 +185,12 @@ export function getHero(): string {
 export const ALL_STAGE_SKINS: string[] = [...new Set(HEROES.flatMap((h) => heroStages(h.id).map((s) => s.skin)))];
 /** Every reef creature design (fish, crab, enemies): Sprite Studio project ids. */
 export const ALL_SPECIES_LOOKS: string[] = [...new Set(Object.values(SPECIES).map((sp) => sp.look).filter((l): l is string => !!l))];
+/** How much a species likes a region (balance "biomes"; missing = 1). */
+export function biomeWeight(speciesId: string, regionId: string): number {
+  const b = (BALANCE as unknown as { biomes?: Record<string, Record<string, number>> }).biomes?.[speciesId];
+  const v = b?.[regionId];
+  return typeof v === 'number' && v >= 0 ? v : 1;
+}
 export const MAX_LEVEL: number = BALANCE.stages.maxLevel;
 
 // ------------------------------------------------------------------ tides (endless levels)

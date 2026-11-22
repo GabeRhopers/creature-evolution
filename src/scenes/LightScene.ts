@@ -88,6 +88,34 @@ export class LightScene extends Phaser.Scene {
           .setAlpha(glow * tw * 0.85);
       }
     }
+    // Anglerfish lures glow day and night (brighter in the dark), pulsing slowly.
+    if (g.creatures) {
+      const cam = g.cameras.main;
+      const v = cam.worldView;
+      for (const c of g.creatures) {
+        const f = c.fish;
+        const lure = f.species.lure;
+        if (!lure || !f.active || !f.visible) continue;
+        const ly = f.flipY ? -lure[1] : lure[1];
+        const cos = Math.cos(f.rotation), sin = Math.sin(f.rotation);
+        const wx = f.x + (lure[0] * cos - ly * sin) * f.size;
+        const wy = f.y + (lure[0] * sin + ly * cos) * f.size;
+        if (!v.contains(wx, wy)) continue;
+        let dot = this.glows[n];
+        if (!dot) {
+          dot = this.add.image(0, 0, 'light_dot').setBlendMode(Phaser.BlendModes.ADD);
+          this.glows.push(dot);
+        }
+        n++;
+        const pulse = 0.75 + 0.25 * Math.sin(this.time.now / 420 + f.x * 0.01);
+        dot
+          .setVisible(true)
+          .setPosition((wx - v.x) * cam.zoom, (wy - v.y) * cam.zoom)
+          .setScale(Math.max(0.6, (f.size * cam.zoom * 1.6) / 32))
+          .setTint(0x2ce8f5)
+          .setAlpha((0.5 + 0.5 * glow) * pulse);
+      }
+    }
     for (let i = n; i < this.glows.length; i++) this.glows[i].setVisible(false);
   }
 

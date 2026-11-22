@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
-import { BALANCE, DEFAULT_HERO, DIFFICULTY, SPECIES, aiLevelBonus, areaAt, getSpecies, isHero, setHero, tideName, tideOf, type Difficulty, type DifficultyName } from '../data';
+import { BALANCE, DEFAULT_HERO, DIFFICULTY, SPECIES, aiLevelBonus, biomeWeight, areaAt, getSpecies, isHero, setHero, tideName, tideOf, type Difficulty, type DifficultyName } from '../data';
 import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Bubbles } from '../systems/Bubbles';
 import { C, makeKelp, makeRay, makeRock, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
 import { Terrain, type TerrainConfig } from '../systems/terrain';
-import { Regions, type RegionDef, type RegionsConfig } from '../systems/regions';
+import { Regions, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
 import { DayNight, type DayNightConfig, type Light, type Period } from '../systems/dayNight';
 import { CORAL_KINDS, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow } from '../systems/terrainArt';
 import { Grid, SCENERY_SIZE, makeFarIslands, makeFarPeaks, makeFloat, makeScenery, type FloatKind, type SceneryKind } from '../systems/sceneryArt';
@@ -1464,7 +1464,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     let y = 0;
     for (let i = 0; i < 20; i++) {
       // The nearest copy to the camera (the sea loops), out of sight and not inside rock.
-      x = this.wrapNear(Phaser.Math.Between(band.left, band.right), view.centerX);
+      x = this.wrapNear(c.homeX?.() ?? Phaser.Math.Between(band.left, band.right), view.centerX);
       y = Phaser.Math.Between(band.top, band.bottom);
       if ((x < view.left - 200 || x > view.right + 200) && !this.terrain.isSolid(x, y, 40)) break;
     }
@@ -2236,10 +2236,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         W,
         Math.max(80, waterH * (sp.spawn.depthMax - sp.spawn.depthMin) - 80),
       );
+      // Each species lives mostly in the regions it likes (balance "biomes").
+      const homeX = (near?: number) => pickHomeX(this.regions, (r) => biomeWeight(id, r), near);
+      if (homeX() === null) continue;
       for (let i = 0; i < count; i++) {
-        let fx = Phaser.Math.Between(band.left, band.right), fy = Phaser.Math.Between(band.top, band.bottom);
+        const spot = () => this.regions.wrap(homeX() ?? Phaser.Math.Between(band.left, band.right));
+        let fx = spot(), fy = Phaser.Math.Between(band.top, band.bottom);
         for (let k = 0; k < 12 && this.terrain.isSolid(fx, fy, 40); k++) {
-          fx = Phaser.Math.Between(band.left, band.right);
+          fx = spot();
           fy = Phaser.Math.Between(band.top, band.bottom);
         }
         const fish = new Fish(this, fx, fy, sp, Phaser.Math.Between(1, 3) + this.aiLevelBonus);
@@ -2251,7 +2255,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         fish.setDepth(5);
         fish.speedMul = this.difficulty.aiSpeed;
         this.physics.add.collider(fish, this.rocks);
-        const c: Creature = { fish, isPlayer: false, band };
+        const c: Creature = { fish, isPlayer: false, band, homeX };
         c.brain = new Brain(c, this);
         this.creatures.push(c);
       }
@@ -2267,11 +2271,16 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     );
     if (!fresh.length) return;
     this.spawnAmbientFish(BALANCE.world.width, fresh);
-    const sp = SPECIES[fresh[0]];
-    this.time.delayedCall(1600, () => {
-      this.hud.newCreature(sp.displayName, sp.intro ?? '');
-      this.sfx.sting();
-    });
+    // One NEW banner each (several can unlock at once after a big jump in level), newest first.
+    fresh
+      .sort((a, b) => (SPECIES[b].unlockLevel ?? 1) - (SPECIES[a].unlockLevel ?? 1))
+      .forEach((id, i) => {
+        const sp = SPECIES[id];
+        this.time.delayedCall(1600 + i * 4200, () => {
+          this.hud.newCreature(sp.displayName, sp.intro ?? '');
+          this.sfx.sting();
+        });
+      });
   }
 
   // ---------------------------------------------------------------- dev tools

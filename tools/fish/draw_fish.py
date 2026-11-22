@@ -23,7 +23,7 @@ class Grid:
         for x, y in add: s.g[y][x] = color
 
 def fish(w, h, rx, ry, top, mid, belly, fin, tail_len, tail_spread=0.7, flex=0, fork=True, dorsal=4,
-         dorsal_color=None, pattern=None, bite=False, teeth=False, eye=(0.55, -0.3), front_taper=0.85, lip=None, spines=0, long_fin=False):
+         dorsal_color=None, pattern=None, bite=False, teeth=False, eye=(0.55, -0.3), front_taper=0.85, lip=None, spines=0, long_fin=False, extra=None):
     g = Grid(w, h)
     cx, cy = w / 2 - 0.5, h / 2 - 0.5
     rxf = rx * front_taper
@@ -94,6 +94,7 @@ def fish(w, h, rx, ry, top, mid, belly, fin, tail_len, tail_spread=0.7, flex=0, 
         if lip: g.px(front, my + 1, lip)
         if teeth:
             for x in range(front - max(2, int(rx * 0.3)) + 1, front, 2): g.px(x, my + 1, EYE_W)
+    if extra: extra(g, cx, cy, bite)
     g.outline()
     return g
 
@@ -193,30 +194,31 @@ SPECS = {
   'fish-moray_eel': dict(name='Moray Eel', fw='bigfish', w=80, h=48, radius=12, rx=31, ry=5,
       top='#193c3e', mid='#265c42', belly='#3e8948', fin='#193c3e', tail_len=4, tail_spread=0.6, fork=False, dorsal=0, pattern=eel_spots, long_fin=True, bites=True, teeth=True, front_taper=0.9, eye=(0.7, -0.4)),
 }
-FW = {'fish': 2, 'bigfish': 2, 'shark': 2}
-out = {}
-for pid, sp in SPECS.items():
-    kw = {k: v for k, v in sp.items() if k in ('rx','ry','top','mid','belly','fin','tail_len','tail_spread','fork','dorsal','dorsal_color','pattern','teeth','eye','front_taper','lip','spines','long_fin')}
-    w, h = sp['w'], sp['h']
-    swim = [fish(w, h, flex=-1, **kw), fish(w, h, flex=1, **kw)]
-    poses = [("idle", 3, [swim[0]]), ("move", 6, swim)]
-    if sp['bites']: poses.append(("attack", 8, [fish(w, h, flex=0, bite=True, **kw)]))
-    poses.append(("dead", 1, [skeleton(w, h, sp['rx'], sp['ry'], sp['tail_len'])]))
-    for pn, _, grs in poses:
-        for i, gr in enumerate(grs): check_margin(gr, FW[sp['fw']], f'{pid}/{pn}/{i}')
-    cx = w / 2 - 0.5
-    mouth = [int(cx + sp['rx'] * sp.get('front_taper', 0.85)), int(h / 2 - 0.5 + sp['ry'] * 0.25)]
-    out[pid] = project(sp['name'], sp['fw'], w, h, sp['radius'], mouth, poses)
-    json.dump(out[pid], open(pid + '.json', 'w'))
+if __name__ == '__main__':
+    FW = {'fish': 2, 'bigfish': 2, 'shark': 2}
+    out = {}
+    for pid, sp in SPECS.items():
+        kw = {k: v for k, v in sp.items() if k in ('rx','ry','top','mid','belly','fin','tail_len','tail_spread','fork','dorsal','dorsal_color','pattern','teeth','eye','front_taper','lip','spines','long_fin')}
+        w, h = sp['w'], sp['h']
+        swim = [fish(w, h, flex=-1, **kw), fish(w, h, flex=1, **kw)]
+        poses = [("idle", 3, [swim[0]]), ("move", 6, swim)]
+        if sp['bites']: poses.append(("attack", 8, [fish(w, h, flex=0, bite=True, **kw)]))
+        poses.append(("dead", 1, [skeleton(w, h, sp['rx'], sp['ry'], sp['tail_len'])]))
+        for pn, _, grs in poses:
+            for i, gr in enumerate(grs): check_margin(gr, FW[sp['fw']], f'{pid}/{pn}/{i}')
+        cx = w / 2 - 0.5
+        mouth = [int(cx + sp['rx'] * sp.get('front_taper', 0.85)), int(h / 2 - 0.5 + sp['ry'] * 0.25)]
+        out[pid] = project(sp['name'], sp['fw'], w, h, sp['radius'], mouth, poses)
+        json.dump(out[pid], open(pid + '.json', 'w'))
 
-# preview: every frame of every fish at 5x
-rows = []
-for p in out.values():
-    rows.append([frame_img(p, f, k=5) for po in p['poses'] for f in po['frames']])
-W = max(sum(i.width + 8 for i in r) for r in rows); H = sum(max(i.height for i in r) + 8 for r in rows)
-sheet = Image.new('RGB', (W, H), (10, 20, 30)); y = 0
-for r in rows:
-    x = 0
-    for i in r: sheet.paste(i, (x, y)); x += i.width + 8
-    y += max(i.height for i in r) + 8
-sheet.save('fish_all.png'); print('ok', sheet.size)
+    # preview: every frame of every fish at 5x
+    rows = []
+    for p in out.values():
+        rows.append([frame_img(p, f, k=5) for po in p['poses'] for f in po['frames']])
+    W = max(sum(i.width + 8 for i in r) for r in rows); H = sum(max(i.height for i in r) + 8 for r in rows)
+    sheet = Image.new('RGB', (W, H), (10, 20, 30)); y = 0
+    for r in rows:
+        x = 0
+        for i in r: sheet.paste(i, (x, y)); x += i.width + 8
+        y += max(i.height for i in r) + 8
+    sheet.save('fish_all.png'); print('ok', sheet.size)

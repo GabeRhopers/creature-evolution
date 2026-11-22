@@ -10,6 +10,8 @@ export interface Creature {
   brain?: Brain;
   /** Depth band an AI fish lives in (wander targets + respawn). */
   band?: Phaser.Geom.Rectangle;
+  /** Where it likes to live (regions): a wander target near `near`, or a spot in a region it likes. */
+  homeX?: (near?: number) => number | null;
   /** A guardian (the Checkpoint Crab) stays in its band, fights only the player, never flees, and other fish leave it alone. */
   guardian?: boolean;
 }
@@ -422,7 +424,7 @@ export class Brain {
     const b = this.self.band ?? this.world.swimArea;
     // Never aim inside a seamount or an island: try a few points.
     for (let i = 0; i < 8; i++) {
-      this.wanderX = Phaser.Math.Between(b.left, b.right);
+      this.wanderX = this.self.homeX?.(this.fish.x) ?? Phaser.Math.Between(b.left, b.right);
       this.wanderY = Phaser.Math.Between(b.top, b.bottom);
       // Aim at the nearest copy of that spot (the sea loops), not across the whole world.
       if (this.world.wrapNear) this.wanderX = this.world.wrapNear(this.wanderX, this.fish.x);

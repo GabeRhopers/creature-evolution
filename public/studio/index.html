@@ -957,7 +957,7 @@ async function openProjects() {
     <div class="row"><button id="npHist" ${db && S.id ? '' : 'disabled'}>History of this project</button></div>
     <h3>New project</h3>
     <div class="row"><input type="text" id="npName" value="My character" aria-label="Name"><select id="npF" aria-label="Sprite framework">${fwOptions('default')}</select></div>
-    <div class="row"><span class="label">Free size:</span><input type="number" id="npW" value="48" min="4" max="128" aria-label="Width" style="width:74px"><span class="label">×</span><input type="number" id="npH" value="24" min="4" max="128" aria-label="Height" style="width:74px"></div>
+    <div class="row"><span class="label">Free size:</span><input type="number" id="npW" value="48" min="4" max="192" aria-label="Width" style="width:74px"><span class="label">×</span><input type="number" id="npH" value="24" min="4" max="192" aria-label="Height" style="width:74px"></div>
     <div class="row"><button id="npGo" class="on">Create</button><button id="npDup">Duplicate current</button><button id="npClose">Close</button></div>
     ${trashItems ? `<h3>Recently deleted</h3><p class="label">Kept for ${TRASH_DAYS} days.</p><div class="plist">${trashItems}</div>` : ''}
     <p class="label">${db ? 'Projects are saved to the cloud with the game. Tap Try in game to swim with one. Every change is also kept on this device right away.' : 'Cloud saving is not available here, so projects are kept on this device only.'}</p>`, () => {
@@ -968,7 +968,7 @@ async function openProjects() {
     document.querySelectorAll('[data-untrash]').forEach((b) => b.onclick = async () => { const it = trash[+b.dataset.untrash];
       try { await restoreFromTrash(it); closeModal(); await save(); await loadProject(it.id); toast('Project restored'); } catch { toast('Could not restore right now'); } });
     $('npHist').onclick = openHistory;
-    $('npGo').onclick = async () => { const w = Math.max(4, Math.min(128, +$('npW').value | 0)), h = Math.max(4, Math.min(128, +$('npH').value | 0));
+    $('npGo').onclick = async () => { const w = Math.max(4, Math.min(192, +$('npW').value | 0)), h = Math.max(4, Math.min(192, +$('npH').value | 0));
       const n = $('npName').value.trim() || 'My character'; const fwName = $('npF').value; await save(); closeModal(); startNew(n, w, h, fwName); };
     $('npDup').onclick = async () => { await save(); const copyP = deserialize(serialize(P())); copyP.name = P().name + ' copy';
       S.id = 'p' + Date.now().toString(36); S.rev = 0; S.project = copyP; $('projName').value = copyP.name; S.dirty = true; closeModal(); changed(true); toast('Duplicated'); };
@@ -1004,15 +1004,15 @@ function openCanvasSettings() {
     <p class="label">A framework sets the canvas size, a safe margin (red), the body center and hitbox (white) and the mouth marker (yellow, move it with the 👄 tool), so the drawing fits the game.</p>
     <div class="row"><label class="label" for="csR">Hitbox radius</label><input type="number" id="csR" value="${P().bodyRadius || (fw ? fw.bodyRadius : 8)}" min="2" max="40" style="width:80px"></div>
     <h3>Canvas size</h3><p class="label">Resizing keeps the art anchored to the chosen spot. Pixels outside the new size are cut.</p>
-    <div class="row"><label class="label" for="csW">Width</label><input type="number" id="csW" value="${P().w}" min="4" max="128" style="width:80px">
-    <label class="label" for="csH">Height</label><input type="number" id="csH" value="${P().h}" min="4" max="128" style="width:80px"></div>
+    <div class="row"><label class="label" for="csW">Width</label><input type="number" id="csW" value="${P().w}" min="4" max="192" style="width:80px">
+    <label class="label" for="csH">Height</label><input type="number" id="csH" value="${P().h}" min="4" max="192" style="width:80px"></div>
     <div class="row"><label class="label" for="csA">Anchor</label><select id="csA"><option value="c">Center</option><option value="bl">Bottom left</option><option value="b">Bottom center</option><option value="tl">Top left</option></select></div>
     <div class="row"><button id="csOk" class="on">Apply</button><button id="csNo">Cancel</button></div>`, () => {
     $('csNo').onclick = closeModal;
     $('csF').onchange = () => { const f = fwResolve($('csF').value); if (f) { $('csW').value = f.canvas[0]; $('csH').value = f.canvas[1]; $('csA').value = 'c'; $('csR').value = f.bodyRadius; } };
     $('csOk').onclick = () => {
       const fwName = $('csF').value;
-      const nw = Math.max(4, Math.min(128, +$('csW').value | 0)), nh = Math.max(4, Math.min(128, +$('csH').value | 0)); const a = $('csA').value;
+      const nw = Math.max(4, Math.min(192, +$('csW').value | 0)), nh = Math.max(4, Math.min(192, +$('csH').value | 0)); const a = $('csA').value;
       const ow = P().w, oh = P().h; pushUndo();
       const ox = a === 'c' || a === 'b' ? Math.floor((nw - ow) / 2) : 0;
       const oy = a === 'c' ? Math.floor((nh - oh) / 2) : (a === 'bl' || a === 'b') ? nh - oh : 0;
@@ -1248,7 +1248,9 @@ const SEEDS = { 'croc-hatchling': 3, 'croc-juvenile': 3, 'croc-adult': 3,
   'fish-blue_tang': 3, 'fish-reef_snapper': 3, 'fish-red_grouper': 3, 'fish-grey_shark': 3,
   'mosa-hatchling': 4, 'mosa-juvenile': 3, 'mosa-adult': 3,
   'white_shark-hatchling': 3, 'white_shark-juvenile': 3, 'white_shark-adult': 3,
-  'crab-checkpoint': 3, 'fish-lionfish': 3, 'fish-moray_eel': 3, 'fish-barracuda': 3 };   // id -> design version
+  'crab-checkpoint': 3, 'fish-lionfish': 3, 'fish-moray_eel': 3, 'fish-barracuda': 3,
+  'fish-archerfish': 3, 'fish-polar_cod': 3, 'fish-anglerfish': 3, 'fish-bull_shark': 3, 'fish-leopard_seal': 3,
+  'fish-great_white': 3, 'fish-sperm_whale': 3 };   // id -> design version
 // Every starter design ships with one of these timestamps; saving any change replaces it.
 const SEED_STAMPS = ['2026-11-21T08:45:00.000Z', '2026-11-21T09:30:00.000Z', '2026-11-21T11:30:00.000Z', '2026-11-21T12:00:00.000Z'];
 async function seedStarters() {
