@@ -95,8 +95,9 @@ No level cap (`stages.maxLevel` is a practical 999). A Tide is 10 levels (`tideO
 as "+" versions); the Checkpoint Crab ends each Tide. Past the adult stage (level 30) are Legend levels
 (`legendLevel`): the body stays adult-sized (stage `to` 30, `across` clamps), rank and power grow
 `legendRankPerLevel` per level (`formAt`), and a perk comes every `legendPerkEvery` levels (`perksEarned`).
-Reef fish spawn `aiLevelBonus` levels higher in later Tides. The XP step (`levelHardness`) stops compounding
-after `levelHardnessMaxLevels`, so endless levels stay reachable. Tide visuals and music come later.
+Reef fish spawn `aiLevelBonus` levels higher in later Tides. Each level needs at least `levelStepMin` (15%) more XP than
+the one before (on top of the curve with `levelHardness`), up to `levelHardnessMaxLevels` (40); after that the
+normal curve carries on (a few % per level), so endless levels stay reachable (`xpToNext`, memoized). Tide visuals and music come later.
 
 ## Save slots
 `SaveManager` keeps `SLOT_COUNT` (3) checkpoint slots; the game writes to `saves.activeSlot`. Slot 1 uses the
