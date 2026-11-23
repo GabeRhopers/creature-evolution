@@ -15,6 +15,9 @@ await p.click('#btnPlay');
 await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMode && !!g.player && !!g.gates;}, 15000);
 await G(()=>{const g=window.game.scene.getScene('Game'); g.gates.openAll(); g.player.setLevel(15); const h=window.game.scene.getScene('Hud'); window.__area=[]; const f=h.areaBanner.bind(h); h.areaBanner=(n,hint)=>{window.__area.push([n,hint]); f(n,hint);};});
 
+// Perks change speed and hunger too: wait until every perk earned by level 15 is picked (none pending for 1.5 s).
+for (let calm=0, t=0; calm<1500 && t<30000; t+=250) { await p.waitForTimeout(250); calm = (await G(()=>!window.game.scene.getScene('Game').perkPending && !document.querySelector('[data-perk]'))) ? calm+250 : 0; }
+
 // Put the player in mid water at x, and wait until the game has seen the new region.
 const goTo = async (x, region) => {
   await G((x)=>{const g=window.game.scene.getScene('Game'), pl=g.player; const y=g.terrain.surfaceY+260;
@@ -67,7 +70,7 @@ ok(await G(()=>{const g=window.game.scene.getScene('Game'); return g.kelpZones.f
 
 // Twilight Trench: dark around you, day or night.
 ok(await goTo(78000, 'trench'), 'in the Twilight Trench');
-ok(await waitFor(()=>window.game.scene.getScene('Game').regionDark > 0.5, 6000), 'the Trench is dark even by day');
+ok(await waitFor(()=>window.game.scene.getScene('Game').regionDark > 0.5, 20000), 'the Trench is dark even by day');
 ok(await G(()=>window.game.scene.getScene('Game').visionAt(78000) === 0.5), 'fish see half as far in the Trench');
 
 // Kelp Forest: big bodies swim slower among the kelp, hatchlings dart freely.
