@@ -13,6 +13,8 @@ export interface PerkDef {
   stomach?: number;
   hunger?: number;
   cooldown?: number;
+  turn?: number;
+  stamina?: number;
 }
 export interface PerkMods {
   speed: number;
@@ -21,11 +23,15 @@ export interface PerkMods {
   stomach: number;
   hunger: number;
   cooldown: number;
+  /** Turning speed multiplier. */
+  turn: number;
+  /** Sprint stamina drain multiplier (lower = sprint longer). */
+  stamina: number;
 }
 
 export const PERKS = BALANCE.perks.list as PerkDef[];
 export const PERK_LEVELS: number[] = BALANCE.perks.levels;
-export const NO_MODS: PerkMods = { speed: 1, damageTaken: 1, bite: 1, stomach: 1, hunger: 1, cooldown: 1 };
+export const NO_MODS: PerkMods = { speed: 1, damageTaken: 1, bite: 1, stomach: 1, hunger: 1, cooldown: 1, turn: 1, stamina: 1 };
 
 export function perkById(id: string): PerkDef | undefined {
   return PERKS.find((p) => p.id === id);
@@ -40,6 +46,22 @@ export function perkMods(taken: string[]): PerkMods {
     for (const k of Object.keys(m) as Array<keyof PerkMods>) if (typeof p[k] === 'number') m[k] *= p[k] as number;
   }
   return m;
+}
+
+/** How strong the hatchling head start is at a level: 1 up to `fullUntil`, fading to 0 at `endsAt`. */
+export function earlyHelpStrength(level: number): number {
+  const e = BALANCE.earlyHelp;
+  if (level <= e.fullUntil) return 1;
+  if (level >= e.endsAt) return 0;
+  return (e.endsAt - level) / (e.endsAt - e.fullUntil);
+}
+
+/** The head start's multipliers at a level (speed, turning, stamina drain, damage taken), on top of the perks. */
+export function earlyHelpMods(level: number): PerkMods {
+  const e = BALANCE.earlyHelp;
+  const k = earlyHelpStrength(level);
+  const mix = (v: number) => 1 + (v - 1) * k;
+  return { ...NO_MODS, speed: mix(e.speed), turn: mix(e.turn), stamina: mix(e.stamina), damageTaken: mix(e.damageTaken) };
 }
 
 /** How many perk picks the player has earned but not made yet. */

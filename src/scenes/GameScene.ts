@@ -28,7 +28,7 @@ import { PlayerBot } from '../dev/PlayerBot';
 import { saves, type Checkpoint, type DeathCause } from '../save';
 import { buildSkinTexture, getActiveSkin, getStageLook, validateProject, type SkinArt, type SkinFrames, type StudioProject } from '../skins';
 import { stageIndex } from '../systems/growth';
-import { offerPerks, perkById, perkMods, perksOwed } from '../systems/perks';
+import { earlyHelpMods, offerPerks, perkById, perkMods, perksOwed } from '../systems/perks';
 
 /** `?bot=1`: an automated playtester drives the player and metrics are recorded. */
 export const BOT_MODE = new URLSearchParams(window.location.search).has('bot');
@@ -358,6 +358,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
 
     if (!this.dead) {
+      // Level changed (level up, checkpoint, test tools): refresh the head start and perks.
+      if (this.player.level !== this.modsLevel) this.applyPerks();
       const intent = this.bot ? this.bot.read(dt) : this.controller.read();
       // Tucked in the shell, or mid-evolution: hold still.
       if (this.shellTimer > 0 || this.evolveLock > 0) {
@@ -840,8 +842,15 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   // ---------------------------------------------------------------- perks
 
+  /** The level the player's modifiers were last worked out for (the head start changes with level). */
+  private modsLevel = -1;
+
   private applyPerks(): void {
     const m = perkMods(this.perks);
+    // The hatchling head start (strongest at the first levels, gone by earlyHelp.endsAt).
+    const h = earlyHelpMods(this.player.level);
+    for (const k of Object.keys(m) as Array<keyof typeof m>) m[k] *= h[k];
+    this.modsLevel = this.player.level;
     // Feeding Frenzy (the shark's adult ability) adds to the perks while it lasts.
     if (this.frenzyTimer > 0) {
       const f = BALANCE.abilities.frenzy;

@@ -36,3 +36,35 @@ describe('perks', () => {
     }
   });
 });
+
+describe('hatchling head start (Nov 23)', async () => {
+  const { earlyHelpMods, earlyHelpStrength } = await import('../src/systems/perks');
+  const { BALANCE, SPECIES } = await import('../src/data');
+  const { formAt } = await import('../src/systems/growth');
+  it('is full at the first levels, fades out, and is gone by endsAt', () => {
+    const e = BALANCE.earlyHelp;
+    expect(earlyHelpStrength(1)).toBe(1);
+    expect(earlyHelpStrength(e.fullUntil)).toBe(1);
+    expect(earlyHelpStrength(e.endsAt)).toBe(0);
+    expect(earlyHelpStrength(30)).toBe(0);
+    for (let lv = e.fullUntil; lv < e.endsAt; lv++) expect(earlyHelpStrength(lv + 1)).toBeLessThan(earlyHelpStrength(lv));
+    const m = earlyHelpMods(e.endsAt);
+    expect([m.speed, m.turn, m.stamina, m.damageTaken]).toEqual([1, 1, 1, 1]);
+  });
+  it('makes a level 1 hatchling clearly faster than the prey it chases, and quick to turn', () => {
+    const h = earlyHelpMods(1);
+    for (const hero of ['crocodile', 'mosa', 'white_shark']) {
+      const me = SPECIES[hero];
+      // A blue tang spawns at levels 1 to 3: compare with the fastest one, both sprinting.
+      const tang = SPECIES.blue_tang;
+      const tangSize = formAt(tang, 3, false).size;
+      const tangSprint = tang.maxSpeed * Math.pow(tangSize / tang.baseSize, BALANCE.growth.speedExponent) * tang.sprintMultiplier;
+      const mySprint = me.maxSpeed * h.speed * me.sprintMultiplier;
+      expect(mySprint, hero).toBeGreaterThan(tangSprint * 1.15);
+      expect(me.turnSpeed * h.turn, hero).toBeGreaterThanOrEqual(tang.turnSpeed * 0.95);
+    }
+    // a sprint lasts at least 40% longer, bites hurt less
+    expect(1 / h.stamina).toBeGreaterThanOrEqual(1.4);
+    expect(h.damageTaken).toBeLessThan(1);
+  });
+});

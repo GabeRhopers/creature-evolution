@@ -243,7 +243,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     return Math.pow(this.size / this.species.baseSize, BALANCE.growth.speedExponent) * this.mods.speed;
   }
   get turnFactor(): number {
-    return Math.pow(this.size / this.species.baseSize, BALANCE.growth.turnExponent);
+    return Math.pow(this.size / this.species.baseSize, BALANCE.growth.turnExponent) * this.mods.turn;
   }
 
   stun(seconds: number): void {
@@ -343,7 +343,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     if (this.exhausted && this.stamina >= st.exhaustedThreshold) this.exhausted = false;
     this.isSprinting = intent.sprint && thrust > 0 && !this.exhausted && this.stamina > 0;
     if (this.isSprinting) {
-      this.stamina = Math.max(0, this.stamina - st.drainPerSecond * dt);
+      this.stamina = Math.max(0, this.stamina - st.drainPerSecond * this.mods.stamina * dt);
       this.sinceSprint = 0;
       if (this.stamina <= 0) this.exhausted = true;
     } else {

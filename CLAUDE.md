@@ -151,6 +151,12 @@ Reef fish spawn `aiLevelBonus` levels higher in later Tides. Each level needs at
 the one before (on top of the curve with `levelHardness`), up to `levelHardnessMaxLevels` (40); after that the
 normal curve carries on (a few % per level), so endless levels stay reachable (`xpToNext`, memoized). Tide visuals and music come later.
 
+## Hatchling head start (`balance.json` "earlyHelp", `earlyHelpMods` in `src/systems/perks.ts`)
+New hatchlings swim `speed` faster, turn `turn` quicker, drain sprint stamina at `stamina` x (sprint lasts longer) and
+take `damageTaken` x damage, fully up to level `fullUntil` (5), fading evenly to nothing at `endsAt` (15). It multiplies
+into the player's mods with the perks (`applyPerks`, refreshed whenever the level changes; `PerkMods` gained `turn`
+and `stamina`). The pause menu shows the current head start. AI fish are unchanged.
+
 ## Save slots
 `SaveManager` keeps `SLOT_COUNT` (3) checkpoint slots; the game writes to `saves.activeSlot`. Slot 1 uses the
 original key (`ce.save.checkpoint`), so older saves are slot 1; slots 2+ are `ce.save.checkpoint.N`, each with

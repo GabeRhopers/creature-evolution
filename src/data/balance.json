@@ -1048,6 +1048,15 @@
     "evolveLockSeconds": 1.0,
     "evolveShieldSeconds": 2.5
   },
+  "earlyHelp": {
+    "_comment": "A head start for new hatchlings: at levels up to fullUntil you swim faster, turn quicker, sprint longer (stamina = drain multiplier) and take less damage. It fades out evenly until endsAt, after which you play with your normal stats. Stacks with perks.",
+    "fullUntil": 5,
+    "endsAt": 15,
+    "speed": 1.15,
+    "turn": 1.25,
+    "stamina": 0.7,
+    "damageTaken": 0.8
+  },
   "perks": {
     "_comment": "Pick 1 of 3 perks at these levels (twice per stage, never on an evolution level). Perks stack.",
     "levels": [
