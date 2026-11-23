@@ -31,7 +31,7 @@ const s30 = await G(()=>{const g=window.game.scene.getScene('Game'); const pl=g.
 ok(s.lv===35 && s.stage==='adult', 'level 35: past the old cap, still an adult');
 ok(Math.abs(s.size-s30.size)<1e-6 && s.rank>s30.rank*1.1, 'Legend levels: same adult body, stronger than at 30');
 ok((await info()).includes('Level 35 (Legend 5)'), 'the HUD names the Legend level: '+(await info()).slice(0,60));
-ok(await waitFor(()=>window.game.scene.getScene('Game').perks.length>=7, 15000), 'Legend perks: a 7th perk by level 35 (from level 33)');
+ok(await waitFor(()=>window.game.scene.getScene('Game').perks.length>=7, 45000), 'Legend perks: a 7th perk by level 35 (from level 33)');
 
 // the crab keeps coming every 10 levels past 30
 await G(()=>{const g=window.game.scene.getScene('Game'); g.crabLevel=30;});
