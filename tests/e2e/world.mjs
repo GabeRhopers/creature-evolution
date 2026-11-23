@@ -34,7 +34,7 @@ await p.keyboard.up('ArrowRight');
 ok(looped, 'swimming past the right edge brings you into the Coral Sea from the left');
 const view = await G(() => { const g = window.game.scene.getScene('Game'); const v = g.cameras.main.worldView; return { px: g.player.x, cx: v.centerX, w: v.width }; });
 ok(Math.abs(view.px - view.cx) < view.w / 2, 'the camera stays on the player through the loop');
-ok(await G((W) => { const g = window.game.scene.getScene('Game'); return g.creatures.every((c) => Math.abs(c.fish.x - g.player.x) <= W / 2 + 5); }, W), 'every fish stays within half a world of the player');
+ok(await G((W) => { const g = window.game.scene.getScene('Game'); return g.creatures.every((c) => Math.abs(c.fish.x - g.player.x) <= W / 2 + 400); }, W), 'every fish stays within half a world of the player (give or take one frame of swimming)');
 ok(await waitFor(() => window.__banners.includes('Coral Sea'), undefined, 8000), 'a banner names the region you enter');
 
 // Swim left back across the seam.

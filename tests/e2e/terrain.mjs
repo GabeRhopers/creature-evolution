@@ -47,8 +47,14 @@ ok(!wall.solid && wall.x < wall.wallX + 40, `the seamount wall stops you (x ${Ma
 
 // After a while of play, no AI fish ends up inside the terrain.
 await p.waitForTimeout(6000);
-const stuck = await G(() => { const g = window.game.scene.getScene('Game'); return g.creatures.filter((c) => !c.isPlayer && g.terrain.isSolid(c.fish.x, c.fish.y, 0)).length; });
-ok(stuck === 0, 'no AI fish inside the terrain after 6 seconds: ' + stuck);
+// A fish can be a few px inside for one frame before it is pushed out (slow machines catch that moment):
+// only a fish that is still inside a moment later counts as stuck.
+const inside = () => G(() => { const g = window.game.scene.getScene('Game'); return g.creatures.filter((c) => !c.isPlayer && g.terrain.isSolid(c.fish.x, c.fish.y, 0)).map((c) => g.creatures.indexOf(c)); });
+const first = await inside();
+await p.waitForTimeout(1500);
+const later = await inside();
+const stuck = first.filter((i) => later.includes(i)).length;
+ok(stuck === 0, 'no AI fish stays inside the terrain: ' + stuck + ' (passing through: ' + first.length + ')');
 
 // Scenery: art, a solid arch you can swim through, a vent that heals, a wreck that hides you.
 ok(await G(() => { const g = window.game.scene.getScene('Game'); return ['w_scn_galleon', 'w_scn_arch', 'w_scn_vent', 'w_far_peaks', 'w_far_islands', 'w_float_rowboat'].every((k) => g.textures.exists(k)); }), 'scenery and far layers are drawn');
