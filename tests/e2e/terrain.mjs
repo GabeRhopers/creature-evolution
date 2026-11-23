@@ -96,7 +96,7 @@ const bump = await G(() => {
     g.updateRams();
     return p.arcadeBody.velocity.x / v;
   };
-  const small = others.find((c) => c.fish.rank <= p.rank * 1.1 && !c.guardian);
+  const small = others.find((c) => c.fish.rank <= p.rank * 1.1 && !c.guardian && !c.asleep && !c.away && !(c.respawnT > 0));
   const keepSmall = tryRam(small);
   const rammedStunned = small.fish.stunned;
   // brushing past (moving sideways next to it) is not a ram
