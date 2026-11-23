@@ -69,6 +69,14 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   /** Speed at the end of last frame (before collisions changed it): used for ram checks. */
   lastSpeed = 0;
   private baseTint = 0xffffff;
+  /** A rare stronger one (spawn factor eliteChance): golden tint. */
+  elite = false;
+
+  setElite(on: boolean): void {
+    this.elite = on;
+    this.baseTint = on ? 0xffe27a : 0xffffff;
+    this.setTint(this.baseTint);
+  }
   /** Seconds left showing the bite / open-jaw frame. */
   private biteAnim = 0;
   /** Body, rank and strength for the current level. */

@@ -7,6 +7,7 @@ import { Bubbles } from '../systems/Bubbles';
 import { C, makeKelp, makeRay, makeRock, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
 import { Terrain, type TerrainConfig } from '../systems/terrain';
 import { SpatialGrid } from '../systems/spatialGrid';
+import { countInTide, factorsFor, groupSizes, outShare, rollLevel, type PeriodId, type SpawnFactors } from '../systems/spawnFactors';
 import { openedFromSave, type GatesConfig } from '../systems/gates';
 import { GateSystem } from './GateSystem';
 import { Regions, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
@@ -400,14 +401,19 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       // Fish far outside the view are not drawn (Phaser draws everything otherwise); they still swim and hunt.
       const f = c.fish;
       const pad = margin + f.size * 2;
-      f.setVisible(f.x > view.left - pad && f.x < view.right + pad && f.y > view.top - pad && f.y < view.bottom + pad);
+      f.setVisible(!c.asleep && f.x > view.left - pad && f.x < view.right + pad && f.y > view.top - pad && f.y < view.bottom + pad);
     }
+    const huntCount = this.huntCount;
+    huntCount.clear();
+    this.updateSpawnFactors(dt);
     for (let i = 0; i < this.creatures.length; i++) {
       const c = this.creatures[i];
       if (!c.brain) continue;
       // Very far from the player (another part of the sea), fish sleep: no thinking, no physics, not drawn.
-      // They wake up, where they were, when the player comes within sleepDistance.
-      const far = Math.abs(c.fish.x - focusX) > BALANCE.ai.sleepDistance;
+      // They wake up, where they were, when the player comes within sleepDistance. Fish that are not out
+      // (time of day, waves) or are waiting to respawn sleep too.
+      if (c.respawnT && c.respawnT > 0) c.respawnT -= dt;
+      const far = Math.abs(c.fish.x - focusX) > BALANCE.ai.sleepDistance || !!c.away || (c.respawnT ?? 0) > 0;
       if (far !== !!c.asleep) {
         c.asleep = far;
         c.fish.arcadeBody.enable = !far;
@@ -421,7 +427,17 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         continue;
       }
       c.fish.swim(c.brain.think(dt), dt);
-      if (c.brain.state === 'hunt' && c.brain.target === this.playerCreature) hunted = true;
+      if (c.brain.state === 'hunt' && c.brain.target === this.playerCreature) {
+        // At most maxHunters of a species chase you at once; the others give up.
+        const id = c.fish.species.id;
+        const max = this.factorsOf(id).maxHunters;
+        const n = (huntCount.get(id) ?? 0) + 1;
+        if (max > 0 && n > max) c.brain.forget(this.playerCreature);
+        else {
+          huntCount.set(id, n);
+          hunted = true;
+        }
+      }
     }
     this.cullStatics();
     this.playerHunted = hunted && !this.dead;
@@ -1064,7 +1080,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     let biteTarget: Creature | null = null;
     const checkR = p.mouthRadius(true);
     for (const c of this.creatures) {
-      if (c.isPlayer) continue;
+      if (c.isPlayer || c.asleep) continue;
       const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, c.fish.x, c.fish.y);
       if (p.canSwallow(c.fish.size) && !c.guardian) {
         if (d <= checkR + c.fish.size * 0.5 && (!swallowTarget || c.fish.size > swallowTarget.fish.size)) swallowTarget = c;
@@ -1353,7 +1369,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const cb = BALANCE.combat;
     const p = this.player;
     for (const c of this.creatures) {
-      if (c.isPlayer) continue;
+      if (c.isPlayer || c.asleep) continue;
       const t = c.fish;
       const d = Phaser.Math.Distance.Between(p.x, p.y, t.x, t.y);
       if (d > (p.size + t.size) * 0.9) continue;
@@ -1559,23 +1575,39 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
   }
 
-  /** Put an eaten AI fish back somewhere off-screen in its depth band. */
+  /** Put an eaten AI fish back somewhere off-screen in its depth band (after its respawn delay). */
   private respawnAmbient(c: Creature): void {
     for (const o of this.creatures) o.brain?.forget(c);
+    const f = this.factorsOf(c.fish.species.id);
+    this.placeAmbient(c, Math.random() < f.nearPlayer);
+    const roll = rollLevel(f, this.aiLevelBonus);
+    c.fish.setLevel(roll.level);
+    c.fish.setElite(roll.elite);
+    c.fish.resetCombat();
+    if (c.brain) c.brain.hunger = Phaser.Math.FloatBetween(0.5, 1);
+    // Hidden until the delay is over (it sleeps meanwhile).
+    c.respawnT = f.respawnDelay;
+  }
+
+  /** Move an AI fish somewhere out of sight: near its home, or (`nearPlayer`) just off the player's screen. */
+  private placeAmbient(c: Creature, nearPlayer: boolean): void {
     const band = c.band ?? this.swimArea;
     const view = this.cameras.main.worldView;
     let x = 0;
     let y = 0;
     for (let i = 0; i < 20; i++) {
-      // The nearest copy to the camera (the sea loops), out of sight and not inside rock.
-      x = this.wrapNear(c.homeX?.() ?? Phaser.Math.Between(band.left, band.right), view.centerX);
+      if (nearPlayer && i < 10) {
+        // Just past the edge of the screen, left or right.
+        const side = Math.random() < 0.5 ? -1 : 1;
+        x = view.centerX + side * (view.width / 2 + Phaser.Math.Between(250, 600));
+      } else {
+        // The nearest copy to the camera (the sea loops), out of sight and not inside rock.
+        x = this.wrapNear(c.homeX?.() ?? Phaser.Math.Between(band.left, band.right), view.centerX);
+      }
       y = Phaser.Math.Between(band.top, band.bottom);
       if ((x < view.left - 200 || x > view.right + 200) && !this.terrain.isSolid(x, y, 40)) break;
     }
     c.fish.arcadeBody.reset(x, y);
-    c.fish.setLevel(Phaser.Math.Between(1, 3) + this.aiLevelBonus);
-    c.fish.resetCombat();
-    if (c.brain) c.brain.hunger = Phaser.Math.FloatBetween(0.5, 1);
   }
 
   // ---------------------------------------------------------------- world
@@ -2344,45 +2376,125 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   /** Spawn the reef's fish: every unlocked species, or `only` these (new enemies joining mid-run). */
   private spawnAmbientFish(W: number, only: string[] | null = null): void {
-    if (!only) this.spawnedSpecies = new Set();
+    if (!only) {
+      this.spawnedSpecies = new Set();
+      this.factorCache.clear();
+      this.popTide = this.menuMode ? 1 : tideOf(this.player.level);
+    }
     const level = this.menuMode ? 1 : this.player.level;
-    const surfaceY = BALANCE.world.surfaceY;
-    const waterH = this.seabedTop - surfaceY;
-    for (const [id, baseCount] of Object.entries(BALANCE.population)) {
+    for (const id of Object.keys(BALANCE.population)) {
       const sp = SPECIES[id];
       if (only ? !only.includes(id) : (sp.unlockLevel ?? 1) > level) continue;
       this.spawnedSpecies.add(id);
-      // Difficulty: more predators on Hard, more small prey on Easy.
-      const mul = sp.tier >= 3 ? this.difficulty.predatorDensity : sp.tier <= 1 ? this.difficulty.preySpawnRate : 1;
-      const count = Math.max(1, Math.round(baseCount * mul * (BALANCE.world.populationScale ?? 1)));
-      const band = new Phaser.Geom.Rectangle(
-        0,
-        surfaceY + waterH * sp.spawn.depthMin + 40,
-        W,
-        Math.max(80, waterH * (sp.spawn.depthMax - sp.spawn.depthMin) - 80),
-      );
-      // Each species lives mostly in the regions it likes (balance "biomes").
-      const homeX = (near?: number) => pickHomeX(this.regions, (r) => biomeWeight(id, r), near);
-      if (homeX() === null) continue;
-      for (let i = 0; i < count; i++) {
-        const spot = () => this.regions.wrap(homeX() ?? Phaser.Math.Between(band.left, band.right));
-        let fx = spot(), fy = Phaser.Math.Between(band.top, band.bottom);
-        for (let k = 0; k < 12 && this.terrain.isSolid(fx, fy, 40); k++) {
-          fx = spot();
-          fy = Phaser.Math.Between(band.top, band.bottom);
+      this.spawnSpecies(id, this.targetCount(id), W);
+    }
+  }
+
+  /** Spawn factors of a species (cached per run; see src/systems/spawnFactors.ts). */
+  private factorCache = new Map<string, SpawnFactors>();
+  factorsOf(id: string): SpawnFactors {
+    let f = this.factorCache.get(id);
+    if (!f) this.factorCache.set(id, (f = factorsFor(id)));
+    return f;
+  }
+
+  /** How many of each species hunt the player this frame (for maxHunters). */
+  private huntCount = new Map<string, number>();
+
+  /** The Tide the population was last sized for (each Tide may add more of some enemies). */
+  private popTide = 1;
+
+  /** How many of a species should live in the sea now: count, difficulty, world size and Tide. */
+  private targetCount(id: string): number {
+    const sp = SPECIES[id];
+    const base = (BALANCE.population as Record<string, number>)[id] ?? 0;
+    // Difficulty: more predators on Hard, more small prey on Easy.
+    const mul = sp.tier >= 3 ? this.difficulty.predatorDensity : sp.tier <= 1 ? this.difficulty.preySpawnRate : 1;
+    const tide = this.menuMode ? 1 : tideOf(this.player.level);
+    return Math.max(1, Math.round(countInTide(base, this.factorsOf(id), tide) * mul * (BALANCE.world.populationScale ?? 1)));
+  }
+
+  /** Add `n` fish of a species, in groups (schools, packs), in the regions and depths it likes. */
+  private spawnSpecies(id: string, n: number, W = BALANCE.world.width): void {
+    const sp = SPECIES[id];
+    const f = this.factorsOf(id);
+    const surfaceY = BALANCE.world.surfaceY;
+    const waterH = this.seabedTop - surfaceY;
+    const band = new Phaser.Geom.Rectangle(
+      0,
+      surfaceY + waterH * sp.spawn.depthMin + 40,
+      W,
+      Math.max(80, waterH * (sp.spawn.depthMax - sp.spawn.depthMin) - 80),
+    );
+    // Each species lives mostly in the regions it likes (balance "biomes"), wandering up to its roam distance.
+    const homeX = (near?: number) => pickHomeX(this.regions, (r) => biomeWeight(id, r), near, f.roam);
+    if (homeX() === null) return;
+    const spot = () => this.regions.wrap(homeX() ?? Phaser.Math.Between(band.left, band.right));
+    for (const size of groupSizes(n, f)) {
+      // One spot per group, its members close together around it.
+      let gx = spot(), gy = Phaser.Math.Between(band.top, band.bottom);
+      for (let k = 0; k < 12 && this.terrain.isSolid(gx, gy, 40); k++) {
+        gx = spot();
+        gy = Phaser.Math.Between(band.top, band.bottom);
+      }
+      for (let m = 0; m < size; m++) {
+        let fx = gx, fy = gy;
+        if (size > 1) {
+          for (let k = 0; k < 6; k++) {
+            fx = gx + Phaser.Math.Between(-140, 140);
+            fy = Phaser.Math.Clamp(gy + Phaser.Math.Between(-90, 90), band.top, band.bottom);
+            if (!this.terrain.isSolid(fx, fy, 30)) break;
+            fx = gx;
+            fy = gy;
+          }
         }
-        const fish = new Fish(this, fx, fy, sp, Phaser.Math.Between(1, 3) + this.aiLevelBonus);
+        const roll = rollLevel(f, this.aiLevelBonus);
+        const fish = new Fish(this, fx, fy, sp, roll.level);
         const look = this.speciesLook(sp.look);
         if (look) {
           fish.applySkin(look.key, look.frames);
           fish.setArt(look.art);
         }
+        fish.setElite(roll.elite);
         fish.setDepth(5);
         fish.speedMul = this.difficulty.aiSpeed;
         this.physics.add.collider(fish, this.rocks);
-        const c: Creature = { fish, isPlayer: false, band, homeX };
+        // `slot` decides who is out when only a share of them is (time of day, waves).
+        const c: Creature = { fish, isPlayer: false, band, homeX, slot: Math.random() };
         c.brain = new Brain(c, this);
         this.creatures.push(c);
+      }
+    }
+  }
+
+  /**
+   * Once a second: who is out (time of day, waves, last level), and more enemies when a new Tide starts.
+   * Fish that are not out are hidden (like sleeping fish) and come back off screen.
+   */
+  private spawnTimer = 0;
+  private updateSpawnFactors(dt: number): void {
+    this.spawnTimer -= dt;
+    if (this.spawnTimer > 0) return;
+    this.spawnTimer = 1;
+    const level = this.menuMode ? 1 : this.player.level;
+    const share = new Map<string, number>();
+    for (const c of this.creatures) {
+      if (!c.brain || c.guardian || c.isPlayer) continue;
+      const id = c.fish.species.id;
+      let sh = share.get(id);
+      if (sh === undefined) share.set(id, (sh = outShare(this.factorsOf(id), this.period as PeriodId, this.runTime, level)));
+      const away = (c.slot ?? 0) >= sh;
+      if (c.away && !away) this.placeAmbient(c, false); // back from hiding: off screen, not in front of you
+      c.away = away;
+    }
+    // A new Tide: top up the enemies that grow in number each Tide.
+    const tide = this.menuMode ? 1 : tideOf(level);
+    if (tide > this.popTide) {
+      this.popTide = tide;
+      for (const id of this.spawnedSpecies) {
+        const have = this.creatures.filter((c) => c.brain && !c.guardian && c.fish.species.id === id).length;
+        const want = this.targetCount(id);
+        if (want > have) this.spawnSpecies(id, want - have);
       }
     }
   }

@@ -11,7 +11,7 @@ import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
 import { APP_VERSION, SLOT_COUNT, cleanSlotName, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
 import { perkIconUrl } from './perkIcons';
-import { ENEMY_FIELDS, enemiesChanged, enemyIds, resetEnemies, saveEnemy, shippedValue } from '../data/adminSettings';
+import { ENEMY_FIELDS, ENEMY_GROUPS, enemiesChanged, enemyIds, resetEnemies, saveEnemy, shippedValue } from '../data/adminSettings';
 import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
 import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
 import { earlyHelpMods, earlyHelpStrength, perkById, type PerkDef } from '../systems/perks';
@@ -462,8 +462,8 @@ export function initMenu(game: Phaser.Game): void {
     const rows = enemyIds()
       .map((id) => {
         const sp = SPECIES[id];
-        const lv = ENEMY_FIELDS[0].get(id);
-        return `<button class="btn enemy-row" data-enemy="${esc(id)}"><b>${esc(sp.displayName)}</b><span>from level ${lv} · ${ENEMY_FIELDS[1].get(id)} in the sea</span></button>`;
+        const field = (k: string) => ENEMY_FIELDS.find((f) => f.key === k)!.get(id);
+        return `<button class="btn enemy-row" data-enemy="${esc(id)}"><b>${esc(sp.displayName)}</b><span>from level ${field('unlockLevel')} · ${field('count')} in the sea</span></button>`;
       })
       .join('');
     openPanel(
@@ -484,11 +484,11 @@ export function initMenu(game: Phaser.Game): void {
   }
   function openEnemy(id: string): void {
     const sp = SPECIES[id];
-    const fields = ENEMY_FIELDS.map((f) => {
+    const fields = ENEMY_GROUPS.map((group) => `<h4 class="en-group">${esc(group)}</h4>` + ENEMY_FIELDS.filter((f) => f.group === group).map((f) => {
       const v = f.get(id);
       return `<div class="en-field"><label for="en_${f.key}"><b>${esc(f.label)}</b> <output id="eo_${f.key}">${fmt(v)}</output><br><span class="en-help">${esc(f.help)} Shipped: ${fmt(shippedValue(id, f.key))}.</span></label>
         <input type="range" id="en_${f.key}" min="${f.min}" max="${f.max}" step="${f.step}" value="${v}"></div>`;
-    }).join('');
+    }).join('')).join('');
     openPanel(
       `<h3>${esc(sp.displayName)}</h3>${fields}
       <div class="row"><button class="btn" id="enSave">Save</button><button class="btn" id="enShipped">Shipped values</button><button class="btn" id="enBack2">Back</button></div>`,

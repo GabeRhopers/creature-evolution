@@ -20,7 +20,7 @@ await G(()=>{const g=window.game.scene.getScene('Game'); g.controller.uiDash=tru
 ok(await waitFor(()=>window.game.scene.getScene('Game').shellActive, 3000), 'Shell Guard is up');
 await shot('st_shell',3);
 const hpBefore=(await S()).hp;
-await G(()=>{const g=window.game.scene.getScene('Game'); const shark=g.creatures.find(c=>c.fish.species.id==='grey_shark'); g.attackPlayer(shark);});
+await G(()=>{const g=window.game.scene.getScene('Game'); const shark=g.creatures.find(c=>c.fish.species.id==='grey_shark'&&!c.away); g.attackPlayer(shark);});
 s=await S(); ok(s.hp===hpBefore, 'a shark bite bounces off the shell');
 ok(!(await G(()=>window.game.scene.getScene('Game').shellActive)), 'shell used up by the block');
 // level up within the stage: size grows a little
@@ -50,7 +50,7 @@ for (let i=0;i<30;i++){ await p.waitForTimeout(200);
   if (after.hp<roll.hp || after.kills>roll.kills) break; }
 ok(after.cd>0 && (after.hp<roll.hp || after.kills>roll.kills), `Death Roll hits the ${roll.id} (kills ${roll.kills} -> ${after.kills})`+(after.kills>roll.kills||after.hp<roll.hp?'':' '+JSON.stringify(after)));
 // reef reacts: sharks do not hunt the adult, they hunted the juvenile
-const reacts = await G(()=>{const g=window.game.scene.getScene('Game'); const sh=g.creatures.find(c=>c.fish.species.id==='grey_shark'); sh.fish.setLevel(1); const pc=g.playerCreature;
+const reacts = await G(()=>{const g=window.game.scene.getScene('Game'); const sh=g.creatures.find(c=>c.fish.species.id==='grey_shark'&&!c.away); sh.fish.setLevel(1); const pc=g.playerCreature;
   const adult = sh.brain.isThreat ? null : null;
   g.player.setLevel(15); const juvThreat = sh.brain['isThreat'](pc) , juvBite = sh.brain.canBite(pc);
   g.player.setLevel(30); const adultBite = sh.brain.canBite(pc); const sharkFears = sh.brain['isThreat'].call(sh.brain, pc);

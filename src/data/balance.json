@@ -1317,6 +1317,190 @@
       "ice": 1
     }
   },
+  "spawnDefaults": {
+    "_comment": "Spawn factors every enemy starts from (see \"spawnFactors\" for each one, and \"biomes\" / species spawn depths for where). activity = share of them out at each time of day; waveEvery/waveStay = they come in waves (0 = always there); respawnDelay = seconds before an eaten one comes back; nearPlayer = chance a respawn appears just off your screen; roam = how far (px) it wanders while it likes the region; perTide = extra share of the count each Tide; groupMin/groupMax = spawns in groups; maxHunters = most that hunt you at once (0 = no limit); levelMin/levelMax = spawn levels (plus the Tide bonus); eliteChance/eliteLevels = a rare golden one, that many levels stronger; lastLevel = it leaves the sea after this level (0 = never).",
+    "lastLevel": 0,
+    "activity": {
+      "dawn": 1,
+      "day": 1,
+      "dusk": 1,
+      "night": 1
+    },
+    "waveEvery": 0,
+    "waveStay": 0,
+    "respawnDelay": 0,
+    "nearPlayer": 0,
+    "roam": 1500,
+    "perTide": 0,
+    "groupMin": 1,
+    "groupMax": 1,
+    "maxHunters": 0,
+    "levelMin": 1,
+    "levelMax": 3,
+    "eliteChance": 0,
+    "eliteLevels": 4
+  },
+  "spawnFactors": {
+    "_comment": "Each enemy's own spawn factors (only what differs from \"spawnDefaults\"). Real-life habits: nocturnal hunters are out more at night, schooling fish come in schools, pack hunters in packs.",
+    "blue_tang": {
+      "groupMin": 4,
+      "groupMax": 8,
+      "activity": {
+        "dawn": 1,
+        "day": 1,
+        "dusk": 1,
+        "night": 0.6
+      }
+    },
+    "reef_snapper": {
+      "groupMin": 2,
+      "groupMax": 4
+    },
+    "archerfish": {
+      "groupMin": 3,
+      "groupMax": 6,
+      "activity": {
+        "dawn": 1,
+        "day": 1,
+        "dusk": 1,
+        "night": 0.5
+      }
+    },
+    "polar_cod": {
+      "groupMin": 5,
+      "groupMax": 10
+    },
+    "red_grouper": {
+      "eliteChance": 0.15,
+      "activity": {
+        "dawn": 1,
+        "day": 0.8,
+        "dusk": 1,
+        "night": 1
+      }
+    },
+    "grey_shark": {
+      "eliteChance": 0.1,
+      "respawnDelay": 20,
+      "perTide": 0.1,
+      "maxHunters": 2,
+      "activity": {
+        "dawn": 1,
+        "day": 0.7,
+        "dusk": 1,
+        "night": 1
+      }
+    },
+    "lionfish": {
+      "activity": {
+        "dawn": 1,
+        "day": 0.7,
+        "dusk": 1,
+        "night": 1
+      },
+      "groupMin": 1,
+      "groupMax": 2
+    },
+    "moray_eel": {
+      "activity": {
+        "dawn": 1,
+        "day": 0.6,
+        "dusk": 1,
+        "night": 1
+      },
+      "respawnDelay": 10
+    },
+    "barracuda": {
+      "groupMin": 4,
+      "groupMax": 6,
+      "maxHunters": 3,
+      "waveEvery": 180,
+      "waveStay": 60,
+      "perTide": 0.1
+    },
+    "anglerfish": {
+      "activity": {
+        "dawn": 0.7,
+        "day": 0.4,
+        "dusk": 0.7,
+        "night": 1
+      },
+      "respawnDelay": 15
+    },
+    "bull_shark": {
+      "activity": {
+        "dawn": 1,
+        "day": 0.6,
+        "dusk": 1,
+        "night": 1
+      },
+      "maxHunters": 2,
+      "respawnDelay": 20,
+      "perTide": 0.1
+    },
+    "leopard_seal": {
+      "nearPlayer": 0.1,
+      "maxHunters": 2,
+      "respawnDelay": 20
+    },
+    "great_white": {
+      "eliteChance": 0.1,
+      "nearPlayer": 0.15,
+      "respawnDelay": 30,
+      "maxHunters": 1
+    },
+    "sperm_whale": {
+      "respawnDelay": 60,
+      "roam": 4000
+    },
+    "box_jelly": {
+      "groupMin": 2,
+      "groupMax": 4,
+      "activity": {
+        "dawn": 1,
+        "day": 0.7,
+        "dusk": 1,
+        "night": 1
+      },
+      "roam": 600
+    },
+    "sea_snake": {
+      "activity": {
+        "dawn": 1,
+        "day": 1,
+        "dusk": 1,
+        "night": 0.5
+      },
+      "respawnDelay": 10
+    },
+    "giant_octopus": {
+      "activity": {
+        "dawn": 1,
+        "day": 0.5,
+        "dusk": 1,
+        "night": 1
+      },
+      "respawnDelay": 20,
+      "roam": 800
+    },
+    "giant_squid": {
+      "activity": {
+        "dawn": 1,
+        "day": 0.5,
+        "dusk": 1,
+        "night": 1
+      },
+      "respawnDelay": 30,
+      "eliteChance": 0.1
+    },
+    "orca": {
+      "groupMin": 3,
+      "groupMax": 5,
+      "maxHunters": 3,
+      "respawnDelay": 40,
+      "roam": 3000
+    }
+  },
   "ai": {
     "hungerDrainPerSecond": 0.014,
     "huntBelowHunger": 0.65,
