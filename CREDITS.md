@@ -11,6 +11,7 @@
 | Lionfish, Moray Eel, Barracuda | Original pixel-art designs generated in code, like the other reef fish | Original | `tools/fish/draw_fish.py` | Higher-level enemies |
 | Archerfish, Polar Cod, Bull Shark, Leopard Seal, Anglerfish, Great White Shark, Sperm Whale | Original pixel-art designs generated in code | Original | `tools/fish/draw_more.py` | Region creatures and new hunters |
 | Box Jellyfish, Sea Snake, Giant Octopus, Giant Squid, Orca | Original pixel-art designs generated in code | Original | `tools/fish/draw_beasts.py` | Enemies that are not fish |
+| Lanternfish, Viperfish, Gulper Eel, Vampire Squid | Original pixel-art designs generated in code | Original | `tools/fish/draw_trench.py` | Twilight Trench creatures |
 | Volcanic Rift (black sand, volcano islands, lava cracks, tube worms) | Original pixel art generated in code | Original | `src/systems/terrainArt.ts` | Fourth region |
 | Sound effects | generated in code (`src/audio/Sfx.ts`) | n/a | | All SFX |
 

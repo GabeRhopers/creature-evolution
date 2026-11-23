@@ -1450,7 +1450,11 @@
     "sea_snake": 6,
     "giant_octopus": 4,
     "giant_squid": 3,
-    "orca": 3
+    "orca": 3,
+    "lanternfish": 20,
+    "viperfish": 2,
+    "gulper_eel": 1,
+    "vampire_squid": 3
   },
   "biomes": {
     "_comment": "How much each species likes each region (0 = never there). A species' fish are shared out by weight x region width; they wander mostly where they like it. Missing = 1 everywhere.",
@@ -1624,6 +1628,42 @@
       "sargasso": 0.15,
       "trench": 0,
       "kelp": 0.4
+    },
+    "lanternfish": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 0,
+      "volcano": 0,
+      "trench": 1,
+      "kelp": 0,
+      "ice": 0
+    },
+    "viperfish": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 0,
+      "volcano": 0,
+      "trench": 1,
+      "kelp": 0,
+      "ice": 0
+    },
+    "gulper_eel": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 0,
+      "volcano": 0,
+      "trench": 1,
+      "kelp": 0,
+      "ice": 0
+    },
+    "vampire_squid": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 0,
+      "volcano": 0,
+      "trench": 1,
+      "kelp": 0,
+      "ice": 0
     }
   },
   "spawnDefaults": {
@@ -1808,6 +1848,33 @@
       "maxHunters": 3,
       "respawnDelay": 40,
       "roam": 3000
+    },
+    "lanternfish": {
+      "groupMin": 6,
+      "groupMax": 12,
+      "activity": {
+        "dawn": 0.8,
+        "day": 0.5,
+        "dusk": 0.8,
+        "night": 1
+      }
+    },
+    "viperfish": {
+      "maxHunters": 2,
+      "activity": {
+        "dawn": 1,
+        "day": 0.6,
+        "dusk": 1,
+        "night": 1
+      },
+      "respawnDelay": 20
+    },
+    "gulper_eel": {
+      "maxHunters": 1,
+      "respawnDelay": 30
+    },
+    "vampire_squid": {
+      "groupMax": 2
     }
   },
   "ai": {
@@ -2453,5 +2520,11 @@
       "bigSlow": 0.85,
       "hint": "Tangled kelp: hiding everywhere, but big bodies swim slower"
     }
+  },
+  "trench": {
+    "_comment": "Twilight Trench creatures. cloudRange: how close (in body sizes) you get before a vampire squid puffs its glowing cloud; cloudCooldown: seconds before the same squid can puff again; blindAlpha: how strong the blue glare is.",
+    "cloudRange": 3.0,
+    "cloudCooldown": 12,
+    "blindAlpha": 0.75
   }
 }

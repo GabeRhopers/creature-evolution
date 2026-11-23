@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { GameScene } from './GameScene';
+import { BALANCE } from '../data';
 
 /**
  * Light over the world, under the HUD: the water tint of the time of day (warm at dawn, purple at
@@ -10,6 +11,8 @@ import type { GameScene } from './GameScene';
 export class LightScene extends Phaser.Scene {
   private tint!: Phaser.GameObjects.Rectangle;
   private dark!: Phaser.GameObjects.Image;
+  /** Blue glare when a vampire squid's glowing cloud blinds the player. */
+  private glare!: Phaser.GameObjects.Rectangle;
   /** Glowing plankton, drawn above the darkness so it shines in the night (bioluminescence). */
   private glows: Phaser.GameObjects.Image[] = [];
   private failed = false;
@@ -36,6 +39,7 @@ export class LightScene extends Phaser.Scene {
     this.glows = [];
     this.tint = this.add.rectangle(0, 0, 10, 10, 0x000000, 0).setOrigin(0, 0);
     this.dark = this.add.image(0, 0, 'light_hole').setAlpha(0);
+    this.glare = this.add.rectangle(0, 0, 10, 10, 0x2ce8f5, 0).setOrigin(0, 0).setDepth(10);
     this.layout();
     this.scale.on('resize', () => this.layout());
     // Place everything right before drawing, after the game camera has moved for this frame,
@@ -118,6 +122,29 @@ export class LightScene extends Phaser.Scene {
           .setAlpha((0.35 + 0.45 * glow) * flick);
       }
     }
+    // Bioluminescent fish (Twilight Trench) glow softly on their bodies, brighter in the dark.
+    if (g.creatures) {
+      const cam = g.cameras.main;
+      const v = cam.worldView;
+      for (const c of g.creatures) {
+        const f = c.fish;
+        const col = f.species.glow;
+        if (!col || !f.active || !f.visible || !v.contains(f.x, f.y)) continue;
+        let dot = this.glows[n];
+        if (!dot) {
+          dot = this.add.image(0, 0, 'light_dot').setBlendMode(Phaser.BlendModes.ADD);
+          this.glows.push(dot);
+        }
+        n++;
+        const pulse = 0.8 + 0.2 * Math.sin(this.time.now / 500 + f.x * 0.02);
+        dot
+          .setVisible(true)
+          .setPosition((f.x - v.x) * cam.zoom, (f.y - v.y) * cam.zoom)
+          .setScale(Math.max(0.6, (f.size * cam.zoom * 2.2) / 32))
+          .setTint(parseInt(col.slice(1), 16))
+          .setAlpha((0.2 + 0.55 * glow) * pulse);
+      }
+    }
     // Anglerfish lures glow day and night (brighter in the dark), pulsing slowly.
     if (g.creatures) {
       const cam = g.cameras.main;
@@ -152,6 +179,7 @@ export class LightScene extends Phaser.Scene {
   private layout(): void {
     const { width, height } = this.scale;
     this.tint?.setSize(width, height);
+    this.glare?.setSize(width, height);
   }
 
   private place(): void {
@@ -163,6 +191,8 @@ export class LightScene extends Phaser.Scene {
     // Dark regions (the Twilight Trench) are dark day and night, and their plankton glows.
     const dark = Math.max(L.dark, g.regionDark ?? 0);
     this.drawGlow(g, Math.max(L.glow, g.regionDark ?? 0));
+    const blind = g.blindT > 0 ? BALANCE.trench.blindAlpha * Math.min(1, (g.blindT / Math.max(0.01, g.blindMax)) * 1.5) : 0;
+    this.glare.setAlpha(blind);
     const p = g.player;
     if (!p || dark < 0.01) {
       this.dark.setAlpha(0);

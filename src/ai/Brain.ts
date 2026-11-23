@@ -11,6 +11,8 @@ export interface Creature {
   /** Depth band an AI fish lives in (wander targets + respawn). */
   band?: Phaser.Geom.Rectangle;
   /** Where it likes to live (regions): a wander target near `near`, or a spot in a region it likes. */
+  /** Seconds until a vampire squid can puff its glowing cloud again. */
+  cloudT?: number;
   homeX?: (near?: number) => number | null;
   /** Asleep: very far from the player, not out (time of day, waves) or waiting to respawn: not simulated (GameScene). */
   asleep?: boolean;
