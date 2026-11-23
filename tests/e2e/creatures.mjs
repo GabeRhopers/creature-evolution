@@ -45,7 +45,8 @@ ok(bullHome.swamp > (bullHome.coral + bullHome.ice + bullHome.volcano) * 2 && bu
 ok(whale.swamp === 0, 'no whales in the shallow swamp: '+JSON.stringify(whale));
 
 const octo = await where('giant_octopus'), orca = await where('orca');
-ok(octo.volcano > octo.coral + octo.swamp + octo.ice, 'octopuses live mostly in the Volcanic Rift: '+JSON.stringify(octo));
+const octoHome = await homes('giant_octopus');
+ok(octoHome.volcano > octoHome.coral + octoHome.swamp + octoHome.ice && octoHome.swamp === 0, 'octopuses live mostly in the Volcanic Rift: '+JSON.stringify(octoHome)+' now '+JSON.stringify(octo));
 // Fast pod hunters roam while they chase: check where they head home to, not one snapshot.
 const orcaHome = await G(()=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,volcano:0,ice:0};
   for (const c of g.creatures) if (c.fish.species.id==='orca') for (let i=0;i<20;i++) n[g.regions.at(c.homeX()).id]++; return n;});
