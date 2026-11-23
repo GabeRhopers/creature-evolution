@@ -30,7 +30,13 @@ export interface AIWorld {
   light?: { preyVision: number; predatorVision: number; predatorHunger: number; sleepy: number };
   /** The sea loops: the copy of x nearest to `near`. */
   wrapNear?(x: number, near: number): number;
+  /** Creatures near a point (a spatial grid, rebuilt each frame), written into `out`. Without it, all creatures. */
+  nearby?(x: number, y: number, r: number, out: Creature[]): Creature[];
 }
+
+// Reused lists for nearby creatures (brains think one at a time).
+const SEEN: Creature[] = [];
+const MATES: Creature[] = [];
 
 export type BrainState = 'wander' | 'flee' | 'hunt' | 'forage' | 'rest';
 
@@ -186,8 +192,13 @@ export class Brain {
     let prey: Creature | null = null;
     let preyScore = -Infinity;
 
-    for (const c of this.world.creatures) {
-      if (c === this.self || !c.fish.active || !c.fish.visible || c.guardian) continue; // the crab is left alone
+    // Only creatures within sight (a wounded one is noticed from farther away).
+    const reach = vision * Math.max(1, BALANCE.combat.distressVisionMul);
+    const around = this.world.nearby ? this.world.nearby(me.x, me.y, reach, SEEN) : this.world.creatures;
+    for (const c of around) {
+      // The crab is left alone; a hidden player (home screen, dead) is not there. Far AI fish are only
+      // undrawn (culled), not gone, so their `visible` flag does not matter here.
+      if (c === this.self || !c.fish.active || (c.isPlayer && !c.fish.visible) || c.guardian) continue;
       const d = Phaser.Math.Distance.Between(me.x, me.y, c.fish.x, c.fish.y);
       // Wounded fish send distress: noticed from farther away.
       const range = c.fish.wounded ? vision * BALANCE.combat.distressVisionMul : vision;
@@ -385,7 +396,8 @@ export class Brain {
       let cy = 0;
       let sx = 0;
       let sy = 0;
-      for (const c of this.world.creatures) {
+      const mates = this.world.nearby ? this.world.nearby(me.x, me.y, ai.schoolRadius, MATES) : this.world.creatures;
+      for (const c of mates) {
         const o = c.fish;
         if (c === this.self || c.isPlayer || o.species !== me.species) continue;
         const d = Phaser.Math.Distance.Between(me.x, me.y, o.x, o.y);

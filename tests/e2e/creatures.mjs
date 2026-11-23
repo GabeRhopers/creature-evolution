@@ -51,7 +51,9 @@ ok(octoHome.volcano > octoHome.coral + octoHome.swamp + octoHome.ice && octoHome
 const orcaHome = await G(()=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,volcano:0,ice:0};
   for (const c of g.creatures) if (c.fish.species.id==='orca') for (let i=0;i<20;i++) n[g.regions.at(c.homeX()).id]++; return n;});
 ok(orcaHome.ice > (orcaHome.coral + orcaHome.swamp + orcaHome.volcano) * 3 && orcaHome.swamp + orcaHome.volcano === 0, 'orca pods live in the Frozen Sea (where they head home): '+JSON.stringify(orcaHome)+' now '+JSON.stringify(orca));
-ok(await G(()=>{const c=window.game.scene.getScene('Game').creatures.find(c=>c.fish.species.id==='box_jelly'); return c.fish.alpha < 1;}), 'the box jellyfish is see-through');
+// (Fish far off screen are not drawn or updated, so look at one in view.)
+await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player; const c=g.creatures.find(c=>c.fish.species.id==='box_jelly'); c.fish.arcadeBody.reset(pl.x+200, pl.y); window.__jelly=c;});
+ok(await waitFor(()=>window.__jelly.fish.visible && window.__jelly.fish.alpha < 1, 5000), 'the box jellyfish is see-through');
 // An octopus sitting still fades and hides from fish farther away.
 const camo = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.fish.species.id==='giant_octopus'); const f=c.fish;
   const pl=g.player; f.arcadeBody.reset(pl.x+300, pl.y); f.setVisible(true); f.hp=f.maxHp; f.pose(0.016); const fish=g.creatures.find(o=>o.fish.species.id==='red_grouper').fish;

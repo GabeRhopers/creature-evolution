@@ -91,6 +91,15 @@ describe('scenery layout', () => {
     const wreck = sc.pieces.find((p) => p.kind === 'wreck')!;
     expect(t.kindAt(wreck.x)).toBe('seamount');
   });
+  it('never overlaps islands, or seamounts and ridges, with each other', () => {
+    const overlaps = (list: Array<{ x: number; width: number }>) => {
+      const spans = list.map((f) => [f.x - f.width / 2, f.x + f.width / 2]).sort((a, b) => a[0] - b[0]);
+      return spans.filter((s, i) => i > 0 && s[0] < spans[i - 1][1]).map((s) => (s[0] + s[1]) / 2);
+    };
+    const cfg = balance.terrain as unknown as { islands: Array<{ x: number; width: number }>; seamounts: Array<{ x: number; width: number }>; ridges: Array<{ x: number; width: number }> };
+    expect(overlaps(cfg.islands)).toEqual([]);
+    expect(overlaps([...cfg.seamounts, ...cfg.ridges])).toEqual([]);
+  });
   it('keeps floats in open water, away from islands', () => {
     for (const f of sc.floats) expect(isFinite(t.ceilAt(f.x))).toBe(false);
   });
