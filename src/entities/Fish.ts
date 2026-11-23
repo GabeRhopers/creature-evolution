@@ -404,6 +404,10 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   /** Point the sprite along the heading; flip so the fish is never upside down. */
   private updateVisual(dt: number): void {
+    // Camouflage counts even off screen (other fish can't spot a still octopus).
+    this.camouflaged = !!this.species.camo && this.arcadeBody.velocity.length() < BALANCE.ai.camoStillSpeed && !this.wounded;
+    // Not drawn (far off screen, or the hidden player): skip the look; it is set again when it comes back into view.
+    if (!this.visible) return;
     const facingLeft = Math.cos(this.heading) < 0;
     // Upright species (the crab) stay level and only mirror; everyone else points along the heading.
     const upright = !!this.species.upright;
@@ -418,8 +422,6 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     // Blink while invulnerable after a hit; wobble-fade while stunned.
     const blink = this.invulnerable && Math.floor(this.scene.time.now / 80) % 2 === 0;
     // See-through animals (jellyfish) keep their own alpha; camouflaged ones fade while they sit still.
-    const still = this.arcadeBody.velocity.length() < BALANCE.ai.camoStillSpeed;
-    this.camouflaged = !!this.species.camo && still && !this.wounded;
     const base = (this.species.alpha ?? 1) * (this.camouflaged ? BALANCE.ai.camoAlpha : 1);
     this.setAlpha(blink ? 0.35 * base : this.stunned ? (0.75 + 0.25 * Math.sin(this.scene.time.now / 60)) * base : base);
     this.animate(dt);

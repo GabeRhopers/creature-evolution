@@ -23,6 +23,13 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
   >= 1.25x Y's size (`Brain.isThreat`). Combat lives in GameScene `bite/kill/updateRams`.
   Never move a fish directly; give it an intent.
 - `src/scenes/`: Boot (loads atlas), Game (world + entities), Light (time-of-day overlay), Hud (screen overlay).
+- Performance and stability (see `docs/ARCHITECTURE.md`): brains find nearby creatures through a spatial grid
+  rebuilt each frame (`src/systems/spatialGrid.ts`, `AIWorld.nearby`, `ai.gridCell`); never loop over all creatures
+  inside a brain. AI fish more than half a screen outside the view are not drawn (`visible` = drawn, not "exists":
+  brains only skip a hidden player) and skip their look updates; culled kelp pauses its sway tween. The game loop
+  (`GameScene.update` -> `step`) and the light overlay catch errors, log each once (`ce:error`, `frameErrors`) and
+  keep running. CI runs the browser suites in three parallel shards (`browser-shard`); a new e2e suite must be
+  added to one shard's list in `.github/workflows/test.yml`.
 - `src/entities/Food.ts`: plankton field kept around the camera (pooled images).
 - Eating lives in `GameScene.updateEating()`: mouth = circle ahead of the head
   (`Fish.mouthPoint/mouthRadius`); swallow allowed if `target.size <= devourSize`.

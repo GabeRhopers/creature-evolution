@@ -6,6 +6,7 @@ import { toggleTuningPanel } from '../ui/tuning';
 import { Bubbles } from '../systems/Bubbles';
 import { C, makeKelp, makeRay, makeRock, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
 import { Terrain, type TerrainConfig } from '../systems/terrain';
+import { SpatialGrid } from '../systems/spatialGrid';
 import { Regions, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
 import { DayNight, type DayNightConfig, type Light, type Period } from '../systems/dayNight';
 import { CORAL_KINDS, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow, makeVolcano, volcanoRows, VOLCANO_REACH } from '../systems/terrainArt';
@@ -326,7 +327,26 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.bindDevKeys();
   }
 
+  /** Errors caught in the game loop (each logged once); the game keeps running instead of freezing. */
+  frameErrors = 0;
+  private loggedErrors = new Set<string>();
+
   update(time: number, deltaMs: number): void {
+    try {
+      this.step(time, deltaMs);
+    } catch (err) {
+      // One bad frame (a rare bug in some system) must not stop the whole game loop: log it once and go on.
+      this.frameErrors++;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!this.loggedErrors.has(msg)) {
+        this.loggedErrors.add(msg);
+        console.error('[game] frame error (the game keeps running):', err);
+        window.dispatchEvent(new CustomEvent('ce:error', { detail: { message: msg } }));
+      }
+    }
+  }
+
+  private step(time: number, deltaMs: number): void {
     // Clamp dt so a background tab or hitch does not launch fish across the map.
     const dt = Math.min(deltaMs / 1000, 1 / 20);
     this.updateDayNight(dt);
@@ -358,6 +378,19 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     let hunted = false;
     this.lodFrame++;
     const focusX = this.player.x;
+    // Who is where (brains ask the grid instead of checking every creature), and which fish to draw.
+    this.grid.clear();
+    const view = this.cameras.main.worldView;
+    const margin = Math.max(view.width, view.height) * 0.5;
+    for (const c of this.creatures) {
+      if (!c.fish.active) continue;
+      this.grid.insert(c, c.fish.x, c.fish.y);
+      if (c.isPlayer) continue;
+      // Fish far outside the view are not drawn (Phaser draws everything otherwise); they still swim and hunt.
+      const f = c.fish;
+      const pad = margin + f.size * 2;
+      f.setVisible(f.x > view.left - pad && f.x < view.right + pad && f.y > view.top - pad && f.y < view.bottom + pad);
+    }
     for (let i = 0; i < this.creatures.length; i++) {
       const c = this.creatures[i];
       if (!c.brain) continue;
@@ -1890,8 +1923,24 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.cullTimer = 0.2;
     const v = this.cameras.main.worldView;
     const left = v.left - v.width * 0.5, right = v.right + v.width * 0.5;
-    for (const s of this.statics) s.obj.setVisible(s.right >= left && s.left <= right);
+    for (const s of this.statics) {
+      const show = s.right >= left && s.left <= right;
+      if (show === s.obj.visible) continue;
+      s.obj.setVisible(show);
+      // Kelp far away stops swaying too (hundreds of tweens otherwise run every frame).
+      const tw = (s.obj as unknown as Phaser.GameObjects.GameObject).getData?.('swayTween') as Phaser.Tweens.Tween | undefined;
+      if (tw) {
+        if (show) tw.resume();
+        else tw.pause();
+      }
+    }
   }
+
+  /** Creatures near a point, from this frame's grid (AIWorld). */
+  nearby(x: number, y: number, r: number, out: Creature[]): Creature[] {
+    return this.grid.query(x, y, r, out);
+  }
+  private grid = new SpatialGrid<Creature>(BALANCE.ai.gridCell);
 
   /** Nearest copy of x to `near` (the sea loops). For AI targets. */
   wrapNear(x: number, near: number): number {
@@ -1902,7 +1951,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** A gentle sway (kelp, sea fans), remembered so the loop's copies sway too. */
   private sway(obj: Phaser.GameObjects.Image, amp: number, duration: number, delay: number): void {
     obj.setData('sway', { amp, duration, delay });
-    this.tweens.add({ targets: obj, angle: { from: -amp, to: amp }, duration, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay });
+    obj.setData('swayTween', this.tweens.add({ targets: obj, angle: { from: -amp, to: amp }, duration, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay }));
   }
 
   /**

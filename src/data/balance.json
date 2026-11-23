@@ -842,7 +842,9 @@
     "ambushLurkStrength": 0.06,
     "camoStillSpeed": 40,
     "camoAlpha": 0.4,
-    "_camo": "A camouflaged animal (species camo, the octopus) moving slower than camoStillSpeed fades to camoAlpha and is hidden from fish farther than kelpSeeThroughDistance x its size."
+    "_camo": "A camouflaged animal (species camo, the octopus) moving slower than camoStillSpeed fades to camoAlpha and is hidden from fish farther than kelpSeeThroughDistance x its size.",
+    "gridCell": 400,
+    "_gridCell": "Size (px) of the cells of the grid that brains use to find nearby creatures (rebuilt each frame)."
   },
   "respawnLevelKeep": 0,
   "playerStartDepth": 0.18,

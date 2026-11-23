@@ -12,6 +12,7 @@ export class LightScene extends Phaser.Scene {
   private dark!: Phaser.GameObjects.Image;
   /** Glowing plankton, drawn above the darkness so it shines in the night (bioluminescence). */
   private glows: Phaser.GameObjects.Image[] = [];
+  private failed = false;
 
   constructor() {
     super('Light');
@@ -39,7 +40,15 @@ export class LightScene extends Phaser.Scene {
     this.scale.on('resize', () => this.layout());
     // Place everything right before drawing, after the game camera has moved for this frame,
     // so the light sits exactly on the player and the plankton.
-    this.events.on(Phaser.Scenes.Events.PRE_RENDER, () => this.place());
+    this.events.on(Phaser.Scenes.Events.PRE_RENDER, () => {
+      // Light is decoration: a problem here must never stop the game from drawing.
+      try {
+        this.place();
+      } catch (err) {
+        if (!this.failed) console.error('[light] skipped a frame:', err);
+        this.failed = true;
+      }
+    });
   }
 
   /**
