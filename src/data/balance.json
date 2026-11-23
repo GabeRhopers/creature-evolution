@@ -1,18 +1,18 @@
 {
   "playerSpecies": "crocodile",
   "world": {
-    "width": 18000,
+    "width": 36000,
     "height": 3200,
     "startX": 4500,
     "_startX": "Where a new run starts (the middle of the Coral Sea). The world loops: x = 0 and x = width are the same place.",
     "loopOverlap": 3600,
     "_loopOverlap": "Scenery within this many px of the world's edges is copied past the other edge, so the loop is seamless at every zoom.",
-    "populationScale": 1.6,
-    "_populationScale": "Reef fish counts (balance population) are multiplied by this for the whole world.",
+    "populationScale": 2.6,
+    "_populationScale": "Reef fish counts (balance population) are multiplied by this for the whole world (the sea doubled to 36000 px: 2.6, a little less dense than before, to keep iPads smooth).",
     "surfaceY": 120,
     "seabedDepth": 260,
-    "rockCount": 52,
-    "kelpPatches": 34
+    "rockCount": 104,
+    "kelpPatches": 68
   },
   "terrain": {
     "_comment": "Shape of the sea. Ground: sand dunes everywhere, rocky ridges, and seamounts whose flat tops (top = share of the water, 0 surface, 1 seabed) reach into the Reef with coral gardens. Islands break the surface; their sandbank (depth, px) is solid and their mangrove roots (rootsDepth) are a hiding place. Keep the player start (world center) clear.",
@@ -37,22 +37,62 @@
         "height": 200
       },
       {
-        "x": 9900,
+        "x": 11900,
+        "width": 400,
+        "height": 150
+      },
+      {
+        "x": 13400,
         "width": 600,
         "height": 160
       },
       {
-        "x": 11700,
+        "x": 15400,
+        "width": 560,
+        "height": 170
+      },
+      {
+        "x": 16200,
         "width": 700,
         "height": 220
       },
       {
-        "x": 14600,
+        "x": 18300,
+        "width": 500,
+        "height": 190
+      },
+      {
+        "x": 19700,
+        "width": 500,
+        "height": 240
+      },
+      {
+        "x": 22700,
+        "width": 500,
+        "height": 300
+      },
+      {
+        "x": 25700,
+        "width": 500,
+        "height": 280
+      },
+      {
+        "x": 27850,
+        "width": 400,
+        "height": 220
+      },
+      {
+        "x": 29956,
         "width": 500,
         "height": 180
       },
       {
-        "x": 17000,
+        "x": 31900,
+        "width": 500,
+        "height": 180
+      },
+      {
+        "x": 34222,
         "width": 500,
         "height": 200
       }
@@ -74,14 +114,39 @@
         "top": 0.62
       },
       {
-        "x": 15100,
+        "x": 10900,
+        "width": 1200,
+        "top": 0.55
+      },
+      {
+        "x": 21000,
+        "width": 1400,
+        "top": 0.45
+      },
+      {
+        "x": 24300,
+        "width": 1200,
+        "top": 0.5
+      },
+      {
+        "x": 26900,
+        "width": 1000,
+        "top": 0.52
+      },
+      {
+        "x": 30844,
         "width": 1100,
         "top": 0.6
       },
       {
-        "x": 16300,
+        "x": 32978,
         "width": 1200,
         "top": 0.55
+      },
+      {
+        "x": 35100,
+        "width": 1100,
+        "top": 0.58
       }
     ],
     "islands": [
@@ -107,61 +172,113 @@
       },
       {
         "x": 9700,
+        "width": 620,
+        "depth": 150
+      },
+      {
+        "x": 11300,
+        "width": 520,
+        "depth": 140
+      },
+      {
+        "x": 13089,
         "width": 500,
         "depth": 220,
         "style": "mangrove"
       },
       {
-        "x": 10500,
+        "x": 14333,
         "width": 700,
         "depth": 260,
         "style": "mangrove"
       },
       {
-        "x": 11350,
+        "x": 15656,
         "width": 450,
         "depth": 200,
         "style": "mangrove"
       },
       {
-        "x": 12150,
+        "x": 16900,
         "width": 800,
         "depth": 280,
         "style": "mangrove"
       },
       {
-        "x": 12950,
+        "x": 18144,
         "width": 500,
         "depth": 220,
         "style": "mangrove"
       },
       {
-        "x": 14200,
+        "x": 19900,
+        "width": 700,
+        "depth": 240,
+        "style": "volcano"
+      },
+      {
+        "x": 22900,
+        "width": 900,
+        "depth": 300,
+        "style": "volcano"
+      },
+      {
+        "x": 25600,
+        "width": 620,
+        "depth": 220,
+        "style": "volcano"
+      },
+      {
+        "x": 27500,
+        "width": 520,
+        "depth": 200,
+        "style": "volcano"
+      },
+      {
+        "x": 29244,
         "width": 600,
         "depth": 320,
         "style": "iceberg"
       },
       {
-        "x": 15450,
+        "x": 30200,
+        "width": 500,
+        "depth": 260,
+        "style": "iceberg"
+      },
+      {
+        "x": 31467,
         "width": 900,
         "depth": 420,
         "style": "iceberg"
       },
       {
-        "x": 16750,
+        "x": 32750,
+        "width": 600,
+        "depth": 320,
+        "style": "iceberg"
+      },
+      {
+        "x": 33778,
         "width": 700,
         "depth": 360,
         "style": "iceberg"
       },
       {
-        "x": 17350,
+        "x": 34844,
         "width": 400,
         "depth": 240,
+        "style": "iceberg"
+      },
+      {
+        "x": 35550,
+        "width": 500,
+        "depth": 260,
         "style": "iceberg"
       }
     ],
     "rootsDepth": 120,
-    "corals": 14
+    "corals": 20
   },
   "regions": {
     "_comment": "Regions of the looping sea, left to right. Water colors: surface, Reef band, Deep band, seabed. Neighbors blend over `blend` px.",
@@ -171,7 +288,7 @@
         "id": "coral",
         "name": "Coral Sea",
         "from": 0,
-        "to": 9000,
+        "to": 12000,
         "water": [
           "#0099db",
           "#124e89",
@@ -182,8 +299,8 @@
       {
         "id": "swamp",
         "name": "Mangrove Swamp",
-        "from": 9000,
-        "to": 13500,
+        "from": 12000,
+        "to": 19000,
         "water": [
           "#265c42",
           "#193c3e",
@@ -192,10 +309,22 @@
         ]
       },
       {
+        "id": "volcano",
+        "name": "Volcanic Rift",
+        "from": 19000,
+        "to": 28000,
+        "water": [
+          "#5a6988",
+          "#3a4466",
+          "#3e2731",
+          "#181425"
+        ]
+      },
+      {
         "id": "ice",
         "name": "Frozen Sea",
-        "from": 13500,
-        "to": 18000,
+        "from": 28000,
+        "to": 36000,
         "water": [
           "#8b9bb4",
           "#5a6988",
@@ -239,13 +368,13 @@
         "x": 4370
       },
       {
+        "kind": "chest",
+        "x": 4600
+      },
+      {
         "kind": "galleon",
         "x": 4700,
         "sink": 14
-      },
-      {
-        "kind": "chest",
-        "x": 4600
       },
       {
         "kind": "cannon",
@@ -261,16 +390,16 @@
         "scale": 0.8
       },
       {
+        "kind": "cannon",
+        "x": 6000
+      },
+      {
         "kind": "wreck",
         "x": 6150
       },
       {
         "kind": "chest",
         "x": 6370
-      },
-      {
-        "kind": "cannon",
-        "x": 6000
       },
       {
         "kind": "vent",
@@ -292,6 +421,92 @@
         "kind": "vent",
         "x": 8892,
         "scale": 0.7
+      },
+      {
+        "kind": "ruins",
+        "x": 9150
+      },
+      {
+        "kind": "chest",
+        "x": 9260
+      },
+      {
+        "kind": "wreck",
+        "x": 10950
+      },
+      {
+        "kind": "helmet",
+        "x": 14200
+      },
+      {
+        "kind": "chest",
+        "x": 14900
+      },
+      {
+        "kind": "cannon",
+        "x": 17600
+      },
+      {
+        "kind": "vent",
+        "x": 19250,
+        "scale": 1.3
+      },
+      {
+        "kind": "vent",
+        "x": 19310,
+        "scale": 0.9
+      },
+      {
+        "kind": "vent",
+        "x": 22100,
+        "scale": 1.4
+      },
+      {
+        "kind": "vent",
+        "x": 22160,
+        "scale": 0.8
+      },
+      {
+        "kind": "vent",
+        "x": 23200,
+        "scale": 1.2
+      },
+      {
+        "kind": "vent",
+        "x": 23260,
+        "scale": 0.8
+      },
+      {
+        "kind": "ruins",
+        "x": 23450
+      },
+      {
+        "kind": "submarine",
+        "x": 25180,
+        "sink": 18
+      },
+      {
+        "kind": "vent",
+        "x": 26150,
+        "scale": 1.4
+      },
+      {
+        "kind": "vent",
+        "x": 26210,
+        "scale": 0.9
+      },
+      {
+        "kind": "whale",
+        "x": 29100,
+        "scale": 1.4
+      },
+      {
+        "kind": "anchor",
+        "x": 33700
+      },
+      {
+        "kind": "chest",
+        "x": 35800
       }
     ],
     "hide": [
@@ -324,6 +539,18 @@
       {
         "kind": "bottle",
         "x": 8500
+      },
+      {
+        "kind": "bottle",
+        "x": 10200
+      },
+      {
+        "kind": "rowboat",
+        "x": 15000
+      },
+      {
+        "kind": "bottle",
+        "x": 34200
       }
     ]
   },
@@ -471,78 +698,127 @@
     "bull_shark": 4,
     "leopard_seal": 4,
     "great_white": 2,
-    "sperm_whale": 2
+    "sperm_whale": 2,
+    "box_jelly": 10,
+    "sea_snake": 6,
+    "giant_octopus": 4,
+    "giant_squid": 3,
+    "orca": 3
   },
   "biomes": {
     "_comment": "How much each species likes each region (0 = never there). A species' fish are shared out by weight x region width; they wander mostly where they like it. Missing = 1 everywhere.",
     "blue_tang": {
       "coral": 1,
       "swamp": 0.25,
+      "volcano": 0.5,
       "ice": 0
     },
     "reef_snapper": {
       "coral": 1,
       "swamp": 1,
+      "volcano": 0.8,
       "ice": 0.15
     },
     "red_grouper": {
       "coral": 1,
       "swamp": 0.6,
+      "volcano": 1,
       "ice": 0.2
     },
     "grey_shark": {
       "coral": 1,
       "swamp": 0.4,
+      "volcano": 0.6,
       "ice": 0.8
     },
     "lionfish": {
       "coral": 1,
       "swamp": 0.15,
+      "volcano": 0.4,
       "ice": 0
     },
     "moray_eel": {
       "coral": 1,
       "swamp": 0.3,
+      "volcano": 1,
       "ice": 0
     },
     "barracuda": {
       "coral": 1,
       "swamp": 0.7,
+      "volcano": 0.8,
       "ice": 0
     },
     "archerfish": {
       "coral": 0,
       "swamp": 1,
+      "volcano": 0,
       "ice": 0
     },
     "polar_cod": {
       "coral": 0,
       "swamp": 0,
+      "volcano": 0,
       "ice": 1
     },
     "anglerfish": {
       "coral": 1,
       "swamp": 0.3,
+      "volcano": 1,
       "ice": 1
     },
     "bull_shark": {
-      "coral": 0.25,
+      "coral": 0.15,
       "swamp": 1,
+      "volcano": 0,
       "ice": 0
     },
     "leopard_seal": {
       "coral": 0,
       "swamp": 0,
+      "volcano": 0,
       "ice": 1
     },
     "great_white": {
       "coral": 1,
       "swamp": 0,
+      "volcano": 0.3,
       "ice": 0.7
     },
     "sperm_whale": {
       "coral": 0.3,
       "swamp": 0,
+      "volcano": 0.3,
+      "ice": 1
+    },
+    "box_jelly": {
+      "coral": 1,
+      "swamp": 0.4,
+      "volcano": 0.3,
+      "ice": 0
+    },
+    "sea_snake": {
+      "coral": 1,
+      "swamp": 1,
+      "volcano": 0.5,
+      "ice": 0
+    },
+    "giant_octopus": {
+      "coral": 0.3,
+      "swamp": 0,
+      "volcano": 1,
+      "ice": 0.2
+    },
+    "giant_squid": {
+      "coral": 0.4,
+      "swamp": 0,
+      "volcano": 1,
+      "ice": 1
+    },
+    "orca": {
+      "coral": 0.1,
+      "swamp": 0,
+      "volcano": 0,
       "ice": 1
     }
   },
@@ -563,7 +839,10 @@
     "predatorLeash": 250,
     "leashFromTier": 3,
     "ambushChaseSeconds": 3.0,
-    "ambushLurkStrength": 0.06
+    "ambushLurkStrength": 0.06,
+    "camoStillSpeed": 40,
+    "camoAlpha": 0.4,
+    "_camo": "A camouflaged animal (species camo, the octopus) moving slower than camoStillSpeed fades to camoAlpha and is hidden from fish farther than kelpSeeThroughDistance x its size."
   },
   "respawnLevelKeep": 0,
   "playerStartDepth": 0.18,
@@ -918,10 +1197,10 @@
   "checkpointCrab": {
     "_comment": "A Checkpoint Crab appears every `everyLevels` levels. Defeat it and that level is saved: after dying you swim again from it (instead of from level 1). Its strength is set from yours when it appears, so the fight is fair for every hero and perk: it takes about `hitsToDefeat` of your bites, and each pinch takes `pinchHpFraction` of your health and stuns you briefly. It stays around its spot (`homeWidth` x `homeHeight`) near the deepest water you may swim in, and chases you only within `guardRange`.",
     "everyLevels": 10,
-    "sizeRatio": 1.15,
-    "hitsToDefeat": 14,
-    "pinchHpFraction": 0.12,
-    "pinchStunSeconds": 0.7,
+    "sizeRatio": 1.0,
+    "hitsToDefeat": 6,
+    "pinchHpFraction": 0.06,
+    "pinchStunSeconds": 0.3,
     "guardRange": 420,
     "homeWidth": 520,
     "homeHeight": 180,
@@ -1052,6 +1331,28 @@
         "pad": 0.6,
         "padTone": 2200,
         "ticks": 0
+      },
+      {
+        "id": "volcano",
+        "name": "Fire Below",
+        "scale": [
+          0,
+          1,
+          3,
+          5,
+          7,
+          8,
+          10
+        ],
+        "root": 48,
+        "bpm": 70,
+        "melody": 0.16,
+        "voice": "pluck",
+        "octave": 1,
+        "bass": 0.8,
+        "pad": 0.6,
+        "padTone": 600,
+        "ticks": 0.25
       },
       {
         "id": "deep",

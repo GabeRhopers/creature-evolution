@@ -8,7 +8,7 @@ import { C, makeKelp, makeRay, makeRock, makeSilhouette, makeWater, makeWaterBle
 import { Terrain, type TerrainConfig } from '../systems/terrain';
 import { Regions, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
 import { DayNight, type DayNightConfig, type Light, type Period } from '../systems/dayNight';
-import { CORAL_KINDS, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow } from '../systems/terrainArt';
+import { CORAL_KINDS, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow, makeVolcano, volcanoRows, VOLCANO_REACH } from '../systems/terrainArt';
 import { Grid, SCENERY_SIZE, makeFarIslands, makeFarPeaks, makeFloat, makeScenery, type FloatKind, type SceneryKind } from '../systems/sceneryArt';
 
 /** World px per art px for the seabed, water and plants. */
@@ -16,7 +16,7 @@ const WORLD_PX = 4;
 /** Fish farther than this from the player think less often (they are far off screen). */
 const LOD_DISTANCE = 5000;
 /** Rocks take the color of their region: muddy in the Swamp, icy in the Frozen Sea. */
-const ROCK_TINT: Record<string, number> = { coral: 0xffffff, swamp: 0x9a8a70, ice: 0xdff4ff };
+const ROCK_TINT: Record<string, number> = { coral: 0xffffff, swamp: 0x9a8a70, volcano: 0x7a6f80, ice: 0xdff4ff };
 import { ATLAS } from '../assets';
 import { FoodField } from '../entities/Food';
 import { Brain, type AIWorld, type Creature } from '../ai/Brain';
@@ -121,7 +121,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** The player is resting by a warm vent (heals slowly). */
   inVent = false;
   /** Warm vents: centers of their healing circles. */
-  private vents: Array<{ x: number; y: number }> = [];
+  vents: Array<{ x: number; y: number }> = [];
   private ventBubbleTimer = 0;
   /** World x ranges taken by scenery pieces (rocks and kelp stay out). */
   private sceneryRanges: Array<[number, number]> = [];
@@ -431,7 +431,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   /** Kelp hides a fish unless the observer is very close. */
   isHidden(target: Fish, observer: Fish): boolean {
-    if (!this.inKelp(target)) return false;
+    // A camouflaged animal (the octopus) sitting still blends into the rocks, like a fish in kelp.
+    if (!this.inKelp(target) && !target.camouflaged) return false;
     const d = Phaser.Math.Distance.Between(target.x, target.y, observer.x, observer.y);
     return d > target.size * BALANCE.ai.kelpSeeThroughDistance;
   }
@@ -1570,6 +1571,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     t.cfg.islands.forEach((isl, i) => {
       const key = `w_island_${i}`;
       if (isl.style === 'iceberg') makeIceberg(this, key, t, isl.x, isl.width, isl.depth, above, WORLD_PX, 60 + i);
+      else if (isl.style === 'volcano') makeVolcano(this, key, t, isl.x, isl.width, isl.depth, above, WORLD_PX, 60 + i);
       else if (isl.style === 'mangrove') makeMangrove(this, key, t, isl.x, isl.width, isl.depth, t.cfg.rootsDepth * 1.4, above, WORLD_PX, 60 + i);
       else makeIsland(this, key, t, isl.x, isl.width, isl.depth, t.cfg.rootsDepth, above, WORLD_PX, 60 + i);
       this.add.image(isl.x, t.surfaceY - Math.floor(above / WORLD_PX) * WORLD_PX, key).setOrigin(0.5, 0).setScale(WORLD_PX).setDepth(-18);
@@ -1703,11 +1705,12 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     for (const isl of t.cfg.islands) {
       let d = Math.abs(t.wrap(x) - isl.x) % BALANCE.world.width;
       d = Math.min(d, BALANCE.world.width - d);
-      const half = (isl.width / 2 + 2 * P) * (isl.style === 'iceberg' ? 0.85 : 0.8);
+      const half = (isl.width / 2 + 2 * P) * (isl.style === 'iceberg' ? 0.85 : isl.style === 'volcano' ? VOLCANO_REACH : 0.8);
       if (d >= half) continue;
       const u = d / half;
       let h: number;
       if (isl.style === 'iceberg') h = (aboveRows - 3) * P * Math.pow(1 - u, 1.1);
+      else if (isl.style === 'volcano') h = Math.max(0, volcanoRows(u, aboveRows) - 1) * P;
       else if (isl.style === 'mangrove') h = 2 * P;
       else h = Math.min(8, aboveRows - 2) * P * Math.pow(1 - u * u, 0.6);
       const top = surfaceY - h;
@@ -1805,6 +1808,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     else if (!this.menuMode && p && this.depthOf(p.y) > 0.72) mood = 'deep';
     else if (region === 'swamp') mood = 'swamp';
     else if (region === 'ice') mood = 'ice';
+    else if (region === 'volcano') mood = 'volcano';
     else mood = this.period === 'night' ? 'moonlit' : this.period === 'day' ? 'sunny' : 'golden';
     this.hud?.setMood(mood, this.menuMode || !p ? 1 : tideOf(p.level), !this.menuMode && this.playerHunted);
   }
@@ -2141,6 +2145,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const byRegion: Record<string, Array<{ key: string; h: number }>> = {
       coral: keys,
       swamp: regional('swamp', [[60, C.bark, C.leafDark, C.leaf], [85, C.leafDark, C.leaf, C.leafLight], [100, C.bark, C.brown, C.leaf], [45, C.sea, C.leafDark, C.leaf]]),
+      // Volcanic Rift: tube worms (white stalks with red plumes) and a little dark weed.
+      volcano: regional('volcano', [[22, C.mist, C.white, C.red], [30, C.stone, C.white, C.red], [38, C.mist, C.white, C.orange], [50, C.bark, C.plum, C.pink]]),
       ice: regional('ice', [[90, C.bark, C.brown, C.clay], [120, C.brown, C.clay, C.sand], [140, C.bark, C.brown, C.sand], [70, C.brown, C.clay, C.peach]]),
     };
     for (let p = 0; p < BALANCE.world.kelpPatches; p++) {

@@ -22,7 +22,7 @@ export interface IslandDef {
   x: number;
   width: number;
   /** Look: sandy island with palms (default), a mangrove clump, or an iceberg. */
-  style?: 'sand' | 'mangrove' | 'iceberg';
+  style?: 'sand' | 'mangrove' | 'iceberg' | 'volcano';
   /** How far the island's sandbank reaches below the surface, in world px. */
   depth: number;
 }
@@ -197,8 +197,8 @@ export class Terrain {
 
   /** Mangrove root hiding places under each island (world rectangles: x, y, w, h). */
   rootZones(): Array<[number, number, number, number]> {
-    // Icebergs have no roots; mangroves have a deep tangle.
-    return this.cfg.islands.filter((isl) => isl.style !== 'iceberg').map((isl) => {
+    // Icebergs and volcanoes have no roots; mangroves have a deep tangle.
+    return this.cfg.islands.filter((isl) => isl.style !== 'iceberg' && isl.style !== 'volcano').map((isl) => {
       const w = isl.width * 0.6;
       const roots = this.cfg.rootsDepth * (isl.style === 'mangrove' ? 1.4 : 1);
       return [isl.x - w / 2, this.surfaceY + isl.depth * 0.55, w, isl.depth * 0.45 + roots];

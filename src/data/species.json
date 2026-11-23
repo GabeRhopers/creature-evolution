@@ -290,7 +290,7 @@
     "baseHP": 60,
     "baseBite": 6,
     "accel": 260,
-    "maxSpeed": 95,
+    "maxSpeed": 75,
     "sprintMultiplier": 1.3,
     "drag": 0.95,
     "turnSpeed": 4.0,
@@ -661,5 +661,188 @@
     "armor": 0.35,
     "unlockLevel": 30,
     "intro": "The giant of the deep. Mostly calm, but it hunts sharks, and you"
+  },
+  "box_jelly": {
+    "displayName": "Box Jellyfish",
+    "sprite": "fish_grey",
+    "tier": 2,
+    "baseSize": 16,
+    "baseHP": 30,
+    "baseBite": 5,
+    "accel": 120,
+    "maxSpeed": 55,
+    "sprintMultiplier": 1.2,
+    "drag": 0.96,
+    "turnSpeed": 2.0,
+    "devourRatio": 0.3,
+    "xpValue": 40,
+    "diet": [
+      "tier1"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.6,
+      "visionRange": 140,
+      "fleeRatio": 99
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.05,
+      "depthMax": 0.6,
+      "weight": 0
+    },
+    "look": "beast-box_jelly",
+    "rankMul": 1.6,
+    "venom": 0.08,
+    "alpha": 0.8,
+    "unlockLevel": 8,
+    "intro": "Not a fish! Box jellyfish drift and sting. Biting one stings you too"
+  },
+  "sea_snake": {
+    "displayName": "Sea Snake",
+    "sprite": "fish_grey",
+    "tier": 3,
+    "baseSize": 24,
+    "baseHP": 90,
+    "baseBite": 14,
+    "accel": 420,
+    "maxSpeed": 220,
+    "sprintMultiplier": 1.6,
+    "drag": 0.97,
+    "turnSpeed": 4.5,
+    "devourRatio": 0.5,
+    "xpValue": 150,
+    "diet": [
+      "tier1",
+      "tier2"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.7,
+      "visionRange": 320,
+      "fleeRatio": 2.0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.1,
+      "depthMax": 0.7,
+      "weight": 0
+    },
+    "look": "beast-sea_snake",
+    "rankMul": 2.2,
+    "unlockLevel": 12,
+    "intro": "A sea snake: a reptile that breathes air and bites hard. It hunts in the Coral Sea and the swamp"
+  },
+  "giant_octopus": {
+    "displayName": "Giant Octopus",
+    "sprite": "fish_grey",
+    "tier": 3,
+    "baseSize": 46,
+    "baseHP": 260,
+    "baseBite": 24,
+    "accel": 400,
+    "maxSpeed": 190,
+    "sprintMultiplier": 2.0,
+    "drag": 0.97,
+    "turnSpeed": 3.6,
+    "devourRatio": 0.55,
+    "xpValue": 320,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.85,
+      "visionRange": 300,
+      "fleeRatio": 2.0,
+      "ambush": true
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.5,
+      "depthMax": 1.0,
+      "weight": 0
+    },
+    "look": "beast-giant_octopus",
+    "rankMul": 1.8,
+    "camo": true,
+    "unlockLevel": 17,
+    "intro": "Octopuses hide among the volcanic rocks. When one sits still it almost disappears"
+  },
+  "giant_squid": {
+    "displayName": "Giant Squid",
+    "sprite": "fish_grey",
+    "tier": 4,
+    "baseSize": 90,
+    "baseHP": 700,
+    "baseBite": 48,
+    "accel": 420,
+    "maxSpeed": 230,
+    "sprintMultiplier": 1.8,
+    "drag": 0.975,
+    "turnSpeed": 2.6,
+    "devourRatio": 0.55,
+    "xpValue": 700,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.8,
+      "visionRange": 600,
+      "fleeRatio": 2.0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.75,
+      "depthMax": 1.0,
+      "weight": 0
+    },
+    "look": "beast-giant_squid",
+    "rankMul": 1.55,
+    "unlockLevel": 24,
+    "intro": "The giant squid sees farther than anything in the Deep. It grabs with its two long arms"
+  },
+  "orca": {
+    "displayName": "Orca",
+    "sprite": "fish_grey",
+    "tier": 5,
+    "baseSize": 125,
+    "baseHP": 1800,
+    "baseBite": 75,
+    "accel": 560,
+    "maxSpeed": 300,
+    "sprintMultiplier": 1.8,
+    "drag": 0.975,
+    "turnSpeed": 2.8,
+    "devourRatio": 0.55,
+    "xpValue": 1500,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3",
+      "tier4"
+    ],
+    "behavior": {
+      "schooling": true,
+      "aggression": 0.9,
+      "visionRange": 750,
+      "fleeRatio": 99
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.7,
+      "weight": 0
+    },
+    "look": "beast-orca",
+    "rankMul": 1.6,
+    "armor": 0.15,
+    "unlockLevel": 33,
+    "intro": "Orcas hunt together in pods. Even great white sharks swim away from them"
   }
 }

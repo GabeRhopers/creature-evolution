@@ -29,10 +29,22 @@ jobs:
       # Atlas build, type check, every unit test, then the production build.
       - run: npm run build
 
-  browser:
-    name: browser
+  # Plays the real build in headless Chrome. The suites run in three parallel shards (one long job
+  # ran past its time limit as the game grew); the "browser" job below sums them up under one name.
+  browser-shard:
+    name: browser (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: saves and heroes
+            suites: stages framework roundtrip save_e2e perks slots mosa shark studio_save
+          - shard: creatures and fights
+            suites: crab enemies creatures tides stomach areas enemy_settings hud
+          - shard: world and controls
+            suites: gamepad pad_map studio_game studio_restore terrain daynight world music land
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,8 +53,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      # Plays the real build in headless Chrome: saves, stages, perks, areas, studio, round trip.
       - name: Browser tests
+        env:
+          SUITES: ${{ matrix.suites }}
         run: |
           set -o pipefail
           # The suites save screenshots here; without the folders they stop early.
@@ -50,10 +63,20 @@ jobs:
           npx vite preview --port 4173 --strictPort &
           for i in $(seq 1 60); do curl -sf http://localhost:4173/ >/dev/null && break; sleep 1; done
           fail=0
-          for t in stages framework roundtrip save_e2e perks areas studio_save mosa shark crab enemies slots gamepad tides studio_game terrain pad_map daynight stomach world studio_restore enemy_settings hud music land creatures; do
+          for t in $SUITES; do
             echo "::group::$t"
             node tests/e2e/$t.mjs | tee /tmp/$t.log || fail=1
             grep -q '^FAIL' /tmp/$t.log && fail=1
             echo "::endgroup::"
           done
           exit $fail
+
+  browser:
+    name: browser
+    needs: browser-shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Shards: ${{ needs.browser-shard.result }}"
+          test "${{ needs.browser-shard.result }}" = "success"

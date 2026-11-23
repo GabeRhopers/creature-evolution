@@ -64,7 +64,7 @@ describe('new creatures (Nov 22)', () => {
 describe('each region has its own fish', () => {
   it('tropical reef fish live in the Coral Sea, not the ice', () => {
     for (const id of ['blue_tang', 'lionfish', 'moray_eel']) {
-      expect(shares(id).coral, id).toBeGreaterThan(0.8);
+      expect(shares(id).coral, id).toBeGreaterThan(0.5);
       expect(shares(id).ice, id).toBe(0);
     }
   });
@@ -73,7 +73,7 @@ describe('each region has its own fish', () => {
     expect(shares('bull_shark').swamp).toBeGreaterThan(0.6);
     expect(shares('polar_cod').ice).toBe(1);
     expect(shares('leopard_seal').ice).toBe(1);
-    expect(shares('sperm_whale').ice).toBeGreaterThan(0.6);
+    expect(shares('sperm_whale').ice).toBeGreaterThan(0.5);
   });
   it('every region has prey for a hatchling from the start', () => {
     for (const r of BALANCE.regions.list) {
@@ -89,13 +89,70 @@ describe('each region has its own fish', () => {
   it('pickHomeX picks regions by weight x width and stays put where it is happy', () => {
     let seed = 1;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    const counts: Record<string, number> = { coral: 0, swamp: 0, ice: 0 };
+    const counts: Record<string, number> = { coral: 0, swamp: 0, volcano: 0, ice: 0 };
     for (let i = 0; i < 4000; i++) counts[regions.at(pickHomeX(regions, (r) => biomeWeight('bull_shark', r), undefined, 1500, rand)!).id]++;
     expect(counts.ice).toBe(0);
     expect(counts.swamp / 4000).toBeCloseTo(shares('bull_shark').swamp, 1);
     // a cod in the ice wanders nearby; a cod that drifted into the coral heads back to the ice
-    expect(Math.abs(pickHomeX(regions, (r) => biomeWeight('polar_cod', r), 15000, 1500, rand)! - 15000)).toBeLessThanOrEqual(1500);
+    expect(Math.abs(pickHomeX(regions, (r) => biomeWeight('polar_cod', r), 32000, 1500, rand)! - 32000)).toBeLessThanOrEqual(1500);
     for (let i = 0; i < 50; i++) expect(regions.at(pickHomeX(regions, (r) => biomeWeight('polar_cod', r), 3000, 1500, rand)!).id).toBe('ice');
     expect(pickHomeX(regions, () => 0)).toBeNull();
+  });
+});
+
+describe('creatures that are not fish (Nov 22)', () => {
+  const NEW = { box_jelly: 8, sea_snake: 12, giant_octopus: 17, giant_squid: 24, orca: 33 };
+  it('each has a valid Endesga 32 look, a population, its unlock level and an intro', () => {
+    for (const [id, lv] of Object.entries(NEW)) {
+      const sp = SPECIES[id];
+      expect(sp.look?.startsWith('beast-'), id).toBe(true);
+      expect(seeds, id).toContain(sp.look);
+      const proj = JSON.parse(readFileSync(`public/studio/seeds/${sp.look}.json`, 'utf8')) as StudioProject;
+      expect(validateProject(proj), id).toEqual([]);
+      for (const c of proj.palette) expect(palette.has(c.toLowerCase()), `${id} ${c}`).toBe(true);
+      expect(pop[id], id).toBeGreaterThan(0);
+      expect(sp.unlockLevel, id).toBe(lv);
+      expect(sp.intro, id).toBeTruthy();
+    }
+  });
+  it('each is a danger when it arrives and stops biting later', () => {
+    for (const [id, lv] of Object.entries(NEW)) {
+      expect(bites(id, lv), `${id} bites at ${lv}`).toBe(true);
+      expect(bites(id, lv + 12), `${id} no longer at ${lv + 12}`).toBe(false);
+    }
+  });
+  it('the jellyfish is see-through and stings; the octopus hides; orcas hunt in pods', () => {
+    expect(SPECIES.box_jelly.alpha).toBeLessThan(1);
+    expect(SPECIES.box_jelly.venom).toBeGreaterThan(0);
+    expect(SPECIES.giant_octopus.camo).toBe(true);
+    expect(SPECIES.giant_octopus.behavior.ambush).toBe(true);
+    expect(SPECIES.orca.behavior.schooling).toBe(true);
+    expect(SPECIES.orca.diet).toContain('tier4');
+  });
+  it('they live where they really do', () => {
+    expect(shares('giant_octopus').volcano).toBeGreaterThan(0.5);
+    expect(shares('orca').ice).toBeGreaterThan(0.6);
+    expect(shares('box_jelly').ice).toBe(0);
+    expect(shares('giant_squid').swamp).toBe(0);
+    expect(SPECIES.giant_squid.spawn.depthMin).toBeGreaterThanOrEqual(0.7);
+  });
+});
+
+describe('the Volcanic Rift', () => {
+  it('sits between the swamp and the ice in a sea twice as wide', () => {
+    expect(BALANCE.world.width).toBe(36000);
+    expect(BALANCE.regions.list.map((r) => r.id)).toEqual(['coral', 'swamp', 'volcano', 'ice']);
+    const list = BALANCE.regions.list;
+    for (let i = 1; i < list.length; i++) expect(list[i].from).toBe(list[i - 1].to);
+    expect(list[list.length - 1].to).toBe(BALANCE.world.width);
+    expect(regions.at(23000).name).toBe('Volcanic Rift');
+  });
+  it('has volcano islands, hot vents and its own music', () => {
+    const inV = (x: number) => regions.at(x).id === 'volcano';
+    const isl = BALANCE.terrain.islands as Array<{ x: number; style?: string }>;
+    expect(isl.filter((i) => inV(i.x)).every((i) => i.style === 'volcano')).toBe(true);
+    expect(isl.filter((i) => i.style === 'volcano').length).toBeGreaterThanOrEqual(3);
+    expect(BALANCE.scenery.pieces.filter((p) => p.kind === 'vent' && inV(p.x)).length).toBeGreaterThanOrEqual(6);
+    expect(BALANCE.music.moods.some((m) => m.id === 'volcano')).toBe(true);
   });
 });

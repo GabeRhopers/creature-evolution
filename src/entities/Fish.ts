@@ -39,6 +39,8 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   species: Species;
   level = 1;
   size = 1;
+  /** True while a camouflaged animal (species.camo) sits still: faded, and hidden from fish farther away. */
+  camouflaged = false;
   hp = 1;
   maxHp = 1;
   heading = 0;
@@ -415,7 +417,11 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     this.rotation = Phaser.Math.Angle.RotateTo(this.rotation, target, 14 * dt);
     // Blink while invulnerable after a hit; wobble-fade while stunned.
     const blink = this.invulnerable && Math.floor(this.scene.time.now / 80) % 2 === 0;
-    this.setAlpha(blink ? 0.35 : this.stunned ? 0.75 + 0.25 * Math.sin(this.scene.time.now / 60) : 1);
+    // See-through animals (jellyfish) keep their own alpha; camouflaged ones fade while they sit still.
+    const still = this.arcadeBody.velocity.length() < BALANCE.ai.camoStillSpeed;
+    this.camouflaged = !!this.species.camo && still && !this.wounded;
+    const base = (this.species.alpha ?? 1) * (this.camouflaged ? BALANCE.ai.camoAlpha : 1);
+    this.setAlpha(blink ? 0.35 * base : this.stunned ? (0.75 + 0.25 * Math.sin(this.scene.time.now / 60)) * base : base);
     this.animate(dt);
   }
 

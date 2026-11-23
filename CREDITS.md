@@ -10,6 +10,8 @@
 | Checkpoint Crab | Original pixel-art starter design in the style of the heroes, generated in code (Mike can redraw it in Sprite Studio) | Original | `tools/heroes/draw_crab.py` | Checkpoint mini-boss |
 | Lionfish, Moray Eel, Barracuda | Original pixel-art designs generated in code, like the other reef fish | Original | `tools/fish/draw_fish.py` | Higher-level enemies |
 | Archerfish, Polar Cod, Bull Shark, Leopard Seal, Anglerfish, Great White Shark, Sperm Whale | Original pixel-art designs generated in code | Original | `tools/fish/draw_more.py` | Region creatures and new hunters |
+| Box Jellyfish, Sea Snake, Giant Octopus, Giant Squid, Orca | Original pixel-art designs generated in code | Original | `tools/fish/draw_beasts.py` | Enemies that are not fish |
+| Volcanic Rift (black sand, volcano islands, lava cracks, tube worms) | Original pixel art generated in code | Original | `src/systems/terrainArt.ts` | Fourth region |
 | Sound effects | generated in code (`src/audio/Sfx.ts`) | n/a | | All SFX |
 
 CC0 means no attribution is required; we credit anyway. Before adding any asset,

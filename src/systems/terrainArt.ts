@@ -12,6 +12,7 @@ const hex = (h: string): [number, number, number] => [parseInt(h.slice(1, 3), 16
 const GROUND: Record<RegionId, { sand: string; sandDark: string; speck: string; speck2: string; outline: string; rockTop: string; rock: string; rockDeep: string; moss: string[] }> = {
   coral: { sand: C.sand, sandDark: C.sandDark, speck: C.clay, speck2: C.brown, outline: C.navy, rockTop: C.stone, rock: C.grey, rockDeep: C.slate, moss: [C.leaf, C.pinkLight] },
   swamp: { sand: C.clay, sandDark: C.brown, speck: C.bark, speck2: C.leafDark, outline: C.ink, rockTop: C.leaf, rock: C.bark, rockDeep: C.ink, moss: [C.leafDark, C.leaf] },
+  volcano: { sand: C.slate, sandDark: C.navy, speck: C.grey, speck2: C.orange, outline: C.ink, rockTop: C.grey, rock: C.slate, rockDeep: C.navy, moss: [C.orange, C.gold] },
   ice: { sand: C.white, sandDark: C.mist, speck: C.stone, speck2: C.cyan, outline: C.slate, rockTop: C.white, rock: C.mist, rockDeep: C.stone, moss: [C.cyan, C.white] },
 };
 
@@ -312,6 +313,81 @@ export function makeIceberg(scene: Phaser.Scene, key: string, t: Terrain, cx: nu
     }
   }
   for (let x = 0; x < cols; x++) if (bottom(x) >= 0 && bayer(x, 0) < 0.5) px(g, x, aboveRows, C.cyan);
+  add(scene, key, c);
+}
+
+/** How far the cone reaches across the island (share of its half width); the rest is a low basalt shore. */
+export const VOLCANO_REACH = 0.6;
+
+/** The height (art rows) of a volcano island's cone at column x (0 at the edge). Shared with GameScene.landTopAt. */
+export function volcanoRows(u: number, aboveRows: number): number {
+  if (u >= 1) return 0;
+  const top = aboveRows - 3;
+  // A steep cone with a small crater at the top.
+  const cone = top * Math.pow(1 - u, 0.9);
+  return u < 0.1 ? cone - 2 * (1 - u / 0.1) : cone;
+}
+
+/** A volcanic island: a dark cone with a glowing crater, lava streaks and smoke; basalt with lava cracks below. */
+export function makeVolcano(scene: Phaser.Scene, key: string, t: Terrain, cx: number, width: number, depth: number, above: number, P: number, seed: number): void {
+  if (scene.textures.exists(key)) return;
+  const cols = Math.ceil(width / P) + 4;
+  const aboveRows = Math.floor(above / P);
+  const rows = aboveRows + Math.ceil(depth / P) + 2;
+  const [c, g] = canvas(cols, rows);
+  const r = rng(seed);
+  const left = cx - (cols * P) / 2;
+  const bottom = undersideOf(t, left, P);
+  const half = cols / 2;
+  const reach = half * VOLCANO_REACH;
+  const cone = (x: number) => Math.round(volcanoRows(Math.abs(x - half) / reach, aboveRows));
+  // Two lava streams running down from the crater.
+  const streams = [half - 1 - Math.floor(r() * 2), half + 1 + Math.floor(r() * 2)];
+  for (let x = 0; x < cols; x++) {
+    const h = cone(x);
+    for (let k = 0; k < h; k++) {
+      const y = aboveRows - 1 - k;
+      const edge = k === h - 1 || cone(x - 1) <= k || cone(x + 1) <= k;
+      let col = x < half - 2 && bayer(x, y) < 0.35 ? C.grey : bayer(x, y) < 0.15 ? C.navy : C.slate;
+      // lava streams: wander outward as they run down
+      for (const [i, sx] of streams.entries()) {
+        const drift = (h - k) * (i === 0 ? -0.3 : 0.3);
+        if (Math.abs(x - (sx + drift)) < 1.3 && k > h * 0.3) col = k > h * 0.8 ? C.gold : (x + y) % 3 ? C.orange : C.red;
+      }
+      if (edge) col = Math.abs(x - half) < reach * 0.12 ? C.yellow : C.ink;
+      px(g, x, y, col);
+    }
+  }
+  // Smoke above the crater.
+  const peak = aboveRows - 1 - cone(Math.floor(half));
+  for (let i = 0; i < 6; i++) {
+    const sx = Math.floor(half + (r() - 0.3) * 6), sy = peak - 1 - Math.floor(r() * 3);
+    if (sy >= 0) { px(g, sx, sy, C.stone); if (sy - 1 >= 0) px(g, sx + 1, sy - 1, C.mist); }
+  }
+  // Below water: basalt, darker with depth, with glowing cracks.
+  for (let x = 0; x < cols; x++) {
+    const b = bottom(x);
+    if (b < 0) continue;
+    for (let y = 0; y <= b; y++) {
+      const edge = y === b || bottom(x - 1) < y || bottom(x + 1) < y;
+      const u = y / Math.max(1, b);
+      let col = u < 0.35 ? C.slate : bayer(x, y) < (u - 0.35) / 0.65 ? C.navy : C.slate;
+      px(g, x, aboveRows + y, edge ? C.ink : col);
+    }
+  }
+  // A few jagged glowing cracks running down through the rock.
+  for (let k = 0; k < Math.max(3, Math.round(cols / 18)); k++) {
+    let x = 3 + Math.floor(r() * (cols - 6));
+    const b0 = bottom(x);
+    if (b0 < 6) continue;
+    let y = 2 + Math.floor(r() * (b0 * 0.4));
+    const len = 5 + Math.floor(r() * 9);
+    for (let i = 0; i < len && y < bottom(x) - 1; i++) {
+      px(g, x, aboveRows + y, i % 3 === 0 ? C.gold : i % 2 ? C.orange : C.red);
+      y++;
+      if (r() < 0.45) x += r() < 0.5 ? -1 : 1;
+    }
+  }
   add(scene, key, c);
 }
 

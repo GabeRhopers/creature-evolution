@@ -88,6 +88,27 @@ export class LightScene extends Phaser.Scene {
           .setAlpha(glow * tw * 0.85);
       }
     }
+    // Hot vents glow orange, softly flickering (strongest at night and in the dark Deep).
+    if (g.vents) {
+      const cam = g.cameras.main;
+      const v = cam.worldView;
+      for (const vent of g.vents) {
+        if (!v.contains(vent.x, vent.y)) continue;
+        let dot = this.glows[n];
+        if (!dot) {
+          dot = this.add.image(0, 0, 'light_dot').setBlendMode(Phaser.BlendModes.ADD);
+          this.glows.push(dot);
+        }
+        n++;
+        const flick = 0.8 + 0.2 * Math.sin(this.time.now / 170 + vent.x);
+        dot
+          .setVisible(true)
+          .setPosition((vent.x - v.x) * cam.zoom, (vent.y - v.y) * cam.zoom)
+          .setScale(Math.max(0.8, (90 * cam.zoom) / 32))
+          .setTint(0xf77622)
+          .setAlpha((0.35 + 0.45 * glow) * flick);
+      }
+    }
     // Anglerfish lures glow day and night (brighter in the dark), pulsing slowly.
     if (g.creatures) {
       const cam = g.cameras.main;
