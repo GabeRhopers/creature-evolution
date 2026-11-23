@@ -49,10 +49,10 @@ ok(!wall.solid && wall.x < wall.wallX + 40, `the seamount wall stops you (x ${Ma
 await p.waitForTimeout(6000);
 // A fish can be a few px inside for one frame before it is pushed out (slow machines catch that moment):
 // only a fish that is still inside a moment later counts as stuck.
-const inside = () => G(() => { const g = window.game.scene.getScene('Game'); return g.creatures.filter((c) => !c.isPlayer && g.terrain.isSolid(c.fish.x, c.fish.y, 0)).map((c) => g.creatures.indexOf(c)); });
-const first = await inside();
+const stuckNow = () => G(() => { const g = window.game.scene.getScene('Game'); return g.creatures.filter((c) => !c.isPlayer && g.terrain.isSolid(c.fish.x, c.fish.y, 0)).map((c) => g.creatures.indexOf(c)); });
+const first = await stuckNow();
 await p.waitForTimeout(1500);
-const later = await inside();
+const later = await stuckNow();
 const stuck = first.filter((i) => later.includes(i)).length;
 ok(stuck === 0, 'no AI fish stays inside the terrain: ' + stuck + ' (passing through: ' + first.length + ')');
 
