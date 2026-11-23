@@ -2443,7 +2443,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
           for (let k = 0; k < 6; k++) {
             fx = gx + Phaser.Math.Between(-140, 140);
             fy = Phaser.Math.Clamp(gy + Phaser.Math.Between(-90, 90), band.top, band.bottom);
-            if (!this.terrain.isSolid(fx, fy, 30)) break;
+            // Stay in the group's region (a school near a border must not spill into the next biome).
+            if (!this.terrain.isSolid(fx, fy, 30) && this.regions.at(this.regions.wrap(fx)).id === this.regions.at(gx).id) break;
             fx = gx;
             fy = gy;
           }
