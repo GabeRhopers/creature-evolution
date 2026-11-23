@@ -1746,7 +1746,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   private drawSeabed(_W: number, H: number): void {
     // One image for the whole ground line: dunes, rocky ridges and seamounts.
     const g = makeGround(this, 'w_ground', this.terrain, this.regions, H, WORLD_PX);
-    for (const ch of g.chunks) this.add.image(ch.x, g.top, ch.key).setOrigin(0, 0).setScale(WORLD_PX).setDepth(-20);
+    for (const ch of g.chunks) this.add.image(ch.x, ch.y, ch.key).setOrigin(0, 0).setScale(WORLD_PX).setDepth(-20);
   }
 
   /** Islands at the surface: palms above, a sandbank and mangrove roots (a hiding place) below. */

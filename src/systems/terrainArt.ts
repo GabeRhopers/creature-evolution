@@ -27,20 +27,24 @@ const CHUNK = 1024;
  * above the highest point down to the bottom of the world. Colors follow the region (sand, mud or
  * snow; grey, mossy or icy rock), blending across region borders. Returns the top edge and the chunks.
  */
-export function makeGround(scene: Phaser.Scene, prefix: string, t: Terrain, regions: Regions, worldH: number, P: number): { top: number; chunks: Array<{ key: string; x: number }> } {
-  const top = Math.max(0, Math.floor(t.highestGround / P) - 2);
+export function makeGround(scene: Phaser.Scene, prefix: string, t: Terrain, regions: Regions, worldH: number, P: number): { chunks: Array<{ key: string; x: number; y: number }> } {
   const totalCols = Math.ceil(t.width / P);
-  const rows = Math.ceil(worldH / P) - top;
-  const chunks: Array<{ key: string; x: number }> = [];
-  const sandLine = (t.seabedTop + 6) / P - top;
+  const chunks: Array<{ key: string; x: number; y: number }> = [];
   const pals = Object.fromEntries(
     Object.entries(GROUND).map(([id, g]) => [id, Object.fromEntries(Object.entries(g).map(([k, v]) => [k, Array.isArray(v) ? v.map(hex) : hex(v)]))]),
   ) as Record<RegionId, Record<string, [number, number, number] & [number, number, number][]>>;
   for (let c0 = 0; c0 < totalCols; c0 += CHUNK) {
     const key = `${prefix}_${c0}`;
-    chunks.push({ key, x: c0 * P });
-    if (scene.textures.exists(key)) continue;
     const cols = Math.min(CHUNK, totalCols - c0);
+    // Each chunk starts just above its own highest ground (most of the sea floor is low sand, so this keeps
+    // the images small: a third of the memory of one shared top). Rows are aligned to 8 so dithers line up.
+    let high = Infinity;
+    for (let i = -1; i <= cols; i++) high = Math.min(high, t.groundAt((c0 + i) * P + P / 2));
+    const top = Math.max(0, (Math.floor(high / P / 8) - 1) * 8);
+    const rows = Math.ceil(worldH / P) - top;
+    const sandLine = (t.seabedTop + 6) / P - top;
+    chunks.push({ key, x: c0 * P, y: top * P });
+    if (scene.textures.exists(key)) continue;
     const [c, g] = canvas(cols, rows);
     const img = g.createImageData(cols, rows);
     const r = rng(21 + c0);
@@ -90,7 +94,7 @@ export function makeGround(scene: Phaser.Scene, prefix: string, t: Terrain, regi
     g.putImageData(img, 0, 0);
     add(scene, key, c);
   }
-  return { top: top * P, chunks };
+  return { chunks };
 }
 
 /** An island: sand hump and palm trees above the water, a sandbank and mangrove roots below. */

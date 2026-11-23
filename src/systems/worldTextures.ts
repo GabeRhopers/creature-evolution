@@ -93,11 +93,21 @@ export function regionStops(colors: string[]): Array<[number, string]> {
 export function makeWaterBlend(scene: Phaser.Scene, key: string, from: Array<[number, string]>, to: Array<[number, string]>, cols: number, rows: number): void {
   if (scene.textures.exists(key)) return;
   const [c, g] = canvas(cols, rows);
+  // Written straight into the pixels (one fillRect per pixel was the slowest part of starting the game).
+  const img = g.createImageData(cols, rows);
+  const rgb = new Map<string, number>();
   for (let y = 0; y < rows; y++) {
     const d = y / (rows - 1);
     // Scattered (not ordered) dither, so a wide blend has no stripes.
-    for (let x = 0; x < cols; x++) px(g, x, y, waterColor(d, x, y, 0.06, 0.7 * bayer(x, y) + 0.3 * hash01(x, y) < (x + 0.5) / cols ? to : from));
+    for (let x = 0; x < cols; x++) {
+      const col = waterColor(d, x, y, 0.06, 0.7 * bayer(x, y) + 0.3 * hash01(x, y) < (x + 0.5) / cols ? to : from);
+      let v = rgb.get(col);
+      if (v === undefined) rgb.set(col, (v = parseInt(col.slice(1, 7), 16)));
+      const i = (y * cols + x) * 4;
+      img.data[i] = v >> 16; img.data[i + 1] = (v >> 8) & 255; img.data[i + 2] = v & 255; img.data[i + 3] = 255;
+    }
   }
+  g.putImageData(img, 0, 0);
   add(scene, key, c);
 }
 
