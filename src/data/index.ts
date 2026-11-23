@@ -91,6 +91,10 @@ export interface Species {
   alpha?: number;
   /** Camouflage (octopus): fades and hides from fish farther away while it sits still. */
   camo?: boolean;
+  /** Bioluminescent (Twilight Trench): a soft glow of this color on its body, brighter in the dark. */
+  glow?: string;
+  /** Vampire squid: scared by the player, it puffs a glowing cloud that blinds you for this many seconds. */
+  cloud?: number;
 }
 
 export type Balance = typeof balanceJson;

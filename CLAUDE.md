@@ -216,6 +216,13 @@ Giant Octopus (21, Volcanic Rift, `ambush` + `camo`: while slower than `ai.camoS
 and `isHidden` hides it from fish farther than kelpSeeThroughDistance x its size; `Fish.camouflaged`), Giant Squid
 (24, the Deep), Orca (33, Frozen Sea, pods via `schooling`, hunts tier 4). Soft-bodied animals leave a pale body, not a skeleton.
 
+Twilight Trench (`tools/fish/draw_trench.py`, which imports `draw_fish` and `draw_beasts`): Lanternfish (40, prey schools,
+more at night), Viperfish (41, `ambush`, `lure` on its dorsal ray, fangs), Vampire Squid (42, harmless, eats plankton,
+`cloud`: when the bigger player comes within `trench.cloudRange` body sizes it puffs glowing slime, the player is blinded for
+`cloud` seconds (`GameScene.blindT`, LightScene `glare`) and it flees; then `trench.cloudCooldown`; one cloud at a time),
+Gulper Eel (44, `devourRatio` 1: swallows fish its own size). `glow` (a color) gives a body glow drawn by LightScene,
+brighter in the dark. All four live only in the Trench. E2E: `tests/e2e/trench.mjs`; unit: `tests/trench.test.ts`.
+
 ## Region fish (`balance.json` "biomes", `pickHomeX` in `src/systems/regions.ts`)
 Each species has a weight per region (0 = never there; missing = 1, read with `biomeWeight`). `spawnAmbientFish`
 shares a species' fish out by weight x region width; each Creature gets `homeX(near?)`: Brains use it for wander

@@ -123,6 +123,9 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   visionAt(x: number): number {
     return this.regions ? this.twistOf(this.regions.at(x).id).vision : 1;
   }
+  /** Seconds left blinded by a vampire squid's glowing cloud, and how long it lasted (the Light scene draws the glare). */
+  blindT = 0;
+  blindMax = 1;
   /** Darkness of the region around the player (eases in and out; the Light scene draws it). */
   regionDark = 0;
   /** Region and vent state the player's perks were last set for (re-apply when it changes). */
@@ -972,9 +975,39 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       const big = c.isPlayer ? adult : f.species.tier >= 3;
       f.envSpeed = big ? t.bigSlow : 1;
       if (t.current && !(c.isPlayer && this.dead) && !c.guardian) f.x += t.current * dt;
+      if (f.species.cloud) this.checkCloud(c, dt);
     }
+    this.blindT = Math.max(0, this.blindT - dt);
     const want = this.dead ? 0 : this.twist.dark;
     this.regionDark += (want - this.regionDark) * Math.min(1, dt * 1.5);
+  }
+
+  /**
+   * A vampire squid that the player gets close to (and that is smaller than the player) puffs a cloud of glowing
+   * slime: the player is blinded for `species.cloud` seconds and the squid flees. Then it waits `trench.cloudCooldown`.
+   */
+  private checkCloud(c: Creature, dt: number): void {
+    if ((c.cloudT ?? 0) > 0) {
+      c.cloudT = (c.cloudT ?? 0) - dt;
+      return;
+    }
+    const p = this.player, f = c.fish;
+    // One cloud at a time: a second squid nearby doesn't blind you again while you are still blinded.
+    if (this.dead || !p || p.rank <= f.rank || this.blindT > 0) return;
+    const cfg = BALANCE.trench;
+    if (Phaser.Math.Distance.Between(p.x, p.y, f.x, f.y) > (p.size + f.size) * cfg.cloudRange) return;
+    c.cloudT = cfg.cloudCooldown;
+    this.blindT = this.blindMax = f.species.cloud ?? 0;
+    c.brain?.onHurt(this.playerCreature);
+    for (let i = 0; i < 14; i++) {
+      this.ambientBubbles.spawn(f.x + Phaser.Math.Between(-20, 20), f.y + Phaser.Math.Between(-20, 20), {
+        vy: -Phaser.Math.Between(10, 50),
+        life: Phaser.Math.FloatBetween(1.5, 3),
+        scale: Phaser.Math.FloatBetween(0.15, 0.35),
+        alpha: 0.8,
+      });
+    }
+    this.hud.popup('Glowing slime!', f.x, f.y - f.size, false, '#2ce8f5');
   }
 
   private twistKeyNow(): string {
