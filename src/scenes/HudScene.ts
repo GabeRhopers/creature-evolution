@@ -66,7 +66,7 @@ export class HudScene extends Phaser.Scene {
   private stomachBack!: Phaser.GameObjects.Rectangle;
   private bankFill!: Phaser.GameObjects.Rectangle;
   private music?: Phaser.Sound.BaseSound;
-  private soundtrack!: Music;
+  private soundtrack?: Music;
   /** Developer buttons (TUNE, GROW) only with ?dev in the URL. */
   private readonly dev = new URLSearchParams(window.location.search).has('dev');
   musicOn = true;
@@ -246,12 +246,13 @@ export class HudScene extends Phaser.Scene {
     if (!this.musicOn) return;
     const ctx = (this.sound as Phaser.Sound.WebAudioSoundManager).context;
     if (ctx && ctx.state !== 'running') void ctx.resume();
-    this.soundtrack.play(this.wantMood);
+    // A tap or button press can come before this scene has built its soundtrack (still loading).
+    this.soundtrack?.play(this.wantMood);
   }
 
   setMusicOn(on: boolean): void {
     this.musicOn = on;
-    this.soundtrack.setEnabled(on);
+    this.soundtrack?.setEnabled(on);
     if (on) this.startMusic();
   }
 
