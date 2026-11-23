@@ -583,8 +583,8 @@
       "weight": 0
     },
     "look": "fish-leopard_seal",
-    "rankMul": 1.8,
-    "unlockLevel": 19,
+    "rankMul": 3.2,
+    "unlockLevel": 31,
     "intro": "The hunter of the Frozen Sea. Fast and agile near the ice"
   },
   "great_white": {
@@ -766,9 +766,9 @@
       "weight": 0
     },
     "look": "beast-giant_octopus",
-    "rankMul": 1.8,
+    "rankMul": 2.8,
     "camo": true,
-    "unlockLevel": 17,
+    "unlockLevel": 21,
     "intro": "Octopuses hide among the volcanic rocks. When one sits still it almost disappears"
   },
   "giant_squid": {

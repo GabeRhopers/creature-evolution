@@ -22,7 +22,7 @@ function shares(id: string): Record<string, number> {
 }
 
 describe('new creatures (Nov 22)', () => {
-  const NEW = { archerfish: 1, polar_cod: 1, bull_shark: 16, leopard_seal: 19, anglerfish: 21, great_white: 25, sperm_whale: 30 };
+  const NEW = { archerfish: 1, polar_cod: 1, bull_shark: 16, leopard_seal: 31, anglerfish: 21, great_white: 25, sperm_whale: 30 };
   it('each has a valid Endesga 32 pixel look, a population and its unlock level', () => {
     for (const [id, lv] of Object.entries(NEW)) {
       const sp = SPECIES[id];
@@ -43,7 +43,7 @@ describe('new creatures (Nov 22)', () => {
   });
   it('each hunter is a danger when it arrives and stops biting later', () => {
     expect(bites('bull_shark', 16) && !bites('bull_shark', 24)).toBe(true);
-    expect(bites('leopard_seal', 19) && !bites('leopard_seal', 26)).toBe(true);
+    expect(bites('leopard_seal', 31) && !bites('leopard_seal', 44)).toBe(true);
     expect(bites('anglerfish', 21) && !bites('anglerfish', 30)).toBe(true);
     expect(bites('great_white', 25) && !bites('great_white', 32)).toBe(true);
     expect(bites('sperm_whale', 30) && !bites('sperm_whale', 50)).toBe(true);
@@ -101,7 +101,7 @@ describe('each region has its own fish', () => {
 });
 
 describe('creatures that are not fish (Nov 22)', () => {
-  const NEW = { box_jelly: 8, sea_snake: 12, giant_octopus: 17, giant_squid: 24, orca: 33 };
+  const NEW = { box_jelly: 8, sea_snake: 12, giant_octopus: 21, giant_squid: 24, orca: 33 };
   it('each has a valid Endesga 32 look, a population, its unlock level and an intro', () => {
     for (const [id, lv] of Object.entries(NEW)) {
       const sp = SPECIES[id];

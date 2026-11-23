@@ -349,6 +349,14 @@ export class HudScene extends Phaser.Scene {
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 3000, duration: 900 });
   }
 
+  /** A big event banner (a gate breaks). */
+  bigBanner(title: string, line: string): void {
+    this.banner.setText(`${title}\n${line}`).setAlpha(1).setScale(0.5);
+    this.tweens.killTweensOf(this.banner);
+    this.tweens.add({ targets: this.banner, scale: 0.85, duration: 350, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: this.banner, alpha: 0, delay: 3000, duration: 600 });
+  }
+
   /** A new enemy joined the reef (it unlocks at a level). */
   newCreature(name: string, intro: string): void {
     this.banner.setText(`NEW: ${name.toUpperCase()}\n${intro}`).setAlpha(1).setScale(0.5);
