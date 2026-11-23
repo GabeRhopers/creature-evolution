@@ -9,7 +9,7 @@ const G=(f,a)=>p.evaluate(f,a);
 // Slow machines run the game clock slower: poll instead of fixed waits.
 const waitFor = async (fn, ms, arg) => { for (let t=0; t<ms; t+=100) { if (await G(fn, arg)) return true; await p.waitForTimeout(100); } return G(fn, arg); };
 
-await p.goto('http://localhost:4173/'); await G(()=>localStorage.clear()); await p.reload();
+await p.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 90000 }); await G(()=>localStorage.clear()); await p.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
 await waitFor(()=>document.getElementById('home')?.classList.contains('open'), 20000);
 
 // The Enemy settings page groups the factors.
