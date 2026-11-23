@@ -116,6 +116,15 @@ layers use texture widths that make W x scrollFactor a whole number of tiles (no
 frame (`LOD_DISTANCE`); far scenery is hidden (`cullStatics`). A region banner shows on entering. New runs start at
 `world.startX`. Region gameplay twists come next (plan doc).
 
+## Region twists (`src/systems/regionTwists.ts`, `balance.json` "regionTwists")
+Each region plays a little differently (a missing field is 1 = no change): `vision` (every fish's sight there,
+via `AIWorld.visionAt` in Brain.decide; Swamp 0.7), `food` (plankton density, Swamp 1.6), and for the player
+`hunger` and `speed` (Volcanic Rift hungrier; Frozen Sea slower and hungrier), `ventHeal` (Rift x2, Ice x1.5) and
+`ventWarms` (Frozen Sea: resting by a warm vent cancels the hunger and speed twist; the Frozen Sea has 6 vents).
+GameScene: `twistOf(id)` (cached), `twist` (player's region), applied in `applyPerks` (re-run when
+`twistKeyNow()` = region + warmed-by-vent changes), `updateVents` and the plankton density. The area banner shows the
+twist's `hint` in a smaller line (`HudScene.areaBanner(name, hint)`). E2E: `region_twists.mjs`.
+
 ## Gates between regions (`src/systems/gates.ts` rules, `src/scenes/GateSystem.ts` art and play, `balance.json` "gates")
 Each Tide opens the next region: Root Tangle (Coral Sea -> Swamp, x 24000, after the level 10 crab, bite it 5x with EAT),
 Rock Fall (-> Volcanic Rift, x 38000, crab 20, ram 4x), two Ice Walls (-> Frozen Sea, x 56000 and 71900 at the loop's

@@ -82,6 +82,8 @@ export class HudScene extends Phaser.Scene {
   private clockBack!: Phaser.GameObjects.Rectangle;
   private hint!: Phaser.GameObjects.Text;
   private banner!: Phaser.GameObjects.Text;
+  /** A short line under the area banner (the region twist). */
+  private bannerHint!: Phaser.GameObjects.Text;
   private sprintBtn!: Phaser.GameObjects.Arc;
   private sprintLabel!: Phaser.GameObjects.Text;
   private eatBtn!: Phaser.GameObjects.Arc;
@@ -145,6 +147,10 @@ export class HudScene extends Phaser.Scene {
     this.banner = this.add
       .text(0, 0, '', { fontFamily: FONT, fontSize: '42px', fontStyle: 'bold', color: '#ffd166', stroke: '#0a2236', strokeThickness: 6 })
       .setOrigin(0.5)
+      .setAlpha(0);
+    this.bannerHint = this.add
+      .text(0, 0, '', { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#ffffff', stroke: '#0a2236', strokeThickness: 4, align: 'center' })
+      .setOrigin(0.5, 0)
       .setAlpha(0);
 
     this.crabArrow = this.add.graphics();
@@ -317,17 +323,23 @@ export class HudScene extends Phaser.Scene {
   }
 
   /** Short banner the first time you swim into an area. */
-  areaBanner(name: string): void {
+  areaBanner(name: string, hint = ''): void {
     this.banner.setText(name.toUpperCase()).setAlpha(1).setScale(0.7);
     this.tweens.killTweensOf(this.banner);
+    this.bannerHint?.setAlpha(0);
     this.tweens.add({ targets: this.banner, scale: 0.85, duration: 300, ease: 'Back.easeOut' });
-    this.tweens.add({ targets: this.banner, alpha: 0, delay: 1400, duration: 600 });
+    this.tweens.add({ targets: this.banner, alpha: 0, delay: hint ? 3200 : 1400, duration: 600 });
+    // The region twist, in a smaller line under the name.
+    this.tweens.killTweensOf(this.bannerHint);
+    this.bannerHint.setText(hint).setAlpha(hint ? 1 : 0);
+    if (hint) this.tweens.add({ targets: this.bannerHint, alpha: 0, delay: 3200, duration: 600 });
   }
 
   /** Big banner when the creature evolves into its next stage. */
   evolved(stageName: string, sub: string): void {
     this.banner.setText(`EVOLVED: ${stageName.toUpperCase()}!\n${sub}`).setAlpha(1).setScale(0.5);
     this.tweens.killTweensOf(this.banner);
+    this.bannerHint?.setAlpha(0);
     this.tweens.add({ targets: this.banner, scale: 1, duration: 350, ease: 'Back.easeOut' });
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 2200, duration: 600 });
   }
@@ -336,6 +348,7 @@ export class HudScene extends Phaser.Scene {
   newTide(tide: number, name: string): void {
     this.banner.setText(`TIDE ${tide}: ${name.toUpperCase()}\nThe reef grows tougher. A new crab waits at its end`).setAlpha(1).setScale(0.5);
     this.tweens.killTweensOf(this.banner);
+    this.bannerHint?.setAlpha(0);
     this.tweens.add({ targets: this.banner, scale: 0.8, duration: 350, ease: 'Back.easeOut' });
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 2800, duration: 600 });
   }
@@ -345,6 +358,7 @@ export class HudScene extends Phaser.Scene {
     if (this.banner.alpha > 0.2) return;
     this.banner.setText(`${name.toUpperCase()}\n${line}`).setAlpha(0).setScale(0.6);
     this.tweens.killTweensOf(this.banner);
+    this.bannerHint?.setAlpha(0);
     this.tweens.add({ targets: this.banner, alpha: 0.9, duration: 700 });
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 3000, duration: 900 });
   }
@@ -353,6 +367,7 @@ export class HudScene extends Phaser.Scene {
   bigBanner(title: string, line: string): void {
     this.banner.setText(`${title}\n${line}`).setAlpha(1).setScale(0.5);
     this.tweens.killTweensOf(this.banner);
+    this.bannerHint?.setAlpha(0);
     this.tweens.add({ targets: this.banner, scale: 0.85, duration: 350, ease: 'Back.easeOut' });
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 3000, duration: 600 });
   }
@@ -361,6 +376,7 @@ export class HudScene extends Phaser.Scene {
   newCreature(name: string, intro: string): void {
     this.banner.setText(`NEW: ${name.toUpperCase()}\n${intro}`).setAlpha(1).setScale(0.5);
     this.tweens.killTweensOf(this.banner);
+    this.bannerHint?.setAlpha(0);
     this.tweens.add({ targets: this.banner, scale: 0.75, duration: 350, ease: 'Back.easeOut' });
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 3000, duration: 600 });
   }
@@ -369,6 +385,7 @@ export class HudScene extends Phaser.Scene {
   crabAppeared(level: number): void {
     this.banner.setText(`A CHECKPOINT CRAB APPEARED!\nDefeat it to save level ${level}`).setAlpha(1).setScale(0.5);
     this.tweens.killTweensOf(this.banner);
+    this.bannerHint?.setAlpha(0);
     this.tweens.add({ targets: this.banner, scale: 0.85, duration: 350, ease: 'Back.easeOut' });
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 2600, duration: 600 });
   }
@@ -376,6 +393,7 @@ export class HudScene extends Phaser.Scene {
   crabDefeated(level: number): void {
     this.banner.setText(`CHECKPOINT SAVED: LEVEL ${level}!\nIf you die, you swim again from here`).setAlpha(1).setScale(0.5);
     this.tweens.killTweensOf(this.banner);
+    this.bannerHint?.setAlpha(0);
     this.tweens.add({ targets: this.banner, scale: 0.9, duration: 350, ease: 'Back.easeOut' });
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 2600, duration: 600 });
   }
@@ -415,6 +433,7 @@ export class HudScene extends Phaser.Scene {
   levelUp(level: number): void {
     this.banner.setText(`LEVEL ${level}!`).setAlpha(1).setScale(0.6);
     this.tweens.killTweensOf(this.banner);
+    this.bannerHint?.setAlpha(0);
     this.tweens.add({ targets: this.banner, scale: 1, duration: 250, ease: 'Back.easeOut' });
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 900, duration: 500 });
   }
@@ -491,6 +510,7 @@ export class HudScene extends Phaser.Scene {
     this.deathAgain.setPosition(width / 2 - 100, height * 0.4 + 170);
     this.deathHome.setPosition(width / 2 + 100, height * 0.4 + 170);
     this.banner.setPosition(width / 2, height * 0.28);
+    this.bannerHint.setPosition(width / 2, height * 0.28 + 34).setWordWrapWidth(Math.min(560, width - 40));
     this.hint.setPosition(16, height - 28);
     const touch = this.sys.game.device.input.touch;
     this.joystick.layout(width, height, touch);

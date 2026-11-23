@@ -970,6 +970,33 @@
         "kind": "whale",
         "x": 70900,
         "scale": 1.4
+      },
+      {
+        "kind": "vent",
+        "x": 61000
+      },
+      {
+        "kind": "vent",
+        "x": 61060,
+        "scale": 0.8
+      },
+      {
+        "kind": "vent",
+        "x": 66400
+      },
+      {
+        "kind": "vent",
+        "x": 66340,
+        "scale": 0.8
+      },
+      {
+        "kind": "vent",
+        "x": 69200
+      },
+      {
+        "kind": "vent",
+        "x": 69260,
+        "scale": 0.8
       }
     ],
     "hide": [
@@ -2103,5 +2130,29 @@
     "hopSpeed": 420,
     "drySafeSeconds": 5,
     "dryDamagePerSecond": 0.06
+  },
+  "regionTwists": {
+    "_comment": "Each region plays a little differently (src/systems/regionTwists.ts). 1 = no change. vision: how far every fish sees; food: plankton amount; hunger and speed: the player's; ventHeal: warm vent healing; ventWarms: resting by a vent cancels the hunger and speed twist.",
+    "coral": {
+      "hint": ""
+    },
+    "swamp": {
+      "vision": 0.7,
+      "food": 1.6,
+      "hint": "Murky water: everyone sees less, and food is everywhere"
+    },
+    "volcano": {
+      "hunger": 1.25,
+      "ventHeal": 2,
+      "hint": "Hot water: you get hungry faster, but vents heal twice as much"
+    },
+    "ice": {
+      "hunger": 1.25,
+      "speed": 0.9,
+      "ventHeal": 1.5,
+      "ventWarms": true,
+      "food": 0.85,
+      "hint": "Cold water: you swim slower and get hungry faster. Warm up by a vent"
+    }
   }
 }
