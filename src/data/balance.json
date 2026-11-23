@@ -334,6 +334,57 @@
       }
     ]
   },
+  "gates": {
+    "_comment": "Gates between regions. Each wall spans the whole water column and is solid for the player (fish slip through) until it breaks. It can only be broken after beating the Tide's Checkpoint Crab (crabLevel >= crab): bite it (EAT at the wall) or ram it (swim into it fast, or dash). Broken gates are saved with the run; saves from before gates keep the whole sea open.",
+    "thickness": 160,
+    "hitCooldown": 0.45,
+    "messageSeconds": 4,
+    "bounce": 420,
+    "ramSpeedRatio": 0.6,
+    "_ram": "A ram counts when the speed aimed at the wall is above ramSpeedRatio x your cruising speed (or you dash). The wall bounces you back (bounce), so holding forward keeps ramming it.",
+    "list": [
+      {
+        "id": "root_tangle",
+        "name": "Root Tangle",
+        "x": 12000,
+        "crab": 10,
+        "action": "bite",
+        "hits": 5,
+        "style": "roots",
+        "opens": "Mangrove Swamp"
+      },
+      {
+        "id": "rock_fall",
+        "name": "Rock Fall",
+        "x": 19000,
+        "crab": 20,
+        "action": "ram",
+        "hits": 4,
+        "style": "rocks",
+        "opens": "Volcanic Rift"
+      },
+      {
+        "id": "ice_wall_east",
+        "name": "Ice Wall",
+        "x": 28000,
+        "crab": 30,
+        "action": "ram",
+        "hits": 4,
+        "style": "ice",
+        "opens": "Frozen Sea"
+      },
+      {
+        "id": "ice_wall_west",
+        "name": "Ice Wall",
+        "x": 35900,
+        "crab": 30,
+        "action": "ram",
+        "hits": 4,
+        "style": "ice",
+        "opens": "Frozen Sea"
+      }
+    ]
+  },
   "scenery": {
     "_comment": "Scenery on the ground (x in world px; sits on the ground line there). Pieces in 'hide' are hiding places. 'arch' is solid rock you can swim through. Vents slowly heal the player (healPerSecond = share of max health). Floats bob at the surface. Keep pieces off steep seamount walls.",
     "pieces": [

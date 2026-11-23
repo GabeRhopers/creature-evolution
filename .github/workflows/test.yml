@@ -44,7 +44,7 @@ jobs:
           - shard: creatures and fights
             suites: crab enemies creatures tides stomach areas enemy_settings hud
           - shard: world and controls
-            suites: gamepad pad_map studio_game studio_restore terrain daynight world music land
+            suites: gamepad pad_map studio_game studio_restore terrain daynight world music land gates
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

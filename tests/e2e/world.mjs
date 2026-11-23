@@ -25,6 +25,9 @@ ok(await G(() => { const g = window.game.scene.getScene('Game'); return ['w_wate
 const copies = await G((W) => window.game.scene.getScene('Game').children.list.filter((o) => o.x > W + 50 && o.texture && o.texture.key && o.texture.key.startsWith('w_')).length, W);
 ok(copies > 20, `scenery near the edges is copied past them (${copies} copies)`);
 
+// Gates are tested in gates.mjs; here the whole sea is open.
+await G(() => window.game.scene.getScene('Game').gates.openAll());
+
 // Swim right across the seam (Frozen Sea -> Coral Sea).
 await G((W) => { const g = window.game.scene.getScene('Game'); g.player.setPosition(W - 250, 400); g.player.body.velocity.set(0, 0); g.cameras.main.centerOn(W - 250, 400); }, W);
 await p.waitForTimeout(400);

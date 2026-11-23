@@ -30,7 +30,7 @@ ok(cod.ice > 0 && cod.coral + cod.swamp + cod.volcano === 0, 'polar cod live in 
 ok(!(await has('bull_shark')) && !(await has('sperm_whale')), 'no new hunters at level 1');
 
 // Hunters join at their levels, each with a NEW banner.
-for (const [lv, id, name] of [[8,'box_jelly','Box Jellyfish'],[12,'sea_snake','Sea Snake'],[16,'bull_shark','Bull Shark'],[17,'giant_octopus','Giant Octopus'],[19,'leopard_seal','Leopard Seal'],[21,'anglerfish','Anglerfish'],[24,'giant_squid','Giant Squid'],[25,'great_white','Great White Shark'],[30,'sperm_whale','Sperm Whale'],[33,'orca','Orca']]) {
+for (const [lv, id, name] of [[8,'box_jelly','Box Jellyfish'],[12,'sea_snake','Sea Snake'],[16,'bull_shark','Bull Shark'],[21,'giant_octopus','Giant Octopus'],[21,'anglerfish','Anglerfish'],[24,'giant_squid','Giant Squid'],[25,'great_white','Great White Shark'],[30,'sperm_whale','Sperm Whale'],[31,'leopard_seal','Leopard Seal'],[33,'orca','Orca']]) {
   await grow(lv);
   ok(await waitFor((id)=>window.game.scene.getScene('Game').creatures.some(c=>c.fish.species.id===id), 8000, id), `${name} joins at level ${lv}`);
   ok(await waitFor((n)=>window.__news.includes(n), 25000, name), `with a NEW banner for ${name}`);

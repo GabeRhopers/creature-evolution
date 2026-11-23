@@ -111,7 +111,18 @@ glowing crater, lava streams and cracks, no roots; LightScene makes every vent g
 focus (`keepNearFocus`); Brains aim at the nearest copy (`AIWorld.wrapNear`); `inKelp` folds x. Far parallax
 layers use texture widths that make W x scrollFactor a whole number of tiles (no jump). Far fish think every third
 frame (`LOD_DISTANCE`); far scenery is hidden (`cullStatics`). A region banner shows on entering. New runs start at
-`world.startX`. Gates between regions and region gameplay come next (plan doc).
+`world.startX`. Region gameplay twists come next (plan doc).
+
+## Gates between regions (`src/systems/gates.ts` rules, `src/scenes/GateSystem.ts` art and play, `balance.json` "gates")
+Each Tide opens the next region: Root Tangle (Coral Sea -> Swamp, x 12000, after the level 10 crab, bite it 5x with EAT),
+Rock Fall (-> Volcanic Rift, x 19000, crab 20, ram 4x), two Ice Walls (-> Frozen Sea, x 28000 and 35900 at the loop's
+seam, crab 30, ram 4x). A wall spans the whole water column, is solid for the player only (fish slip through), shows 3
+crack stages, then breaks with bursts and a banner (`HudScene.bigBanner`). Too early: pushed back plus a "Beat the level N
+Checkpoint Crab" popup. Rams count the speed aimed at the wall above `gates.ramSpeedRatio` x cruise (or a dash); the wall
+bounces you back (`bounce`) so holding forward keeps ramming. Broken gates are saved (`Checkpoint.gatesOpen`), kept by
+SWIM AGAIN (`nextGatesOpen`); saves from before gates keep the whole sea open (`openedFromSave`). Walls near the seam
+get a copy past the edge. Tests that are not about gates call `gates.openAll()`. Leopard Seal unlocks at 31 and the
+Giant Octopus at 21, when their regions open. E2E: `tests/e2e/gates.mjs`; unit: `tests/gates.test.ts`.
 
 ## Leaping and land (`GameScene` "Land" section, `balance.json` "land")
 - Sprint upward through the surface to leap (`checkLeap`: sprinting, near the surface, rising faster than `jumpSpeed`). No extra button.
@@ -171,12 +182,12 @@ Lionfish (6, `venom`: biting or swallowing it costs the player health), Moray Ee
 lurks, one lunge per hunt, short chase), Barracuda (22, pack hunter). `rankMul` lets a slim fish fight
 above its size (AI rank and power = size x rankMul). Looks drawn by `tools/fish/draw_fish.py`.
 More creatures (`tools/fish/draw_more.py`, which imports the helpers from `draw_fish.py`): Archerfish (swamp prey),
-Polar Cod (ice prey), Bull Shark (16, swamp), Leopard Seal (19, ice, shallow), Anglerfish (21, the Deep, `ambush`,
+Polar Cod (ice prey), Bull Shark (16, swamp), Leopard Seal (31, ice, shallow), Anglerfish (21, the Deep, `ambush`,
 `lure`: a glowing dot drawn by LightScene at that offset in body radii), Great White Shark (25, `ambush`, strikes
 from below), Sperm Whale (30, framework `whale`, 192x72 canvas, `armor`, mostly calm, hunts tier 4). Drawings may be
 up to 192 px wide (`validateProject`, studio size inputs). When several enemies unlock at once, each gets a banner.
 Not fish (`tools/fish/draw_beasts.py`, looks `beast-*`): Box Jellyfish (8, `alpha` see-through, `venom`), Sea Snake (12),
-Giant Octopus (17, Volcanic Rift, `ambush` + `camo`: while slower than `ai.camoStillSpeed` it fades to `ai.camoAlpha`
+Giant Octopus (21, Volcanic Rift, `ambush` + `camo`: while slower than `ai.camoStillSpeed` it fades to `ai.camoAlpha`
 and `isHidden` hides it from fish farther than kelpSeeThroughDistance x its size; `Fish.camouflaged`), Giant Squid
 (24, the Deep), Orca (33, Frozen Sea, pods via `schooling`, hunts tier 4). Soft-bodied animals leave a pale body, not a skeleton.
 

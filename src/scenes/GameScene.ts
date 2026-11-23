@@ -7,6 +7,8 @@ import { Bubbles } from '../systems/Bubbles';
 import { C, makeKelp, makeRay, makeRock, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
 import { Terrain, type TerrainConfig } from '../systems/terrain';
 import { SpatialGrid } from '../systems/spatialGrid';
+import { openedFromSave, type GatesConfig } from '../systems/gates';
+import { GateSystem } from './GateSystem';
 import { Regions, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
 import { DayNight, type DayNightConfig, type Light, type Period } from '../systems/dayNight';
 import { CORAL_KINDS, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow, makeVolcano, volcanoRows, VOLCANO_REACH } from '../systems/terrainArt';
@@ -63,6 +65,8 @@ let nextStartLevel = 1;
 let nextPerks: string[] = [];
 /** Level of the last Checkpoint Crab defeated, carried into a restart after dying. */
 let nextCrabLevel = 0;
+/** Gates broken in the run that carries on (SWIM AGAIN keeps them, like the crab level). */
+let nextGatesOpen: string[] = [];
 
 /** Seconds of play between automatic checkpoints. */
 const AUTOSAVE_SECONDS = 20;
@@ -302,6 +306,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     // A pick earned before the game was closed is offered again.
     if (!this.menuMode) this.time.delayedCall(700, () => this.checkPerks());
     this.sfx = new Sfx(this.sound);
+    this.buildGates();
     if (BOT_MODE) {
       this.bot = new PlayerBot(this);
       playtestLog().run++;
@@ -413,6 +418,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.playerHunted = hunted && !this.dead;
     this.collideTerrain();
     this.loopWorld();
+    if (!this.dead && !this.menuMode) this.gates.update(dt);
     this.playerHidden = this.inKelp(this.player);
     this.updateVents(dt);
 
@@ -493,6 +499,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   restartRun(): void {
     nextPerks = [];
     nextCrabLevel = 0;
+    nextGatesOpen = [];
     this.reportRun(true);
     if (!BOT_MODE && !this.testMode) saves.clearCheckpoint();
     pendingResume = null;
@@ -506,6 +513,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const from = this.stageRestartLevel;
     nextPerks = this.perks.slice();
     nextCrabLevel = this.crabLevel;
+    nextGatesOpen = this.gates?.openIds() ?? [];
     this.reportRun(true);
     pendingResume = null;
     nextMenuMode = false;
@@ -523,6 +531,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   startPlay(difficulty: DifficultyName, resume: Checkpoint | null = null, test = false, hero?: string): void {
     currentDifficulty = difficulty;
     nextCrabLevel = 0;
+    nextGatesOpen = [];
     if (hero && isHero(hero)) currentHero = hero;
     pendingResume = test ? null : resume;
     nextTestMode = test;
@@ -577,6 +586,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       stats: { plankton: 0, fish: 0, kills: 0, maxLevel: from },
       perks: this.perks.slice(),
       crabLevel: this.crabLevel,
+      gatesOpen: this.gates?.openIds() ?? [],
       dayTime: this.dayTime,
     });
   }
@@ -844,6 +854,37 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
   }
 
+  // ---------------------------------------------------------------- gates between regions
+
+  gates!: GateSystem;
+
+  private buildGates(): void {
+    const all = (BALANCE as unknown as { gates: GatesConfig }).gates.list;
+    // A continued run keeps its broken gates (older saves: all open); SWIM AGAIN keeps them; a new run has none.
+    const opened = this.resumedGates !== null ? openedFromSave(this.resumedGates, all) : nextGatesOpen.slice();
+    this.resumedGates = null;
+    nextGatesOpen = [];
+    this.gates = new GateSystem(
+      {
+        scene: this,
+        player: () => this.player,
+        crabLevel: () => this.crabLevel,
+        biting: () => (this.bot ? this.bot.wantsSwallow() : this.controller.wantsSwallow()),
+        groundAt: (x) => this.terrain.groundAt(x),
+        surfaceY: BALANCE.world.surfaceY,
+        burst: (x, y, size) => this.burst(x, y, size),
+        popup: (t, x, y, big, color) => this.hud.popup(t, x, y, big, color),
+        banner: (title, line) => this.hud.bigBanner(title, line),
+        sfx: this.sfx,
+        opened: (id) => {
+          if (!this.testMode && !BOT_MODE) this.checkpoint(true);
+          window.dispatchEvent(new CustomEvent('ce:gate', { detail: { opened: id } }));
+        },
+      },
+      opened,
+    );
+  }
+
   // ---------------------------------------------------------------- perks
 
   /** The level the player's modifiers were last worked out for (the head start changes with level). */
@@ -920,6 +961,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       stats: { ...this.stats, maxLevel: Math.max(this.stats.maxLevel, p.level) },
       perks: this.perks.slice(),
       crabLevel: this.crabLevel,
+      gatesOpen: this.gates?.openIds() ?? [],
       dayTime: this.dayTime,
     });
     if (ok) {
@@ -931,7 +973,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     return ok;
   }
 
+  /** Gates saved with the run being continued (undefined = a save from before gates: keep the sea open). */
+  private resumedGates: string[] | undefined | null = null;
+
   private applyCheckpoint(c: Checkpoint): void {
+    this.resumedGates = c.gatesOpen;
     const p = this.player;
     p.setLevel(c.level);
     p.hp = Math.max(1, Math.round(p.maxHp * c.hpRatio));
