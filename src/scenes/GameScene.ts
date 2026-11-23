@@ -10,6 +10,7 @@ import { SpatialGrid } from '../systems/spatialGrid';
 import { countInTide, factorsFor, groupSizes, outShare, rollLevel, type PeriodId, type SpawnFactors } from '../systems/spawnFactors';
 import { openedFromSave, type GatesConfig } from '../systems/gates';
 import { GateSystem } from './GateSystem';
+import { keptShare, outgrownMul, regionDensities, regionFactors, trimCrowd, type CrowdConfig } from '../systems/crowd';
 import { Regions, migrateX, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
 import { DayNight, type DayNightConfig, type Light, type Period } from '../systems/dayNight';
 import { CORAL_KINDS, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow, makeVolcano, volcanoRows, VOLCANO_REACH } from '../systems/terrainArt';
@@ -429,6 +430,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
     const huntCount = this.huntCount;
     huntCount.clear();
+    let huntersTotal = 0;
     this.updateSpawnFactors(dt);
     this.updateEnvironment(dt);
     for (let i = 0; i < this.creatures.length; i++) {
@@ -438,7 +440,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       // They wake up, where they were, when the player comes within sleepDistance. Fish that are not out
       // (time of day, waves) or are waiting to respawn sleep too.
       if (c.respawnT && c.respawnT > 0) c.respawnT -= dt;
-      const far = Math.abs(c.fish.x - focusX) > BALANCE.ai.sleepDistance || !!c.away || (c.respawnT ?? 0) > 0;
+      const far = Math.abs(c.fish.x - focusX) > BALANCE.ai.sleepDistance || !!c.away || !!c.crowded || (c.respawnT ?? 0) > 0;
       if (far !== !!c.asleep) {
         c.asleep = far;
         c.fish.arcadeBody.enable = !far;
@@ -457,8 +459,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         const id = c.fish.species.id;
         const max = this.factorsOf(id).maxHunters;
         const n = (huntCount.get(id) ?? 0) + 1;
-        if (max > 0 && n > max) c.brain.forget(this.playerCreature);
+        // At most crowd.maxHuntersTotal fish of all species hunt you at once.
+        if ((max > 0 && n > max) || huntersTotal >= (BALANCE.crowd as CrowdConfig).maxHuntersTotal) c.brain.forget(this.playerCreature);
         else {
+          huntersTotal++;
           huntCount.set(id, n);
           hunted = true;
         }
@@ -2491,6 +2495,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (!only) {
       this.spawnedSpecies = new Set();
       this.factorCache.clear();
+      this.updateCrowdFactors();
       this.popTide = this.menuMode ? 1 : tideOf(this.player.level);
     }
     const level = this.menuMode ? 1 : this.player.level;
@@ -2516,14 +2521,27 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** The Tide the population was last sized for (each Tide may add more of some enemies). */
   private popTide = 1;
 
-  /** How many of a species should live in the sea now: count, difficulty, world size and Tide. */
+  /** How much each region is thinned so no region holds more than `crowd.regionMaxDensity` fish per 1000 px. */
+  private crowdFactors: Record<string, number> = {};
+  private updateCrowdFactors(): void {
+    const scale = BALANCE.world.populationScale ?? 1;
+    const counts = Object.fromEntries(Object.entries(BALANCE.population as Record<string, number>).map(([id, n]) => [id, n * scale]));
+    const cfg = BALANCE.crowd as CrowdConfig;
+    this.crowdFactors = regionFactors(regionDensities(counts, biomeWeight, BALANCE.regions.list), cfg.regionMaxDensity);
+  }
+
+  /** How many of a species should live in the sea now: count, difficulty, world size, Tide and crowding. */
   private targetCount(id: string): number {
     const sp = SPECIES[id];
     const base = (BALANCE.population as Record<string, number>)[id] ?? 0;
     // Difficulty: more predators on Hard, more small prey on Easy.
     const mul = sp.tier >= 3 ? this.difficulty.predatorDensity : sp.tier <= 1 ? this.difficulty.preySpawnRate : 1;
     const tide = this.menuMode ? 1 : tideOf(this.player.level);
-    return Math.max(1, Math.round(countInTide(base, this.factorsOf(id), tide) * mul * (BALANCE.world.populationScale ?? 1)));
+    const cfg = BALANCE.crowd as CrowdConfig;
+    // Tides add enemies, but never more than maxTideMul x the base count.
+    const n = Math.min(countInTide(base, this.factorsOf(id), tide), base * cfg.maxTideMul);
+    const kept = keptShare(id, biomeWeight, BALANCE.regions.list, this.crowdFactors);
+    return Math.max(1, Math.round(n * mul * kept * (BALANCE.world.populationScale ?? 1)));
   }
 
   /** Add `n` fish of a species, in groups (schools, packs), in the regions and depths it likes. */
@@ -2539,7 +2557,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       Math.max(80, waterH * (sp.spawn.depthMax - sp.spawn.depthMin) - 80),
     );
     // Each species lives mostly in the regions it likes (balance "biomes"), wandering up to its roam distance.
-    const homeX = (near?: number) => pickHomeX(this.regions, (r) => biomeWeight(id, r), near, f.roam);
+    // Crowded regions get fewer of every species (crowdFactors), so the mix stays and only the crowd shrinks.
+    const homeX = (near?: number) => pickHomeX(this.regions, (r) => biomeWeight(id, r) * (this.crowdFactors[r] ?? 1), near, f.roam);
     if (homeX() === null) return;
     const spot = () => this.regions.wrap(homeX() ?? Phaser.Math.Between(band.left, band.right));
     for (const size of groupSizes(n, f)) {
@@ -2596,10 +2615,13 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       const id = c.fish.species.id;
       let sh = share.get(id);
       if (sh === undefined) share.set(id, (sh = outShare(this.factorsOf(id), this.period as PeriodId, this.runTime, level)));
-      const away = (c.slot ?? 0) >= sh;
+      // Fish far weaker than you are background: only a share of them stay out (crowd.outgrownShare).
+      const mine = this.menuMode ? sh : sh * outgrownMul(this.player.rank, c.fish.rank, BALANCE.crowd as CrowdConfig);
+      const away = (c.slot ?? 0) >= mine;
       if (c.away && !away) this.placeAmbient(c, false); // back from hiding: off screen, not in front of you
       c.away = away;
     }
+    this.updateScreenBudget();
     // A new Tide: top up the enemies that grow in number each Tide.
     const tide = this.menuMode ? 1 : tideOf(level);
     if (tide > this.popTide) {
@@ -2608,6 +2630,42 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         const have = this.creatures.filter((c) => c.brain && !c.guardian && c.fish.species.id === id).length;
         const want = this.targetCount(id);
         if (want > have) this.spawnSpecies(id, want - have);
+      }
+    }
+  }
+
+  /**
+   * Screen budget (crowd.nearMax): too many awake fish around the player, and the extra ones that are off screen
+   * nap (`crowded`, asleep like far fish), farthest first; once the crowd thins below nearWake they wake, still
+   * off screen. Fish that wander out of the area wake too. Nobody vanishes or pops up in view.
+   */
+  private updateScreenBudget(): void {
+    const cfg = BALANCE.crowd as CrowdConfig;
+    const focusX = this.menuMode || !this.player ? this.cameras.main.worldView.centerX : this.player.x;
+    const focusY = this.menuMode || !this.player ? this.cameras.main.worldView.centerY : this.player.y;
+    const view = Phaser.Geom.Rectangle.Inflate(Phaser.Geom.Rectangle.Clone(this.cameras.main.worldView), 120, 120);
+    const awake: Creature[] = [];
+    const napping: Creature[] = [];
+    for (const c of this.creatures) {
+      if (!c.brain || c.guardian || c.isPlayer || c.away || (c.respawnT ?? 0) > 0) continue;
+      const d = Math.hypot(c.fish.x - focusX, c.fish.y - focusY);
+      const inView = view.contains(c.fish.x, c.fish.y);
+      if (d > cfg.nearRadius) {
+        if (c.crowded && !inView) c.crowded = false;
+        continue;
+      }
+      (c.crowded ? napping : awake).push(c);
+    }
+    if (awake.length > cfg.nearMax) {
+      const near = awake.map((c) => ({ d: Math.hypot(c.fish.x - focusX, c.fish.y - focusY), onScreen: view.contains(c.fish.x, c.fish.y) }));
+      for (const i of trimCrowd(near, cfg.nearMax)) awake[i].crowded = true;
+    } else if (awake.length < cfg.nearWake) {
+      let room = cfg.nearWake - awake.length;
+      for (const c of napping) {
+        if (room <= 0) break;
+        if (view.contains(c.fish.x, c.fish.y)) continue;
+        c.crowded = false;
+        room--;
       }
     }
   }
