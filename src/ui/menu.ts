@@ -14,7 +14,7 @@ import { perkIconUrl } from './perkIcons';
 import { ENEMY_FIELDS, enemiesChanged, enemyIds, resetEnemies, saveEnemy, shippedValue } from '../data/adminSettings';
 import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
 import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
-import { perkById, type PerkDef } from '../systems/perks';
+import { earlyHelpMods, earlyHelpStrength, perkById, type PerkDef } from '../systems/perks';
 import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
 
 /** Sprite Studio lives in the same artifact, so both pages share saves. */
@@ -712,6 +712,12 @@ export function initMenu(game: Phaser.Game): void {
       ['Kills', `${g.stats.kills} (fish eaten ${g.stats.fish})`],
       ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
     ];
+    const help = earlyHelpStrength(p.level);
+    if (help > 0) {
+      const h = earlyHelpMods(p.level);
+      const pc = (v: number) => Math.round(Math.abs(v - 1) * 100);
+      rows.push(['Head start', `+${pc(h.speed)}% speed, +${pc(h.turn)}% turning, ${pc(1 / h.stamina)}% longer sprint, -${pc(h.damageTaken)}% damage (fades out by level ${BALANCE.earlyHelp.endsAt})`]);
+    }
     const perks = g.perks.map((id) => perkById(id)?.name).filter(Boolean).join(', ');
     if (perks) rows.push(['Perks', perks]);
     return `<div class="details">${rows.map(([k, v]) => `<span class="dk">${esc(k)}</span><span class="dv">${esc(v)}</span>`).join('')}</div>`;

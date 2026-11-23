@@ -23,5 +23,8 @@ await p.keyboard.press('Escape');
 ok(await waitFor(() => !!document.querySelector('.details')), 'pausing shows the details');
 const details = await p.textContent('.details');
 for (const k of ['Coral Sea', 'Tide', 'Health', 'Bite', 'Swallows up to', 'Stomach', 'Kills', 'Time']) ok(details.includes(k), 'details include ' + k);
+ok(details.includes('Head start') && details.includes('+15% speed'), 'a new hatchling sees its head start: ' + (details.match(/Head start[^)]*\)/) || [''])[0]);
+const sp = await G(() => { const g = window.game.scene.getScene('Game'), pl = g.player; const r = { now: pl.cruiseSpeed, base: pl.species.maxSpeed * Math.pow(pl.size / pl.species.baseSize, 0.35) }; return r; });
+ok(sp.now > sp.base * 1.12, `the head start makes the hatchling faster: ${sp.base.toFixed(0)} -> ${sp.now.toFixed(0)}`);
 ok(errs.length === 0, 'no page errors ' + errs.slice(0, 3).join(' | '));
 await b.close();
