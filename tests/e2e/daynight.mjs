@@ -4,7 +4,7 @@ import { chromium } from 'playwright-core';
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--mute-audio'] });
 const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
 const errs = [];
-p.on('pageerror', (e) => errs.push(e.message));
+p.on('pageerror', (e) => { errs.push(e.message); console.log('STACK', e.stack); });
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
 const G = (f, a) => p.evaluate(f, a);
 const waitFor = async (f, a, ms = 20000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await G(f, a).catch(() => false)) return true; await p.waitForTimeout(150); } return false; };
