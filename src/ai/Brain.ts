@@ -12,6 +12,8 @@ export interface Creature {
   band?: Phaser.Geom.Rectangle;
   /** Where it likes to live (regions): a wander target near `near`, or a spot in a region it likes. */
   homeX?: (near?: number) => number | null;
+  /** Asleep: very far from the player, not simulated until the player comes near (GameScene). */
+  asleep?: boolean;
   /** A guardian (the Checkpoint Crab) stays in its band, fights only the player, never flees, and other fish leave it alone. */
   guardian?: boolean;
 }

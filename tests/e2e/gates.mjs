@@ -34,35 +34,35 @@ ok(await G(()=>window.game.scene.getScene('Game').gates.gates.every(g=>!g.open &
 ok(await G(()=>['w_gate_root_tangle','w_gate_rock_fall','w_gate_ice_wall_east'].every(k=>window.game.scene.getScene('Game').textures.exists(k))), 'roots, rocks and ice walls have their art');
 
 // 1. The Root Tangle before the level 10 crab: solid, a bite does nothing, a message says why.
-await placeAt(11860);
+await placeAt(23860);
 await holdUntil(['ArrowRight', 'Space'], ()=>window.__pop.some(t=>t.includes('Beat the level 10')), 15000);
 const blocked = await G(()=>{const g=window.game.scene.getScene('Game'); return {x:g.player.x};});
-ok(blocked.x < 12000 - 80, `the Root Tangle stops you (x ${Math.round(blocked.x)})`);
+ok(blocked.x < 24000 - 80, `the Root Tangle stops you (x ${Math.round(blocked.x)})`);
 ok((await gate('root_tangle')).hits === 0, 'biting it before the crab does nothing');
 ok(await waitFor(()=>window.__pop.some(t=>t.includes('Beat the level 10 Checkpoint Crab')), 5000), 'a message says to beat the level 10 crab first');
 await p.screenshot({path:'/home/claude/stages/gate_roots.png'});
 
 // 2. After the level 10 crab: bite through it (EAT at the wall).
 await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(11); g.crabLevel=10;});
-await placeAt(11860);
+await placeAt(23860);
 const bitten = await holdUntil(['ArrowRight', 'Space'], ()=>window.game.scene.getScene('Game').gates.isOpen('root_tangle'), 60000);
 ok(bitten, 'after the crab, five bites break the Root Tangle');
 ok(await waitFor(()=>window.__ban.some(t=>t.includes('ROOT TANGLE BREAKS')), 5000), 'with a banner');
 ok((await gate('root_tangle')).images === 0, 'and the wall is gone');
 ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.gatesOpen?.includes('root_tangle')), 'the broken gate is saved right away');
-await placeAt(11800);
-const through = await holdUntil(['ArrowRight'], ()=>window.game.scene.getScene('Game').player.x > 12300, 30000);
+await placeAt(23800);
+const through = await holdUntil(['ArrowRight'], ()=>window.game.scene.getScene('Game').player.x > 24300, 30000);
 ok(through, 'you can swim into the Mangrove Swamp');
 
 // 3. The Rock Fall after the level 20 crab: ram it (sprint into it) until it breaks.
 await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(21); g.crabLevel=20;});
-await placeAt(18500);
+await placeAt(37500);
 await holdUntil(['Shift', 'ArrowRight'], ()=>(window.game.scene.getScene('Game').gates.gates.find(x=>x.def.id==='rock_fall').hits)>=1, 40000);
 await p.screenshot({path:'/home/claude/stages/gate_rocks.png'});
 const rammed = await holdUntil(['Shift', 'ArrowRight'], ()=>window.game.scene.getScene('Game').gates.isOpen('rock_fall'), 90000);
 ok(rammed, 'after the level 20 crab, ramming breaks the Rock Fall');
 ok((await gate('ice_wall_east')).open === false, 'the Ice Walls stay closed until the level 30 crab');
-await placeAt(27600); await p.waitForTimeout(800);
+await placeAt(55600); await p.waitForTimeout(800);
 await p.screenshot({path:'/home/claude/stages/gate_ice.png'});
 
 // 4. Saved with the run: reload and continue.

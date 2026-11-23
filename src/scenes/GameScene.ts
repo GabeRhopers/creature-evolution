@@ -405,6 +405,15 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     for (let i = 0; i < this.creatures.length; i++) {
       const c = this.creatures[i];
       if (!c.brain) continue;
+      // Very far from the player (another part of the sea), fish sleep: no thinking, no physics, not drawn.
+      // They wake up, where they were, when the player comes within sleepDistance.
+      const far = Math.abs(c.fish.x - focusX) > BALANCE.ai.sleepDistance;
+      if (far !== !!c.asleep) {
+        c.asleep = far;
+        c.fish.arcadeBody.enable = !far;
+        if (far) c.fish.arcadeBody.setVelocity(0, 0);
+      }
+      if (far) continue;
       // Far from the player, fish think every third frame (with three frames of time): cheaper, same result.
       if (Math.abs(c.fish.x - focusX) > LOD_DISTANCE) {
         if ((this.lodFrame + i) % 3 !== 0) continue;
@@ -1394,7 +1403,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   private updateAiEating(): void {
     for (const c of this.creatures) {
       const b = c.brain;
-      if (!b) continue;
+      if (!b || c.asleep) continue;
       const me = c.fish;
       const mouth = me.mouthPoint();
       const r = me.mouthRadius(true);
@@ -2181,7 +2190,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     for (const c of this.creatures) {
       const f = c.fish;
       const body = f.body as Phaser.Physics.Arcade.Body | null;
-      if (!body || !f.active) continue;
+      if (!body || !f.active || c.asleep) continue;
       if (c.isPlayer && this.landState !== 'water') continue; // in the air or on an island
       const r = body.halfWidth;
       const hit = this.terrain.resolve(f.x, f.y, r);
