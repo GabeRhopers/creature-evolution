@@ -42,7 +42,7 @@ jobs:
           - shard: saves and heroes
             suites: stages framework roundtrip save_e2e perks slots mosa shark studio_save
           - shard: creatures and fights
-            suites: crab enemies creatures tides stomach areas enemy_settings hud
+            suites: crab enemies creatures tides stomach areas enemy_settings hud spawn_factors
           - shard: world and controls
             suites: gamepad pad_map studio_game studio_restore terrain daynight world music land gates
     steps:

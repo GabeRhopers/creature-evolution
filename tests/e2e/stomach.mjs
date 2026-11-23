@@ -24,9 +24,12 @@ const feed = (scrap) => G(async (scrap) => {
   g.stomach.fill = g.stomach.capacity * 0.3;
   const before = { fill: g.stomach.fill, xp: pl.xp + g.stomach.bank };
   const m = pl.mouthPoint(false);
+  // Only the meat this test drops counts (fights elsewhere in the sea may leave meat too).
+  const old = new Set(g.food.items);
   g.food.spawnMeat(m.x, m.y, 2, 20, scrap);
-  for (let i = 0; i < 20; i++) { const q = pl.mouthPoint(false); g.food.items.filter((f) => f.kind === 'meat').forEach((f) => f.img.setPosition(q.x, q.y)); await new Promise((r) => setTimeout(r, 100)); if (!g.food.items.some((f) => f.kind === 'meat')) break; }
-  return { eaten: !g.food.items.some((f) => f.kind === 'meat'), fillGain: g.stomach.fill - before.fill, xpGain: pl.xp + g.stomach.bank - before.xp };
+  const mine = () => g.food.items.filter((f) => f.kind === 'meat' && !old.has(f));
+  for (let i = 0; i < 20; i++) { const q = pl.mouthPoint(false); mine().forEach((f) => f.img.setPosition(q.x, q.y)); await new Promise((r) => setTimeout(r, 100)); if (!mine().length) break; }
+  return { eaten: !mine().length, fillGain: g.stomach.fill - before.fill, xpGain: pl.xp + g.stomach.bank - before.xp };
 }, scrap);
 
 const s1 = await feed(true);

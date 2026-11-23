@@ -52,38 +52,38 @@ const orcaHome = await G(()=>{const g=window.game.scene.getScene('Game'); const 
   for (const c of g.creatures) if (c.fish.species.id==='orca') for (let i=0;i<20;i++) n[g.regions.at(c.homeX()).id]++; return n;});
 ok(orcaHome.ice > (orcaHome.coral + orcaHome.swamp + orcaHome.volcano) * 3 && orcaHome.swamp + orcaHome.volcano === 0, 'orca pods live in the Frozen Sea (where they head home): '+JSON.stringify(orcaHome)+' now '+JSON.stringify(orca));
 // (Fish far off screen are not drawn or updated, so look at one in view.)
-await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player; const c=g.creatures.find(c=>c.fish.species.id==='box_jelly'); c.fish.arcadeBody.reset(pl.x+200, pl.y); window.__jelly=c;});
+await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player; const c=g.creatures.find(c=>c.fish.species.id==='box_jelly'&&!c.away); c.fish.arcadeBody.reset(pl.x+200, pl.y); window.__jelly=c;});
 ok(await waitFor(()=>window.__jelly.fish.visible && window.__jelly.fish.alpha < 1, 5000), 'the box jellyfish is see-through');
 // An octopus sitting still fades and hides from fish farther away.
-const camo = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.fish.species.id==='giant_octopus'); const f=c.fish;
+const camo = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.fish.species.id==='giant_octopus'&&!c.away); const f=c.fish;
   const pl=g.player; f.arcadeBody.reset(pl.x+300, pl.y); f.setVisible(true); f.hp=f.maxHp; f.pose(0.016); const fish=g.creatures.find(o=>o.fish.species.id==='red_grouper').fish;
   fish.setPosition(f.x + f.size*8, f.y); const far=g.isHidden(f, fish); fish.setPosition(f.x + f.size*2, f.y); const near=g.isHidden(f, fish);
   return {alpha:f.alpha, camo:f.camouflaged, far, near};});
 ok(camo.camo && camo.alpha < 0.5 && camo.far && !camo.near, 'a still octopus fades and hides from fish farther away: '+JSON.stringify(camo));
 await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player;
-  const o=g.creatures.find(c=>c.fish.species.id==='orca'); o.fish.arcadeBody.reset(pl.x+600, pl.y-100);
-  const s=g.creatures.find(c=>c.fish.species.id==='giant_squid'); s.fish.arcadeBody.reset(pl.x-500, pl.y+150);
-  const j=g.creatures.find(c=>c.fish.species.id==='box_jelly'); j.fish.arcadeBody.reset(pl.x+150, pl.y+250);
-  const n=g.creatures.find(c=>c.fish.species.id==='sea_snake'); n.fish.arcadeBody.reset(pl.x-250, pl.y-200);
-  const q=g.creatures.find(c=>c.fish.species.id==='giant_octopus'); q.fish.arcadeBody.reset(pl.x+350, pl.y+120); pl.invulnTimer=30;});
+  const o=g.creatures.find(c=>c.fish.species.id==='orca'&&!c.away); o.fish.arcadeBody.reset(pl.x+600, pl.y-100);
+  const s=g.creatures.find(c=>c.fish.species.id==='giant_squid'&&!c.away); s.fish.arcadeBody.reset(pl.x-500, pl.y+150);
+  const j=g.creatures.find(c=>c.fish.species.id==='box_jelly'&&!c.away); j.fish.arcadeBody.reset(pl.x+150, pl.y+250);
+  const n=g.creatures.find(c=>c.fish.species.id==='sea_snake'&&!c.away); n.fish.arcadeBody.reset(pl.x-250, pl.y-200);
+  const q=g.creatures.find(c=>c.fish.species.id==='giant_octopus'&&!c.away); q.fish.arcadeBody.reset(pl.x+350, pl.y+120); pl.invulnTimer=30;});
 await p.waitForTimeout(500); await p.screenshot({path:'/home/claude/stages/creatures_beasts.png'});
 
 // Wandering keeps them home: a cod placed in the Coral Sea aims back for the ice.
-const back = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.fish.species.id==='polar_cod');
+const back = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.fish.species.id==='polar_cod'&&!c.away);
   let ice=0; for (let i=0;i<40;i++){ const x=c.homeX(3000); if (g.regions.at(x).id==='ice') ice++; } return ice;});
 ok(back === 40, 'a polar cod that drifts into the Coral Sea heads back to the ice ('+back+'/40)');
 
 // The anglerfish's lure glows on screen.
-await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player; const c=g.creatures.find(c=>c.fish.species.id==='anglerfish');
+await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player; const c=g.creatures.find(c=>c.fish.species.id==='anglerfish'&&!c.away);
   c.fish.arcadeBody.reset(pl.x+260, pl.y); c.brain.hunger=1;});
 ok(await waitFor(()=>window.game.scene.getScene('Light').glows.some(d=>d.visible && d.tintTopLeft===0x2ce8f5), 5000), 'the anglerfish lure glows');
 await p.waitForTimeout(400); await p.screenshot({path:'/home/claude/stages/creatures_angler.png'});
 // A look at the whale and the great white next to the player.
 await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player;
-  const w=g.creatures.find(c=>c.fish.species.id==='sperm_whale'); w.fish.arcadeBody.reset(pl.x+700, pl.y+150);
-  const s=g.creatures.find(c=>c.fish.species.id==='great_white'); s.fish.arcadeBody.reset(pl.x-500, pl.y-150); pl.invulnTimer=30;});
+  const w=g.creatures.find(c=>c.fish.species.id==='sperm_whale'&&!c.away); w.fish.arcadeBody.reset(pl.x+700, pl.y+150);
+  const s=g.creatures.find(c=>c.fish.species.id==='great_white'&&!c.away); s.fish.arcadeBody.reset(pl.x-500, pl.y-150); pl.invulnTimer=30;});
 await p.waitForTimeout(600); await p.screenshot({path:'/home/claude/stages/creatures_whale.png'});
-ok(await G(()=>window.game.scene.getScene('Game').creatures.find(c=>c.fish.species.id==='sperm_whale').fish.texture.key.startsWith('look_')), 'the whale wears its pixel look');
+ok(await G(()=>window.game.scene.getScene('Game').creatures.find(c=>c.fish.species.id==='sperm_whale'&&!c.away).fish.texture.key.startsWith('look_')), 'the whale wears its pixel look');
 
 // Options > Enemy settings: a weight per region.
 await G(()=>window.dispatchEvent(new CustomEvent('ce:pause')));

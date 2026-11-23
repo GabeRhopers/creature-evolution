@@ -24,13 +24,13 @@ ok(await waitFor(()=>window.__news.includes('Lionfish'), 20000), 'with a NEW ban
 ok(await count('moray_eel')===0, 'no moray yet');
 
 // venom: biting a lionfish stings
-const sting = await G(()=>{const g=window.game.scene.getScene('Game'),pl=g.player; pl.hp=pl.maxHp; pl.invulnTimer=0; const c=g.creatures.find(c=>c.fish.species.id==='lionfish'); pl.biteCooldown=0; const h0=pl.hp; g.bite(g.playerCreature,c); return (h0-pl.hp)/pl.maxHp;});
+const sting = await G(()=>{const g=window.game.scene.getScene('Game'),pl=g.player; pl.hp=pl.maxHp; pl.invulnTimer=0; const c=g.creatures.find(c=>c.fish.species.id==='lionfish'&&!c.away); pl.biteCooldown=0; const h0=pl.hp; g.bite(g.playerCreature,c); return (h0-pl.hp)/pl.maxHp;});
 ok(Math.abs(sting-0.06)<0.01, 'biting a lionfish costs about 6% of your health: '+sting.toFixed(3));
 
 await grow(14);
 ok(await waitFor(()=>window.game.scene.getScene('Game').creatures.some(c=>c.fish.species.id==='moray_eel'), 5000), 'moray eels join at level 14: '+await count('moray_eel'));
 // ambush: a moray that spots the player lunges at once
-const lunge = await G(()=>{const g=window.game.scene.getScene('Game'),pl=g.player; const c=g.creatures.find(c=>c.fish.species.id==='moray_eel');
+const lunge = await G(()=>{const g=window.game.scene.getScene('Game'),pl=g.player; const c=g.creatures.find(c=>c.fish.species.id==='moray_eel'&&!c.away);
   c.fish.setPosition(pl.x-150, pl.y); c.fish.arcadeBody.setVelocity(0,0); c.fish.stamina=100; c.fish.dashCooldown=0; c.brain.hunger=0.1;
   c.brain.target=g.playerCreature; c.brain.state='hunt'; c.brain.stateTime=0; c.brain.lunged=false; c.brain.think(0.016);
   return {cd:c.fish.dashCooldown, lunged:c.brain.lunged};});

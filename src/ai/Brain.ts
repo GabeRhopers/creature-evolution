@@ -12,8 +12,14 @@ export interface Creature {
   band?: Phaser.Geom.Rectangle;
   /** Where it likes to live (regions): a wander target near `near`, or a spot in a region it likes. */
   homeX?: (near?: number) => number | null;
-  /** Asleep: very far from the player, not simulated until the player comes near (GameScene). */
+  /** Asleep: very far from the player, not out (time of day, waves) or waiting to respawn: not simulated (GameScene). */
   asleep?: boolean;
+  /** Not out right now (spawn factors: time of day, waves, last level). */
+  away?: boolean;
+  /** Seconds until it comes back after being eaten (spawn factor respawnDelay). */
+  respawnT?: number;
+  /** 0..1, fixed per fish: it is out when the species' out share is above it. */
+  slot?: number;
   /** A guardian (the Checkpoint Crab) stays in its band, fights only the player, never flees, and other fish leave it alone. */
   guardian?: boolean;
 }
@@ -200,7 +206,7 @@ export class Brain {
     for (const c of around) {
       // The crab is left alone; a hidden player (home screen, dead) is not there. Far AI fish are only
       // undrawn (culled), not gone, so their `visible` flag does not matter here.
-      if (c === this.self || !c.fish.active || (c.isPlayer && !c.fish.visible) || c.guardian) continue;
+      if (c === this.self || !c.fish.active || c.asleep || (c.isPlayer && !c.fish.visible) || c.guardian) continue;
       const d = Phaser.Math.Distance.Between(me.x, me.y, c.fish.x, c.fish.y);
       // Wounded fish send distress: noticed from farther away.
       const range = c.fish.wounded ? vision * BALANCE.combat.distressVisionMul : vision;
@@ -401,7 +407,7 @@ export class Brain {
       const mates = this.world.nearby ? this.world.nearby(me.x, me.y, ai.schoolRadius, MATES) : this.world.creatures;
       for (const c of mates) {
         const o = c.fish;
-        if (c === this.self || c.isPlayer || o.species !== me.species) continue;
+        if (c === this.self || c.isPlayer || c.asleep || o.species !== me.species) continue;
         const d = Phaser.Math.Distance.Between(me.x, me.y, o.x, o.y);
         if (d > ai.schoolRadius) continue;
         n++;

@@ -134,8 +134,9 @@ Giant Octopus at 21, when their regions open. E2E: `tests/e2e/gates.mjs`; unit: 
 - E2E: `tests/e2e/land.mjs`.
 
 ## Enemy settings (`src/data/adminSettings.ts`, Options > Enemy settings)
-Per enemy (species with a population): appears from level, how many, aggression, vision, top speed, health, bite,
-fights-above-its-size. Saved on the device (`ce.admin.enemies`, only differences from shipped), clamped to safe
+Per enemy (species with a population), in sections When / Where / How many / Variety / Strength and behavior:
+the spawn factors (below), region weights, depth, appears from level, how many, aggression, vision, top speed, health,
+bite, fights-above-its-size. Saved on the device (`ce.admin.enemies`, only differences from shipped), clamped to safe
 ranges, applied at startup (`main.ts`) and on Save to the shared SPECIES/BALANCE objects; Reset all.
 
 ## Day and night (`src/systems/dayNight.ts`, `src/scenes/LightScene.ts`, `balance.json` "dayNight")
@@ -201,6 +202,17 @@ targets (stay within `roam` px while the region suits them and the spot does not
 otherwise head for a liked region) and `respawnAmbient` uses it too. Hunting and fleeing can still carry a fish
 across a border; wandering brings it home. The weights are editable per enemy in Options > Enemy settings
 ("In Coral Sea", ...). E2E: `tests/e2e/creatures.mjs`; unit: `tests/creatures.test.ts`.
+
+## Enemy spawn factors (`src/systems/spawnFactors.ts`, `balance.json` "spawnDefaults" + "spawnFactors")
+Per enemy, over the defaults: WHEN lastLevel, activity per period (dawn/day/dusk/night share out), waveEvery/waveStay,
+respawnDelay; WHERE region weights ("biomes"), depth (species spawn), nearPlayer, roam; HOW MANY count (population),
+perTide, groupMin/groupMax, maxHunters; VARIETY levelMin/levelMax, eliteChance/eliteLevels. GameScene: `spawnSpecies`
+spawns in groups with rolled levels (`rollLevel`, elites get a golden tint, `Fish.setElite`); each fish has a `slot`
+(0..1) and `updateSpawnFactors` (once a second of game time) marks `away` the ones above the species' `outShare`
+(away fish sleep like far ones and come back off screen via `placeAmbient`), and tops up counts on a new Tide;
+`respawnAmbient` applies nearPlayer, levels and `respawnT`; the creature loop caps hunters per species (`maxHunters`,
+`brain.forget`). Brains, player eating and rams ignore sleeping fish. All factors are sliders in Options > Enemy settings,
+in sections (`EnemyField.group`, `ENEMY_GROUPS`). E2E tests pick fish with `!c.away`. E2E: `spawn_factors.mjs`.
 
 ## Rams and bumps (`GameScene.updateRams`, rock collider)
 A ram counts only the speed aimed into the target (`Fish.lastVx/lastVy` along the line to it), never a graze.
