@@ -180,6 +180,38 @@ export function makeKelp(scene: Phaser.Scene, key: string, seed: number, h: numb
   add(scene, key, c);
 }
 
+/**
+ * Giant kelp (Kelp Forest): a tall golden-brown stalk (stipe) with broad blades all the way up, a small
+ * gas-filled bladder at the base of each blade (what keeps real kelp floating up toward the light), and a
+ * floating canopy of blades at the top. `h` art pixels tall, so it can reach from the seabed to the surface.
+ */
+export function makeGiantKelp(scene: Phaser.Scene, key: string, seed: number, h: number): void {
+  const W = 24;
+  const r = rng(seed);
+  const [c, g] = canvas(W, h);
+  const phase = r() * Math.PI * 2;
+  const stemX = (y: number) => Math.round(W / 2 - 1 + Math.sin(y / 23 + phase) * 3);
+  const blade = (x: number, y: number, side: number, len: number) => {
+    for (let k = 1; k <= len; k++) {
+      const yy = y + Math.floor(k * 0.6);
+      const xx = x + side * k + (side > 0 ? 1 : 0);
+      px(g, xx, yy, k > len - 2 ? C.gold : C.clay);
+      px(g, xx, yy + 1, C.sandDark);
+      px(g, xx, yy + 2, C.brown);
+    }
+    px(g, x + side + (side > 0 ? 1 : 0), y - 1, C.yellow); // the bladder
+  };
+  for (let y = 0; y < h; y++) {
+    const x = stemX(y);
+    px(g, x, y, C.clay);
+    px(g, x + 1, y, C.brown);
+    if (y > 24 && y < h - 6 && (y + seed) % 9 === 0) blade(x, y, ((y / 9) | 0) % 2 === 0 ? -1 : 1, 5 + Math.floor(r() * 4));
+  }
+  // The canopy: blades spreading out at the top.
+  for (let k = 0; k < 7; k++) blade(stemX(2 + k * 3), 2 + k * 3, k % 2 === 0 ? -1 : 1, 7 + Math.floor(r() * 4));
+  add(scene, key, c);
+}
+
 /** A rock: a lumpy mound `w` x `h` art pixels with an outline, shading and a top highlight. */
 export function makeRock(scene: Phaser.Scene, key: string, seed: number, w: number, h: number): void {
   const r = rng(seed);

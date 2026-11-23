@@ -34,11 +34,11 @@ ok(await waitFor((c)=>{const g=window.game.scene.getScene('Game'); return g.food
 ok(Math.abs(swamp.hunger - coral.hunger) < 1e-6 && Math.abs(swamp.speed - coral.speed) < 1e-6, 'Swamp: speed and hunger are normal');
 ok(await waitFor(()=>window.__area.some(([n,h])=>n.includes('Swamp') && h.includes('Murky')), 3000), 'the Swamp banner explains the twist');
 
-ok(await goTo(47000, 'volcano'), 'in the Volcanic Rift');
+ok(await goTo(63000, 'volcano'), 'in the Volcanic Rift');
 const rift = await read();
 ok(rift.hunger > coral.hunger * 1.2, `Rift: hungrier (${(rift.hunger/coral.hunger).toFixed(2)}x)`);
 
-ok(await goTo(64000, 'ice'), 'in the Frozen Sea');
+ok(await goTo(106000, 'ice'), 'in the Frozen Sea');
 const ice = await read();
 ok(ice.speed < coral.speed * 0.95, `Frozen Sea: slower (${(ice.speed/coral.speed).toFixed(2)}x)`);
 ok(ice.hunger > coral.hunger * 1.2, `Frozen Sea: hungrier (${(ice.hunger/coral.hunger).toFixed(2)}x)`);
@@ -54,6 +54,29 @@ if (vent) {
   await G(()=>clearInterval(window.__hold));
 }
 ok(await G(()=>{const g=window.game.scene.getScene('Game'); return g.twistOf('volcano').ventHeal > 1 && g.twistOf('ice').ventHeal > 1 && g.twistOf('coral').ventHeal === 1;}), 'vents heal more in the Rift and the Frozen Sea');
+
+// Sargasso Drift: the current carries you east when you hold still.
+ok(await goTo(46000, 'sargasso'), 'in the Sargasso Drift');
+// Slow machines run the game clock slower: compare with the game's own time.
+const s0 = await G(()=>{const g=window.game.scene.getScene('Game'); return {x:g.player.x, t:g.runTime};});
+await p.waitForTimeout(3000);
+const s1 = await G(()=>{const g=window.game.scene.getScene('Game'); return {x:g.player.x, t:g.runTime};});
+const drift = (s1.x - s0.x) / Math.max(0.01, s1.t - s0.t);
+ok(drift > 25, `the current carries you east (${Math.round(drift)} px per game second)`);
+ok(await G(()=>{const g=window.game.scene.getScene('Game'); return g.kelpZones.filter(z=>g.regions.at(z.centerX).id==='sargasso' && z.y < g.terrain.surfaceY+200).length >= 10;}), 'floating weed mats are hiding places at the surface');
+
+// Twilight Trench: dark around you, day or night.
+ok(await goTo(78000, 'trench'), 'in the Twilight Trench');
+ok(await waitFor(()=>window.game.scene.getScene('Game').regionDark > 0.5, 6000), 'the Trench is dark even by day');
+ok(await G(()=>window.game.scene.getScene('Game').visionAt(78000) === 0.5), 'fish see half as far in the Trench');
+
+// Kelp Forest: big bodies swim slower among the kelp, hatchlings dart freely.
+ok(await goTo(91000, 'kelp'), 'in the Kelp Forest');
+ok(await waitFor(()=>window.game.scene.getScene('Game').player.envSpeed === 1, 3000), 'a level 15 juvenile is not slowed by the kelp');
+await G(()=>window.game.scene.getScene('Game').player.setLevel(35));
+ok(await waitFor(()=>window.game.scene.getScene('Game').player.envSpeed < 1, 3000), 'an adult swims slower among the kelp');
+ok(await G(()=>{const g=window.game.scene.getScene('Game'); return g.kelpZones.filter(z=>g.regions.at(z.centerX).id==='kelp').length > g.kelpZones.filter(z=>g.regions.at(z.centerX).id==='coral').length * 14/24;}), 'the Kelp Forest has more kelp than anywhere');
+await p.screenshot({path:'/tmp/kelp.png'});
 
 ok(errs.length===0, 'no page errors '+errs.slice(0,3).join(' | '));
 console.log('errors', JSON.stringify(errs.slice(0,3)));

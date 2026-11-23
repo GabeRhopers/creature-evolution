@@ -1,18 +1,18 @@
 {
   "playerSpecies": "crocodile",
   "world": {
-    "width": 72000,
+    "width": 114000,
     "height": 3200,
     "startX": 4500,
     "_startX": "Where a new run starts (the middle of the Coral Sea). The world loops: x = 0 and x = width are the same place.",
     "loopOverlap": 3600,
     "_loopOverlap": "Scenery within this many px of the world's edges is copied past the other edge, so the loop is seamless at every zoom.",
-    "populationScale": 5.2,
-    "_populationScale": "Reef fish counts (balance population) are multiplied by this for the whole world. Doubled with the sea (72000 px) to keep the same density; fish far from the player sleep (ai.sleepDistance), so only the nearby ones cost time.",
+    "populationScale": 8.2,
+    "_populationScale": "Reef fish counts (balance population) are multiplied by this for the whole world. Scaled with the sea (114000 px) to keep the same density; fish far from the player sleep (ai.sleepDistance), so only the nearby ones cost time.",
     "surfaceY": 120,
     "seabedDepth": 260,
-    "rockCount": 208,
-    "kelpPatches": 136
+    "rockCount": 329,
+    "kelpPatches": 215
   },
   "terrain": {
     "_comment": "Shape of the sea. Ground: sand dunes everywhere, rocky ridges, and seamounts whose flat tops (top = share of the water, 0 surface, 1 seabed) reach into the Reef with coral gardens. Islands break the surface; their sandbank (depth, px) is solid and their mangrove roots (rootsDepth) are a hiding place. Keep the player start (world center) clear.",
@@ -97,69 +97,104 @@
         "height": 160
       },
       {
-        "x": 38700,
+        "x": 54700,
         "width": 500,
         "height": 240
       },
       {
-        "x": 41700,
+        "x": 57700,
         "width": 500,
         "height": 300
       },
       {
-        "x": 44700,
+        "x": 60700,
         "width": 500,
         "height": 280
       },
       {
-        "x": 46850,
+        "x": 62850,
         "width": 400,
         "height": 220
       },
       {
-        "x": 49300,
+        "x": 65300,
         "width": 500,
         "height": 280
       },
       {
-        "x": 52300,
+        "x": 68300,
         "width": 500,
         "height": 300
       },
       {
-        "x": 55300,
+        "x": 71300,
         "width": 500,
         "height": 240
       },
       {
-        "x": 57956,
+        "x": 99956,
         "width": 500,
         "height": 180
       },
       {
-        "x": 59900,
+        "x": 101900,
         "width": 500,
         "height": 180
       },
       {
-        "x": 62222,
+        "x": 104222,
         "width": 500,
         "height": 200
       },
       {
-        "x": 65778,
+        "x": 107778,
         "width": 500,
         "height": 200
       },
       {
-        "x": 68100,
+        "x": 110100,
         "width": 500,
         "height": 180
       },
       {
-        "x": 70044,
+        "x": 112044,
         "width": 500,
         "height": 180
+      },
+      {
+        "x": 85200,
+        "width": 560,
+        "height": 180
+      },
+      {
+        "x": 86400,
+        "width": 500,
+        "height": 150
+      },
+      {
+        "x": 88700,
+        "width": 600,
+        "height": 200
+      },
+      {
+        "x": 90300,
+        "width": 480,
+        "height": 160
+      },
+      {
+        "x": 92600,
+        "width": 600,
+        "height": 210
+      },
+      {
+        "x": 94200,
+        "width": 500,
+        "height": 170
+      },
+      {
+        "x": 96500,
+        "width": 560,
+        "height": 190
       }
     ],
     "seamounts": [
@@ -204,64 +239,94 @@
         "top": 0.5
       },
       {
-        "x": 40000,
+        "x": 56000,
         "width": 1400,
         "top": 0.45
       },
       {
-        "x": 43300,
+        "x": 59300,
         "width": 1200,
         "top": 0.5
       },
       {
-        "x": 45900,
+        "x": 61900,
         "width": 1000,
         "top": 0.52
       },
       {
-        "x": 48100,
+        "x": 64100,
         "width": 1000,
         "top": 0.52
       },
       {
-        "x": 50700,
+        "x": 66700,
         "width": 1200,
         "top": 0.5
       },
       {
-        "x": 54000,
+        "x": 70000,
         "width": 1400,
         "top": 0.45
       },
       {
-        "x": 58844,
+        "x": 100844,
         "width": 1100,
         "top": 0.6
       },
       {
-        "x": 60978,
+        "x": 102978,
         "width": 1200,
         "top": 0.55
       },
       {
-        "x": 63100,
+        "x": 105100,
         "width": 1100,
         "top": 0.58
       },
       {
-        "x": 64900,
+        "x": 106900,
         "width": 1100,
         "top": 0.58
       },
       {
-        "x": 67022,
+        "x": 109022,
         "width": 1200,
         "top": 0.55
       },
       {
-        "x": 69156,
+        "x": 111156,
         "width": 1100,
         "top": 0.6
+      },
+      {
+        "x": 73900,
+        "width": 2600,
+        "top": 0.42
+      },
+      {
+        "x": 76300,
+        "width": 1400,
+        "top": 0.6
+      },
+      {
+        "x": 79700,
+        "width": 1400,
+        "top": 0.62
+      },
+      {
+        "x": 82100,
+        "width": 2600,
+        "top": 0.42
+      },
+      {
+        "x": 87600,
+        "width": 1300,
+        "top": 0.6
+      },
+      {
+        "x": 95200,
+        "width": 1300,
+        "top": 0.62
       }
     ],
     "islands": [
@@ -386,136 +451,141 @@
         "style": "mangrove"
       },
       {
-        "x": 38900,
+        "x": 54900,
         "width": 700,
         "depth": 240,
         "style": "volcano"
       },
       {
-        "x": 41900,
+        "x": 57900,
         "width": 900,
         "depth": 300,
         "style": "volcano"
       },
       {
-        "x": 44600,
+        "x": 60600,
         "width": 620,
         "depth": 220,
         "style": "volcano"
       },
       {
-        "x": 46500,
+        "x": 62500,
         "width": 520,
         "depth": 200,
         "style": "volcano"
       },
       {
-        "x": 47500,
+        "x": 63500,
         "width": 520,
         "depth": 200,
         "style": "volcano"
       },
       {
-        "x": 49400,
+        "x": 65400,
         "width": 620,
         "depth": 220,
         "style": "volcano"
       },
       {
-        "x": 52100,
+        "x": 68100,
         "width": 900,
         "depth": 300,
         "style": "volcano"
       },
       {
-        "x": 55100,
+        "x": 71100,
         "width": 700,
         "depth": 240,
         "style": "volcano"
       },
       {
-        "x": 57244,
+        "x": 99244,
         "width": 600,
         "depth": 320,
         "style": "iceberg"
       },
       {
-        "x": 58200,
+        "x": 100200,
         "width": 500,
         "depth": 260,
         "style": "iceberg"
       },
       {
-        "x": 59467,
+        "x": 101467,
         "width": 900,
         "depth": 420,
         "style": "iceberg"
       },
       {
-        "x": 60750,
+        "x": 102750,
         "width": 600,
         "depth": 320,
         "style": "iceberg"
       },
       {
-        "x": 61778,
+        "x": 103778,
         "width": 700,
         "depth": 360,
         "style": "iceberg"
       },
       {
-        "x": 62844,
+        "x": 104844,
         "width": 400,
         "depth": 240,
         "style": "iceberg"
       },
       {
-        "x": 63550,
+        "x": 105550,
         "width": 500,
         "depth": 260,
         "style": "iceberg"
       },
       {
-        "x": 64450,
+        "x": 106450,
         "width": 500,
         "depth": 260,
         "style": "iceberg"
       },
       {
-        "x": 65156,
+        "x": 107156,
         "width": 400,
         "depth": 240,
         "style": "iceberg"
       },
       {
-        "x": 66222,
+        "x": 108222,
         "width": 700,
         "depth": 360,
         "style": "iceberg"
       },
       {
-        "x": 67250,
+        "x": 109250,
         "width": 600,
         "depth": 320,
         "style": "iceberg"
       },
       {
-        "x": 68533,
+        "x": 110533,
         "width": 900,
         "depth": 420,
         "style": "iceberg"
       },
       {
-        "x": 69800,
+        "x": 111800,
         "width": 500,
         "depth": 260,
         "style": "iceberg"
       },
       {
-        "x": 70756,
+        "x": 112756,
         "width": 600,
         "depth": 320,
         "style": "iceberg"
+      },
+      {
+        "x": 91400,
+        "width": 640,
+        "depth": 150
       }
     ],
     "rootsDepth": 120,
@@ -550,10 +620,22 @@
         ]
       },
       {
+        "id": "sargasso",
+        "name": "Sargasso Drift",
+        "from": 38000,
+        "to": 54000,
+        "water": [
+          "#0099db",
+          "#124e89",
+          "#124e89",
+          "#262b44"
+        ]
+      },
+      {
         "id": "volcano",
         "name": "Volcanic Rift",
-        "from": 38000,
-        "to": 56000,
+        "from": 54000,
+        "to": 72000,
         "water": [
           "#5a6988",
           "#3a4466",
@@ -562,10 +644,34 @@
         ]
       },
       {
+        "id": "trench",
+        "name": "Twilight Trench",
+        "from": 72000,
+        "to": 84000,
+        "water": [
+          "#262b44",
+          "#181425",
+          "#181425",
+          "#181425"
+        ]
+      },
+      {
+        "id": "kelp",
+        "name": "Kelp Forest",
+        "from": 84000,
+        "to": 98000,
+        "water": [
+          "#124e89",
+          "#193c3e",
+          "#262b44",
+          "#181425"
+        ]
+      },
+      {
         "id": "ice",
         "name": "Frozen Sea",
-        "from": 56000,
-        "to": 72000,
+        "from": 98000,
+        "to": 114000,
         "water": [
           "#8b9bb4",
           "#5a6988",
@@ -595,20 +701,50 @@
         "opens": "Mangrove Swamp"
       },
       {
-        "id": "rock_fall",
-        "name": "Rock Fall",
+        "id": "weed_raft",
+        "name": "Weed Raft",
         "x": 38000,
         "crab": 20,
+        "action": "bite",
+        "hits": 5,
+        "style": "weed",
+        "opens": "Sargasso Drift"
+      },
+      {
+        "id": "rock_fall",
+        "name": "Rock Fall",
+        "x": 54000,
+        "crab": 30,
         "action": "ram",
         "hits": 4,
         "style": "rocks",
         "opens": "Volcanic Rift"
       },
       {
+        "id": "trench_lip",
+        "name": "Trench Lip",
+        "x": 72000,
+        "crab": 40,
+        "action": "ram",
+        "hits": 4,
+        "style": "rocks",
+        "opens": "Twilight Trench"
+      },
+      {
+        "id": "kelp_curtain",
+        "name": "Kelp Curtain",
+        "x": 84000,
+        "crab": 50,
+        "action": "bite",
+        "hits": 5,
+        "style": "kelp",
+        "opens": "Kelp Forest"
+      },
+      {
         "id": "ice_wall_east",
         "name": "Ice Wall",
-        "x": 56000,
-        "crab": 30,
+        "x": 98000,
+        "crab": 60,
         "action": "ram",
         "hits": 4,
         "style": "ice",
@@ -617,8 +753,8 @@
       {
         "id": "ice_wall_west",
         "name": "Ice Wall",
-        "x": 71900,
-        "crab": 30,
+        "x": 113900,
+        "crab": 60,
         "action": "ram",
         "hits": 4,
         "style": "ice",
@@ -849,154 +985,175 @@
       },
       {
         "kind": "vent",
-        "x": 38250,
+        "x": 54250,
         "scale": 1.3
       },
       {
         "kind": "vent",
-        "x": 38310,
+        "x": 54310,
         "scale": 0.9
       },
       {
         "kind": "vent",
-        "x": 41100,
-        "scale": 1.4
-      },
-      {
-        "kind": "vent",
-        "x": 41160,
-        "scale": 0.8
-      },
-      {
-        "kind": "vent",
-        "x": 42200,
-        "scale": 1.2
-      },
-      {
-        "kind": "vent",
-        "x": 42260,
-        "scale": 0.8
-      },
-      {
-        "kind": "ruins",
-        "x": 42450
-      },
-      {
-        "kind": "submarine",
-        "x": 44180,
-        "sink": 18
-      },
-      {
-        "kind": "vent",
-        "x": 45150,
-        "scale": 1.4
-      },
-      {
-        "kind": "vent",
-        "x": 45210,
-        "scale": 0.9
-      },
-      {
-        "kind": "vent",
-        "x": 48790,
-        "scale": 0.9
-      },
-      {
-        "kind": "vent",
-        "x": 48850,
-        "scale": 1.4
-      },
-      {
-        "kind": "submarine",
-        "x": 49820,
-        "sink": 18
-      },
-      {
-        "kind": "ruins",
-        "x": 51550
-      },
-      {
-        "kind": "vent",
-        "x": 51740,
-        "scale": 0.8
-      },
-      {
-        "kind": "vent",
-        "x": 51800,
-        "scale": 1.2
-      },
-      {
-        "kind": "vent",
-        "x": 52840,
-        "scale": 0.8
-      },
-      {
-        "kind": "vent",
-        "x": 52900,
-        "scale": 1.4
-      },
-      {
-        "kind": "vent",
-        "x": 55690,
-        "scale": 0.9
-      },
-      {
-        "kind": "vent",
-        "x": 55750,
-        "scale": 1.3
-      },
-      {
-        "kind": "whale",
         "x": 57100,
         "scale": 1.4
       },
       {
-        "kind": "anchor",
-        "x": 61700
+        "kind": "vent",
+        "x": 57160,
+        "scale": 0.8
       },
       {
-        "kind": "chest",
-        "x": 63800
+        "kind": "vent",
+        "x": 58200,
+        "scale": 1.2
       },
       {
-        "kind": "chest",
-        "x": 64200
+        "kind": "vent",
+        "x": 58260,
+        "scale": 0.8
       },
       {
-        "kind": "anchor",
-        "x": 66300
+        "kind": "ruins",
+        "x": 58450
       },
       {
-        "kind": "whale",
-        "x": 70900,
+        "kind": "submarine",
+        "x": 60180,
+        "sink": 18
+      },
+      {
+        "kind": "vent",
+        "x": 61150,
         "scale": 1.4
       },
       {
         "kind": "vent",
-        "x": 61000
+        "x": 61210,
+        "scale": 0.9
       },
       {
         "kind": "vent",
-        "x": 61060,
+        "x": 64790,
+        "scale": 0.9
+      },
+      {
+        "kind": "vent",
+        "x": 64850,
+        "scale": 1.4
+      },
+      {
+        "kind": "submarine",
+        "x": 65820,
+        "sink": 18
+      },
+      {
+        "kind": "ruins",
+        "x": 67550
+      },
+      {
+        "kind": "vent",
+        "x": 67740,
         "scale": 0.8
       },
       {
         "kind": "vent",
-        "x": 66400
+        "x": 67800,
+        "scale": 1.2
       },
       {
         "kind": "vent",
-        "x": 66340,
+        "x": 68840,
         "scale": 0.8
       },
       {
         "kind": "vent",
-        "x": 69200
+        "x": 68900,
+        "scale": 1.4
       },
       {
         "kind": "vent",
-        "x": 69260,
+        "x": 71690,
+        "scale": 0.9
+      },
+      {
+        "kind": "vent",
+        "x": 71750,
+        "scale": 1.3
+      },
+      {
+        "kind": "whale",
+        "x": 99100,
+        "scale": 1.4
+      },
+      {
+        "kind": "anchor",
+        "x": 103700
+      },
+      {
+        "kind": "chest",
+        "x": 105800
+      },
+      {
+        "kind": "chest",
+        "x": 106200
+      },
+      {
+        "kind": "anchor",
+        "x": 108300
+      },
+      {
+        "kind": "whale",
+        "x": 112900,
+        "scale": 1.4
+      },
+      {
+        "kind": "vent",
+        "x": 103000
+      },
+      {
+        "kind": "vent",
+        "x": 103060,
         "scale": 0.8
+      },
+      {
+        "kind": "vent",
+        "x": 108400
+      },
+      {
+        "kind": "vent",
+        "x": 108340,
+        "scale": 0.8
+      },
+      {
+        "kind": "vent",
+        "x": 111200
+      },
+      {
+        "kind": "vent",
+        "x": 111260,
+        "scale": 0.8
+      },
+      {
+        "kind": "wreck",
+        "x": 44800
+      },
+      {
+        "kind": "chest",
+        "x": 50200
+      },
+      {
+        "kind": "whale",
+        "x": 78000
+      },
+      {
+        "kind": "vent",
+        "x": 76200,
+        "scale": 0.8
+      },
+      {
+        "kind": "anchor",
+        "x": 89900
       }
     ],
     "hide": [
@@ -1068,11 +1225,79 @@
       },
       {
         "kind": "bottle",
-        "x": 62200
+        "x": 104200
       },
       {
         "kind": "bottle",
-        "x": 65800
+        "x": 107800
+      },
+      {
+        "kind": "weed",
+        "x": 39200
+      },
+      {
+        "kind": "weed",
+        "x": 40100
+      },
+      {
+        "kind": "weed",
+        "x": 41000
+      },
+      {
+        "kind": "weed",
+        "x": 41900
+      },
+      {
+        "kind": "weed",
+        "x": 42800
+      },
+      {
+        "kind": "weed",
+        "x": 43700
+      },
+      {
+        "kind": "weed",
+        "x": 44600
+      },
+      {
+        "kind": "weed",
+        "x": 45500
+      },
+      {
+        "kind": "weed",
+        "x": 46400
+      },
+      {
+        "kind": "weed",
+        "x": 47300
+      },
+      {
+        "kind": "weed",
+        "x": 48200
+      },
+      {
+        "kind": "weed",
+        "x": 49100
+      },
+      {
+        "kind": "weed",
+        "x": 50000
+      },
+      {
+        "kind": "weed",
+        "x": 50900
+      },
+      {
+        "kind": "weed",
+        "x": 51800
+      },
+      {
+        "kind": "weed",
+        "x": 52700
+      },
+      {
+        "kind": "bottle",
+        "x": 46100
       }
     ]
   },
@@ -1233,115 +1458,172 @@
       "coral": 1,
       "swamp": 0.25,
       "volcano": 0.5,
-      "ice": 0
+      "ice": 0,
+      "sargasso": 0.6,
+      "trench": 0,
+      "kelp": 0
     },
     "reef_snapper": {
       "coral": 1,
       "swamp": 1,
       "volcano": 0.8,
-      "ice": 0.15
+      "ice": 0.15,
+      "sargasso": 1,
+      "trench": 0,
+      "kelp": 0.6
     },
     "red_grouper": {
       "coral": 1,
       "swamp": 0.6,
       "volcano": 1,
-      "ice": 0.2
+      "ice": 0.2,
+      "sargasso": 0.4,
+      "trench": 0,
+      "kelp": 0.8
     },
     "grey_shark": {
       "coral": 1,
       "swamp": 0.4,
       "volcano": 0.6,
-      "ice": 0.8
+      "ice": 0.8,
+      "sargasso": 1,
+      "trench": 0.3,
+      "kelp": 0.6
     },
     "lionfish": {
       "coral": 1,
       "swamp": 0.15,
       "volcano": 0.4,
-      "ice": 0
+      "ice": 0,
+      "sargasso": 0.2,
+      "trench": 0,
+      "kelp": 0
     },
     "moray_eel": {
       "coral": 1,
       "swamp": 0.3,
       "volcano": 1,
-      "ice": 0
+      "ice": 0,
+      "sargasso": 0,
+      "trench": 0,
+      "kelp": 0
     },
     "barracuda": {
       "coral": 1,
       "swamp": 0.7,
       "volcano": 0.8,
-      "ice": 0
+      "ice": 0,
+      "sargasso": 1,
+      "trench": 0,
+      "kelp": 0.4
     },
     "archerfish": {
       "coral": 0,
       "swamp": 1,
       "volcano": 0,
-      "ice": 0
+      "ice": 0,
+      "sargasso": 0,
+      "trench": 0,
+      "kelp": 0
     },
     "polar_cod": {
       "coral": 0,
       "swamp": 0,
       "volcano": 0,
-      "ice": 1
+      "ice": 1,
+      "sargasso": 0,
+      "trench": 0,
+      "kelp": 0
     },
     "anglerfish": {
-      "coral": 1,
+      "coral": 0.5,
       "swamp": 0.3,
-      "volcano": 1,
-      "ice": 1
+      "volcano": 0.5,
+      "ice": 0.3,
+      "sargasso": 0,
+      "trench": 1,
+      "kelp": 0
     },
     "bull_shark": {
       "coral": 0.15,
       "swamp": 1,
       "volcano": 0,
-      "ice": 0
+      "ice": 0,
+      "sargasso": 0.3,
+      "trench": 0,
+      "kelp": 0
     },
     "leopard_seal": {
       "coral": 0,
       "swamp": 0,
       "volcano": 0,
-      "ice": 1
+      "ice": 1,
+      "sargasso": 0,
+      "trench": 0,
+      "kelp": 0
     },
     "great_white": {
       "coral": 1,
       "swamp": 0,
       "volcano": 0.3,
-      "ice": 0.7
+      "ice": 0.7,
+      "sargasso": 0.4,
+      "trench": 0,
+      "kelp": 1
     },
     "sperm_whale": {
       "coral": 0.3,
       "swamp": 0,
       "volcano": 0.3,
-      "ice": 1
+      "ice": 1,
+      "sargasso": 0.6,
+      "trench": 1,
+      "kelp": 0
     },
     "box_jelly": {
       "coral": 1,
       "swamp": 0.4,
       "volcano": 0.3,
-      "ice": 0
+      "ice": 0,
+      "sargasso": 1,
+      "trench": 0.3,
+      "kelp": 0
     },
     "sea_snake": {
       "coral": 1,
       "swamp": 1,
       "volcano": 0.5,
-      "ice": 0
+      "ice": 0,
+      "sargasso": 0.5,
+      "trench": 0,
+      "kelp": 0
     },
     "giant_octopus": {
       "coral": 0.3,
       "swamp": 0,
       "volcano": 1,
-      "ice": 0.2
+      "ice": 0.2,
+      "sargasso": 0,
+      "trench": 0,
+      "kelp": 0.4
     },
     "giant_squid": {
-      "coral": 0.4,
+      "coral": 0.2,
       "swamp": 0,
-      "volcano": 1,
-      "ice": 1
+      "volcano": 0.4,
+      "ice": 0.4,
+      "sargasso": 0,
+      "trench": 1,
+      "kelp": 0
     },
     "orca": {
       "coral": 0.1,
       "swamp": 0,
       "volcano": 0,
-      "ice": 1
+      "ice": 1,
+      "sargasso": 0.15,
+      "trench": 0,
+      "kelp": 0.4
     }
   },
   "spawnDefaults": {
@@ -2132,7 +2414,7 @@
     "dryDamagePerSecond": 0.06
   },
   "regionTwists": {
-    "_comment": "Each region plays a little differently (src/systems/regionTwists.ts). 1 = no change. vision: how far every fish sees; food: plankton amount; hunger and speed: the player's; ventHeal: warm vent healing; ventWarms: resting by a vent cancels the hunger and speed twist.",
+    "_comment": "Each region plays a little differently (src/systems/regionTwists.ts). 1 = no change. vision: how far every fish sees; food: plankton amount; hunger and speed: the player's; ventHeal: warm vent healing; ventWarms: resting by a vent cancels the hunger and speed twist. current: px/s pushing everything east (Sargasso Drift). dark: darkness around the player day and night, plankton glows (Trench, 0 to 1). bigSlow: speed of creatures above juvenile size there (Kelp Forest).",
     "coral": {
       "hint": ""
     },
@@ -2153,6 +2435,23 @@
       "ventWarms": true,
       "food": 0.85,
       "hint": "Cold water: you swim slower and get hungry faster. Warm up by a vent"
+    },
+    "sargasso": {
+      "hint": "Open water: hide under the floating weed. A current pushes you east",
+      "food": 0.9,
+      "current": 55
+    },
+    "trench": {
+      "vision": 0.5,
+      "hunger": 1.1,
+      "food": 0.8,
+      "hint": "Dark water: everyone sees half as far. Glowing fish give themselves away",
+      "dark": 0.75
+    },
+    "kelp": {
+      "food": 1.2,
+      "bigSlow": 0.85,
+      "hint": "Tangled kelp: hiding everywhere, but big bodies swim slower"
     }
   }
 }

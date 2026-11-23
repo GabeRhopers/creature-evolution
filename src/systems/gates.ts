@@ -3,7 +3,7 @@
 // hits and messages live in GateSystem (src/scenes/GateSystem.ts).
 
 export type GateAction = 'bite' | 'ram';
-export type GateStyle = 'roots' | 'rocks' | 'ice';
+export type GateStyle = 'roots' | 'weed' | 'kelp' | 'rocks' | 'ice';
 
 export interface GateDef {
   id: string;

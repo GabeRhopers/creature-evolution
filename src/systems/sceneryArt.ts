@@ -277,12 +277,32 @@ export function makeScenery(scene: Phaser.Scene, key: string, kind: SceneryKind,
 
 // ------------------------------------------------------------------ floating at the surface (origin: center)
 
-export const FLOAT_KINDS = ['rowboat', 'ball', 'bottle'] as const;
+export const FLOAT_KINDS = ['rowboat', 'ball', 'bottle', 'weed'] as const;
 export type FloatKind = (typeof FLOAT_KINDS)[number];
 
 export function makeFloat(scene: Phaser.Scene, key: string, kind: FloatKind): void {
   if (scene.textures.exists(key)) return;
-  if (kind === 'rowboat') {
+  if (kind === 'weed') {
+    // A mat of golden sargassum: a lumpy raft at the surface with round air bladders, fronds hanging below.
+    const W = 56, H = 22;
+    const g = new Grid(W, H);
+    const r = rng(77);
+    for (let i = 0; i < 26; i++) {
+      const cx = 3 + r() * (W - 6), cy = 3 + r() * 4;
+      g.ellipse(cx, cy, 2 + r() * 3, 1.5 + r() * 1.5, (x, y) => (bayer(x, y) < 0.35 ? C.coral : C.gold));
+    }
+    for (let i = 0; i < 16; i++) {
+      let x = 4 + r() * (W - 8);
+      const len = 6 + Math.floor(r() * 12);
+      for (let y = 6; y < 6 + len && y < H; y++) {
+        x += (r() - 0.5) * 1.2;
+        g.dot(x, y, y % 3 === 0 ? C.clay : C.gold);
+      }
+    }
+    for (let i = 0; i < 22; i++) g.dot(2 + r() * (W - 4), 2 + r() * (H - 6), C.yellow);
+    g.outline(C.brown);
+    g.toTexture(scene, key);
+  } else if (kind === 'rowboat') {
     const g = new Grid(36, 12);
     g.poly([[1, 3], [35, 3], [30, 11], [6, 11]], (x, y) => plank(x, y + 1));
     g.rect(2, 2, 32, 1, C.clay);

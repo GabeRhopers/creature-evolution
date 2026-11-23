@@ -8,6 +8,9 @@
  * - speed:    the player's top speed (cold water: a little slower).
  * - ventHeal: how much more a warm vent heals there.
  * - ventWarms: true if resting by a warm vent cancels the region's hunger and speed twist (Frozen Sea).
+ * - current:  px/s pushing every swimmer east (Sargasso Drift).
+ * - bigSlow:  speed of big bodies there (adult player, predators of tier 3 and up) among the kelp (Kelp Forest).
+ * - dark:     darkness around the player, day or night (0 none, 1 night-dark), and plankton glows (Twilight Trench).
  */
 import balance from '../data/balance.json';
 
@@ -18,11 +21,14 @@ export interface RegionTwist {
   speed: number;
   ventHeal: number;
   ventWarms: boolean;
+  current: number;
+  bigSlow: number;
+  dark: number;
   /** One short line for the region banner (empty = none). */
   hint: string;
 }
 
-const NONE: RegionTwist = { vision: 1, food: 1, hunger: 1, speed: 1, ventHeal: 1, ventWarms: false, hint: '' };
+const NONE: RegionTwist = { vision: 1, food: 1, hunger: 1, speed: 1, ventHeal: 1, ventWarms: false, current: 0, bigSlow: 1, dark: 0, hint: '' };
 
 type Raw = Partial<RegionTwist> & { _comment?: string };
 

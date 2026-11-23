@@ -4,13 +4,13 @@ import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Bubbles } from '../systems/Bubbles';
-import { C, makeKelp, makeRay, makeRock, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
+import { C, makeGiantKelp, makeKelp, makeRay, makeRock, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
 import { Terrain, type TerrainConfig } from '../systems/terrain';
 import { SpatialGrid } from '../systems/spatialGrid';
 import { countInTide, factorsFor, groupSizes, outShare, rollLevel, type PeriodId, type SpawnFactors } from '../systems/spawnFactors';
 import { openedFromSave, type GatesConfig } from '../systems/gates';
 import { GateSystem } from './GateSystem';
-import { Regions, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
+import { Regions, migrateX, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
 import { DayNight, type DayNightConfig, type Light, type Period } from '../systems/dayNight';
 import { CORAL_KINDS, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow, makeVolcano, volcanoRows, VOLCANO_REACH } from '../systems/terrainArt';
 import { Grid, SCENERY_SIZE, makeFarIslands, makeFarPeaks, makeFloat, makeScenery, type FloatKind, type SceneryKind } from '../systems/sceneryArt';
@@ -123,6 +123,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   visionAt(x: number): number {
     return this.regions ? this.twistOf(this.regions.at(x).id).vision : 1;
   }
+  /** Darkness of the region around the player (eases in and out; the Light scene draws it). */
+  regionDark = 0;
   /** Region and vent state the player's perks were last set for (re-apply when it changes). */
   private twistKey = '';
   food!: FoodField;
@@ -425,6 +427,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const huntCount = this.huntCount;
     huntCount.clear();
     this.updateSpawnFactors(dt);
+    this.updateEnvironment(dt);
     for (let i = 0; i < this.creatures.length; i++) {
       const c = this.creatures[i];
       if (!c.brain) continue;
@@ -632,6 +635,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       crabLevel: this.crabLevel,
       gatesOpen: this.gates?.openIds() ?? [],
       dayTime: this.dayTime,
+      worldW: BALANCE.world.width,
     });
   }
 
@@ -955,6 +959,24 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.stomach.hungerMul = m.hunger * pt.hunger;
   }
 
+  /**
+   * Region twists that act on every swimmer: the Sargasso current pushes everyone east, the kelp slows
+   * big bodies, and the Trench is dark around the player.
+   */
+  private updateEnvironment(dt: number): void {
+    const adult = stageIndex(this.player.level) >= 2;
+    for (const c of this.creatures) {
+      if (c.asleep) continue;
+      const f = c.fish;
+      const t = this.twistOf(this.regions.at(f.x).id);
+      const big = c.isPlayer ? adult : f.species.tier >= 3;
+      f.envSpeed = big ? t.bigSlow : 1;
+      if (t.current && !(c.isPlayer && this.dead) && !c.guardian) f.x += t.current * dt;
+    }
+    const want = this.dead ? 0 : this.twist.dark;
+    this.regionDark += (want - this.regionDark) * Math.min(1, dt * 1.5);
+  }
+
   private twistKeyNow(): string {
     return `${this.region?.id ?? ''}:${this.inVent && this.twist.ventWarms}`;
   }
@@ -1015,6 +1037,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       crabLevel: this.crabLevel,
       gatesOpen: this.gates?.openIds() ?? [],
       dayTime: this.dayTime,
+      worldW: BALANCE.world.width,
     });
     if (ok) {
       this.lastCheckpointAt = saves.lastSavedAt;
@@ -1036,7 +1059,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     p.xp = Math.min(c.xp, p.xpNeeded - 0.001);
     p.stamina = c.stamina;
     const a = this.swimArea;
-    p.setPosition(this.terrain.wrap(c.x), Phaser.Math.Clamp(c.y, a.top, a.bottom));
+    p.setPosition(this.terrain.wrap(migrateX(c.x, c.worldW, BALANCE.world.width)), Phaser.Math.Clamp(c.y, a.top, a.bottom));
     this.stomach.reset(c.level);
     this.stomach.fill = this.stomach.capacity * c.stomachRatio;
     this.stomach.bank = c.stomachBank;
@@ -1971,6 +1994,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     else if (region === 'swamp') mood = 'swamp';
     else if (region === 'ice') mood = 'ice';
     else if (region === 'volcano') mood = 'volcano';
+    else if (region === 'trench') mood = 'deep';
+    else if (region === 'kelp') mood = this.period === 'night' ? 'moonlit' : 'golden';
     else mood = this.period === 'night' ? 'moonlit' : this.period === 'day' ? 'sunny' : 'golden';
     this.hud?.setMood(mood, this.menuMode || !p ? 1 : tideOf(p.level), !this.menuMode && this.playerHunted);
   }
@@ -2211,8 +2236,18 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     for (const [i, f] of BALANCE.scenery.floats.entries()) {
       const kind = f.kind as FloatKind;
       makeFloat(this, `w_float_${kind}`, kind);
-      const img = this.add.image(f.x, y + (kind === 'rowboat' ? -2 : 4), `w_float_${kind}`).setScale(WORLD_PX).setFlipX(i % 2 === 1).setDepth(-17);
-      this.tweens.add({ targets: img, y: img.y + 6, angle: { from: -3, to: 3 }, duration: 1600 + i * 230, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      const weed = kind === 'weed';
+      const img = this.add
+        .image(f.x, y + (kind === 'rowboat' ? -2 : weed ? 30 : 4), `w_float_${kind}`)
+        .setScale(WORLD_PX)
+        .setFlipX(i % 2 === 1)
+        .setDepth(weed ? 19 : -17);
+      this.tweens.add({ targets: img, y: img.y + 6, angle: weed ? { from: -1, to: 1 } : { from: -3, to: 3 }, duration: 1600 + i * 230, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      // Sargassum mats are hiding places just under the surface (they stay put, so the hiding spot does too).
+      if (weed) {
+        this.kelpZones.push(new Phaser.Geom.Rectangle(f.x - img.displayWidth * 0.45, y, img.displayWidth * 0.9, img.displayHeight * 0.8));
+        continue;
+      }
       if (kind !== 'rowboat') this.tweens.add({ targets: img, x: img.x + (i % 2 ? -260 : 260), duration: 26000 + i * 3000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
   }
@@ -2326,10 +2361,27 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       // Volcanic Rift: tube worms (white stalks with red plumes) and a little dark weed.
       volcano: regional('volcano', [[22, C.mist, C.white, C.red], [30, C.stone, C.white, C.red], [38, C.mist, C.white, C.orange], [50, C.bark, C.plum, C.pink]]),
       ice: regional('ice', [[90, C.bark, C.brown, C.clay], [120, C.brown, C.clay, C.sand], [140, C.bark, C.brown, C.sand], [70, C.brown, C.clay, C.peach]]),
+      // Sargasso Drift: a little pale sea grass on the deep sand (the weed floats at the surface).
+      sargasso: regional('sargasso', [[18, C.sandDark, C.bone, C.sand], [26, C.clay, C.sandDark, C.bone], [34, C.sandDark, C.gold, C.bone]]),
+      // Twilight Trench: short sea pens and whips that glow faintly.
+      trench: regional('trench', [[20, C.navy, C.plum, C.cyan], [30, C.navy, C.slate, C.cyan], [42, C.ink, C.plum, C.pinkLight]]),
+      // Kelp Forest: giant kelp, the tallest plants in the sea (from the seabed up to the surface), and a few short ones.
+      kelp: [
+        ...[420, 520, 600, 660].map((h, i) => {
+          const key = `w_giantkelp_${i}`;
+          makeGiantKelp(this, key, 90 + i, h);
+          return { key, h };
+        }),
+        ...regional('kelp', [[70, C.brown, C.clay, C.gold], [50, C.leafDark, C.leaf, C.gold]]),
+      ],
     };
-    for (let p = 0; p < BALANCE.world.kelpPatches; p++) {
-      let cx = Phaser.Math.Between(200, W - 200);
-      for (let k = 0; k < 14 && (Math.abs(this.terrain.slopeAt(cx)) > 0.3 || this.sceneryAt(cx)); k++) cx = Phaser.Math.Between(200, W - 200);
+    // The Kelp Forest gets many more patches than anywhere else (its own share on top of the even spread).
+    const kelpForest = this.regions.cfg.list.find((r) => r.id === 'kelp');
+    const extra = kelpForest ? Math.round(((kelpForest.to - kelpForest.from) / 1000) * 3) : 0;
+    for (let p = 0; p < BALANCE.world.kelpPatches + extra; p++) {
+      const pick = () => (p >= BALANCE.world.kelpPatches && kelpForest ? Phaser.Math.Between(kelpForest.from + 300, kelpForest.to - 300) : Phaser.Math.Between(200, W - 200));
+      let cx = pick();
+      for (let k = 0; k < 14 && (Math.abs(this.terrain.slopeAt(cx)) > 0.3 || this.sceneryAt(cx)); k++) cx = pick();
       const count = Phaser.Math.Between(4, 9);
       const spread = count * 40;
       let tallest = 0;

@@ -12,7 +12,7 @@ const grow=async(level)=>{ await G((lv)=>{const g=window.game.scene.getScene('Ga
   await waitFor((lv)=>window.game.scene.getScene('Game').player.level===lv, 8000, level); };
 const has=(id)=>G((id)=>window.game.scene.getScene('Game').creatures.some(c=>c.fish.species.id===id), id);
 /** Where a species' fish are: count per region. */
-const where=(id)=>G((id)=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,volcano:0,ice:0};
+const where=(id)=>G((id)=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,sargasso:0,volcano:0,trench:0,kelp:0,ice:0};
   for (const c of g.creatures) if (c.fish.species.id===id) n[g.regions.at(c.fish.x).id]++; return n;}, id);
 
 await p.goto('http://localhost:4173/'); await G(()=>localStorage.clear()); await p.reload();
@@ -37,7 +37,7 @@ for (const [lv, id, name] of [[8,'box_jelly','Box Jellyfish'],[12,'sea_snake','S
 }
 const seal = await where('leopard_seal'), whale = await where('sperm_whale'), bull = await where('bull_shark');
 // Hunters roam while they chase: check where they head home to, not one snapshot.
-const homes=(id)=>G((id)=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,volcano:0,ice:0};
+const homes=(id)=>G((id)=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,sargasso:0,volcano:0,trench:0,kelp:0,ice:0};
   for (const c of g.creatures) if (c.fish.species.id===id) for (let i=0;i<20;i++) n[g.regions.at(c.homeX()).id]++; return n;}, id);
 const sealHome = await homes('leopard_seal'), bullHome = await homes('bull_shark');
 ok(sealHome.ice > 0 && sealHome.coral + sealHome.swamp + sealHome.volcano === 0, 'leopard seals live only in the Frozen Sea: '+JSON.stringify(sealHome)+' now '+JSON.stringify(seal));
@@ -48,7 +48,7 @@ const octo = await where('giant_octopus'), orca = await where('orca');
 const octoHome = await homes('giant_octopus');
 ok(octoHome.volcano > octoHome.coral + octoHome.swamp + octoHome.ice && octoHome.swamp === 0, 'octopuses live mostly in the Volcanic Rift: '+JSON.stringify(octoHome)+' now '+JSON.stringify(octo));
 // Fast pod hunters roam while they chase: check where they head home to, not one snapshot.
-const orcaHome = await G(()=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,volcano:0,ice:0};
+const orcaHome = await G(()=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,sargasso:0,volcano:0,trench:0,kelp:0,ice:0};
   for (const c of g.creatures) if (c.fish.species.id==='orca') for (let i=0;i<20;i++) n[g.regions.at(c.homeX()).id]++; return n;});
 ok(orcaHome.ice > (orcaHome.coral + orcaHome.swamp + orcaHome.volcano) * 3 && orcaHome.swamp + orcaHome.volcano === 0, 'orca pods live in the Frozen Sea (where they head home): '+JSON.stringify(orcaHome)+' now '+JSON.stringify(orca));
 // (Fish far off screen are not drawn or updated, so look at one in view.)

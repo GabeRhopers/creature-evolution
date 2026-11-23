@@ -160,9 +160,11 @@ export class LightScene extends Phaser.Scene {
     if (!L) return;
     const { width, height } = this.scale;
     this.tint.setFillStyle(L.tint, L.tintAlpha);
-    this.drawGlow(g, L.glow);
+    // Dark regions (the Twilight Trench) are dark day and night, and their plankton glows.
+    const dark = Math.max(L.dark, g.regionDark ?? 0);
+    this.drawGlow(g, Math.max(L.glow, g.regionDark ?? 0));
     const p = g.player;
-    if (!p || L.dark < 0.01) {
+    if (!p || dark < 0.01) {
       this.dark.setAlpha(0);
       return;
     }
@@ -174,6 +176,6 @@ export class LightScene extends Phaser.Scene {
     const hole = Math.max(170, p.size * cam.zoom * 4.5);
     // Half the image must still cover the screen from the player's spot; the clear part is 5% of it.
     const scale = Math.max((diag * 1.1) / 256, hole / 25.6);
-    this.dark.setPosition(sx, sy).setScale(scale).setAlpha(L.dark);
+    this.dark.setPosition(sx, sy).setScale(scale).setAlpha(dark);
   }
 }

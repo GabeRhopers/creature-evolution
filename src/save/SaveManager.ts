@@ -79,6 +79,8 @@ export interface Checkpoint {
   gatesOpen?: string[];
   /** Seconds into the day-and-night cycle (missing = the run's start time). */
   dayTime?: number;
+  /** World width when saved (missing = the 72000 px, 4-region sea; positions are moved to the new layout). */
+  worldW?: number;
 }
 
 /** What is actually written: the payload plus a header. */

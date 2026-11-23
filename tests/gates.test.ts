@@ -14,7 +14,7 @@ describe('gates between regions (Nov 23)', () => {
       expect(g.crab % BALANCE.checkpointCrab.everyLevels, g.id).toBe(0);
       expect(g.hits, g.id).toBeGreaterThan(0);
     }
-    expect(cfg.list.map((g) => g.crab)).toEqual([10, 20, 30, 30]);
+    expect(cfg.list.map((g) => g.crab)).toEqual([10, 20, 30, 40, 50, 60, 60]);
     expect(cfg.list.filter((g) => g.opens === 'Frozen Sea').length).toBe(2);
   });
   it('keep the start in the Coral Sea, between the Root Tangle and the west Ice Wall', () => {

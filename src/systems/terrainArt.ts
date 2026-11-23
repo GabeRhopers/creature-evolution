@@ -13,6 +13,9 @@ const GROUND: Record<RegionId, { sand: string; sandDark: string; speck: string; 
   coral: { sand: C.sand, sandDark: C.sandDark, speck: C.clay, speck2: C.brown, outline: C.navy, rockTop: C.stone, rock: C.grey, rockDeep: C.slate, moss: [C.leaf, C.pinkLight] },
   swamp: { sand: C.clay, sandDark: C.brown, speck: C.bark, speck2: C.leafDark, outline: C.ink, rockTop: C.leaf, rock: C.bark, rockDeep: C.ink, moss: [C.leafDark, C.leaf] },
   volcano: { sand: C.slate, sandDark: C.navy, speck: C.grey, speck2: C.orange, outline: C.ink, rockTop: C.grey, rock: C.slate, rockDeep: C.navy, moss: [C.orange, C.gold] },
+  sargasso: { sand: C.sand, sandDark: C.sandDark, speck: C.bone, speck2: C.gold, outline: C.navy, rockTop: C.stone, rock: C.grey, rockDeep: C.slate, moss: [C.gold, C.coral] },
+  trench: { sand: C.slate, sandDark: C.navy, speck: C.grey, speck2: C.cyan, outline: C.ink, rockTop: C.grey, rock: C.navy, rockDeep: C.ink, moss: [C.cyan, C.plum] },
+  kelp: { sand: C.sandDark, sandDark: C.clay, speck: C.brown, speck2: C.plum, outline: C.ink, rockTop: C.stone, rock: C.grey, rockDeep: C.slate, moss: [C.pink, C.leaf] },
   ice: { sand: C.white, sandDark: C.mist, speck: C.stone, speck2: C.cyan, outline: C.slate, rockTop: C.white, rock: C.mist, rockDeep: C.stone, moss: [C.cyan, C.white] },
 };
 
