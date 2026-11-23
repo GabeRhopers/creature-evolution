@@ -878,7 +878,9 @@
       "damageMul": 1.2,
       "knockback": 420,
       "reboundSizeRatio": 1.5
-    }
+    },
+    "ramSlowRankRatio": 1.25,
+    "_ramSlowRankRatio": "Ramming a fish slows you (half speed) only if it is clearly stronger than you (rank above 1.25x yours, like the threat rule); anything else is just knocked aside. Rams and rock stuns count the speed aimed into the target, not a graze."
   },
   "stomach": {
     "enabled": true,

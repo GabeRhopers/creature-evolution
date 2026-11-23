@@ -51,6 +51,9 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   xp = 0;
   /** Difficulty multiplier on swim speed (AI only; player stays 1). */
   speedMul = 1;
+  /** Velocity asked for this frame, before collisions (how hard you hit something head-on). */
+  lastVx = 0;
+  lastVy = 0;
   /** Seconds left stunned (no steering or thrust). */
   stunTimer = 0;
   /** Seconds left in an active Dash. */
@@ -392,8 +395,10 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     if (this.y - this.size < surfaceY + 4) vy += BALANCE.surface.pushDown * dt;
 
     body.setVelocity(vx, vy);
-    // Speed we asked for, before the next physics step's collisions change it.
+    // Speed (and velocity) we asked for, before the next physics step's collisions change it.
     this.lastSpeed = Math.hypot(vx, vy);
+    this.lastVx = vx;
+    this.lastVy = vy;
     this.updateVisual(dt);
   }
 

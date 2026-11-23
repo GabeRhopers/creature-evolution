@@ -188,6 +188,12 @@ otherwise head for a liked region) and `respawnAmbient` uses it too. Hunting and
 across a border; wandering brings it home. The weights are editable per enemy in Options > Enemy settings
 ("In Coral Sea", ...). E2E: `tests/e2e/creatures.mjs`; unit: `tests/creatures.test.ts`.
 
+## Rams and bumps (`GameScene.updateRams`, rock collider)
+A ram counts only the speed aimed into the target (`Fish.lastVx/lastVy` along the line to it), never a graze.
+Ramming a fish stuns it and knocks it aside; it halves your speed only if it is clearly stronger
+(`combat.ramSlowRankRatio`, 1.25x your rank). A rock stuns you only on a head-on hit. (Before Nov 23, brushing past
+a same-size tang at normal speed halved your speed: the "small breaks" in swimming.)
+
 ## Player damage rules (`GameScene.attackPlayer`)
 AI never swallows the player. Predators that could swallow you "chomp" (x1.5 damage);
 every hit is capped at `playerDefense.maxHitFraction` of max HP, then knockback +
