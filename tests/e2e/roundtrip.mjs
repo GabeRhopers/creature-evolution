@@ -48,7 +48,9 @@ await G(()=>window.game.scene.getScene('Game').goHome()); await p.waitForTimeout
 ok(!(await G(()=>document.getElementById('testBar').classList.contains('open'))), 'test bar closes at home');
 ok(!(await G(()=>location.search.includes('try'))), 'address cleaned up');
 ok(!(await G(()=>document.getElementById('btnContinue').hidden)), 'real run still waiting under CONTINUE');
-await p.click('#btnContinue'); await p.waitForTimeout(800);
+await p.click('#btnContinue');
+// Slow runners take a while to rebuild the sea: wait for the continued run instead of a fixed pause.
+for (let t=0; t<20000; t+=200) { if (await G(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMode && !g.testMode && g.player?.level===4;})) break; await p.waitForTimeout(200); }
 const real = await G(()=>{const g=window.game.scene.getScene('Game'); return {lv:g.player.level, tex:g.player.texture.key, test:g.testMode};});
 ok(real.lv===4 && !real.test, 'continued the real run at level 4');
 ok(real.tex==='skin_croc', 'real run uses the chosen look');
