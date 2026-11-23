@@ -18,10 +18,10 @@ await waitFor(() => { const g = window.game.scene.getScene('Game'); return g.pla
 await G(() => { const h = window.game.scene.getScene('Hud'); window.__banners = []; const f = h.areaBanner.bind(h); h.areaBanner = (n) => { window.__banners.push(n); f(n); }; });
 
 const W = await G(() => window.game.scene.getScene('Game').regions.width);
-ok(W === 72000, 'the world is 72000 px wide (each region doubled twice): ' + W);
-ok(await G(() => { const g = window.game.scene.getScene('Game'); return g.regions.at(4500).id === 'coral' && g.regions.at(30000).id === 'swamp' && g.regions.at(47000).id === 'volcano' && g.regions.at(64000).id === 'ice'; }), 'Coral Sea, Mangrove Swamp, Volcanic Rift and Frozen Sea, left to right');
+ok(W === 114000, 'the world is 114000 px wide (7 regions): ' + W);
+ok(await G(() => { const g = window.game.scene.getScene('Game'); return [[4500,'coral'],[30000,'swamp'],[46000,'sargasso'],[63000,'volcano'],[78000,'trench'],[91000,'kelp'],[106000,'ice']].every(([x,id]) => g.regions.at(x).id === id); }), 'Coral Sea, Mangrove Swamp, Sargasso Drift, Volcanic Rift, Twilight Trench, Kelp Forest and Frozen Sea, left to right');
 ok(await G(() => window.game.scene.getScene('Game').player.x === 4500), 'a new run starts in the Coral Sea');
-ok(await G(() => { const g = window.game.scene.getScene('Game'); return ['w_water_coral', 'w_water_swamp', 'w_water_volcano', 'w_water_ice'].every((k) => g.textures.exists(k)); }), 'each region has its own water');
+ok(await G(() => { const g = window.game.scene.getScene('Game'); return ['w_water_coral', 'w_water_swamp', 'w_water_sargasso', 'w_water_volcano', 'w_water_trench', 'w_water_kelp', 'w_water_ice'].every((k) => g.textures.exists(k)); }), 'each region has its own water');
 const copies = await G((W) => window.game.scene.getScene('Game').children.list.filter((o) => o.x > W + 50 && o.texture && o.texture.key && o.texture.key.startsWith('w_')).length, W);
 ok(copies > 20, `scenery near the edges is copied past them (${copies} copies)`);
 
@@ -49,14 +49,14 @@ ok(back, 'and past the left edge into the Frozen Sea');
 ok(await waitFor(() => window.__banners.includes('Frozen Sea'), undefined, 8000), 'the Frozen Sea banner shows');
 
 // The Volcanic Rift: banner, volcano islands, glowing vents.
-await G(() => { const g = window.game.scene.getScene('Game'); g.player.setPosition(41500, 600); g.player.body.velocity.set(0, 0); g.cameras.main.centerOn(41500, 600); });
+await G(() => { const g = window.game.scene.getScene('Game'); g.player.setPosition(57500, 600); g.player.body.velocity.set(0, 0); g.cameras.main.centerOn(57500, 600); });
 ok(await waitFor(() => window.__banners.includes('Volcanic Rift'), undefined, 10000), 'the Volcanic Rift banner shows');
 ok(await G(() => { const g = window.game.scene.getScene('Game'); return g.terrain.cfg.islands.some((i) => i.style === 'volcano' && g.textures.exists('w_island_' + g.terrain.cfg.islands.indexOf(i))); }), 'volcano islands are drawn');
-await G(() => { const g = window.game.scene.getScene('Game'); g.player.setPosition(41100, g.seabedTop - 200); g.cameras.main.centerOn(41100, g.seabedTop - 200); });
+await G(() => { const g = window.game.scene.getScene('Game'); g.player.setPosition(57100, g.seabedTop - 200); g.cameras.main.centerOn(57100, g.seabedTop - 200); });
 ok(await waitFor(() => window.game.scene.getScene('Light').glows.some((d) => d.visible && d.tintTopLeft === 0xf77622), undefined, 8000), 'hot vents glow');
 
 // Terrain repeats around the loop.
-ok(await G((W) => { const t = window.game.scene.getScene('Game').terrain; return [100, 5000, 12000, 30000, 47000, 66000].every((x) => Math.abs(t.groundAt(x) - t.groundAt(x + W)) < 0.01 && Math.abs(t.groundAt(x) - t.groundAt(x - W)) < 0.01); }, W), 'the ground repeats every world width');
+ok(await G((W) => { const t = window.game.scene.getScene('Game').terrain; return [100, 5000, 12000, 30000, 46000, 63000, 78000, 91000, 106000].every((x) => Math.abs(t.groundAt(x) - t.groundAt(x + W)) < 0.01 && Math.abs(t.groundAt(x) - t.groundAt(x - W)) < 0.01); }, W), 'the ground repeats every world width');
 
 ok(errs.length === 0, 'no page errors ' + errs.slice(0, 3).join(' | '));
 await b.close();

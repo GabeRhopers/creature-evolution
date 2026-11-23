@@ -99,10 +99,15 @@ circles in the `rocks` group (solid, open underneath); vents puff bubbles and he
 ball, bottles) bob at the surface. Far parallax layers: islands on the horizon (Shallows), faded peaks (Reef).
 
 ## The looping world and regions (`src/systems/regions.ts`, `balance.json` "world", "regions")
-The sea is `world.width` (72000) wide and loops: x and x + W are the same place. Regions left to right: Coral Sea
-(0-24000; 0-9000 is the original map), Mangrove Swamp (24000-38000), Volcanic Rift (38000-56000), Frozen Sea
-(56000-72000). Each region was doubled on Nov 23: its first half is the layout it had before and its second half is a
-mirror of it (islands, seamounts, ridges, scenery, floats); overlapping features were dropped. Fish farther than
+The sea is `world.width` (114000) wide and loops: x and x + W are the same place. Seven regions left to right
+(tropics, then the deep, then the poles; one Tide each): Coral Sea (0-24000; 0-9000 is the original map), Mangrove
+Swamp (24000-38000), Sargasso Drift (38000-54000: open blue water, golden weed mats float at the surface and are
+hiding places, `scenery.floats` kind `weed`), Volcanic Rift (54000-72000), Twilight Trench (72000-84000: dark water,
+high seamount walls either side of a deep floor, glowing sea pens), Kelp Forest (84000-98000: rocky ridges and dense
+giant kelp, `makeGiantKelp`, extra patches on top of `world.kelpPatches`), Frozen Sea (98000-114000). The 4 old regions
+were doubled on Nov 23 (first half = old layout, second half mirrored); the 7-region order came the same day (the Rift
+moved +16000, the Frozen Sea +42000). Saves from the 72000 px sea are moved to the same place (`migrateX`,
+`Checkpoint.worldW`). Fish farther than
 `ai.sleepDistance` (12000) from the player sleep (`Creature.asleep`: no thinking, no physics body, not drawn) and wake
 where they were; `populationScale` doubled with the sea (about 940 creatures, about 340 awake). Each region has water colors (`regionStops`), ground colors (`makeGround`, chunked to 1024 art px for iPads),
 kelp (reeds, tube worms, brown kelp), rock tint, island style (`sand`, `mangrove`, `volcano`, `iceberg`) and music
@@ -120,10 +125,17 @@ frame (`LOD_DISTANCE`); far scenery is hidden (`cullStatics`). A region banner s
 Each region plays a little differently (a missing field is 1 = no change): `vision` (every fish's sight there,
 via `AIWorld.visionAt` in Brain.decide; Swamp 0.7), `food` (plankton density, Swamp 1.6), and for the player
 `hunger` and `speed` (Volcanic Rift hungrier; Frozen Sea slower and hungrier), `ventHeal` (Rift x2, Ice x1.5) and
-`ventWarms` (Frozen Sea: resting by a warm vent cancels the hunger and speed twist; the Frozen Sea has 6 vents).
+`ventWarms` (Frozen Sea: resting by a warm vent cancels the hunger and speed twist; the Frozen Sea has 6 vents),
+`current` (Sargasso: px/s pushing every awake swimmer east, `updateEnvironment`), `bigSlow` (Kelp: `Fish.envSpeed` for
+the adult player and tier 3+ fish), `dark` (Trench: `GameScene.regionDark` eases toward it; LightScene darkens around
+the player day and night and lights the plankton).
 GameScene: `twistOf(id)` (cached), `twist` (player's region), applied in `applyPerks` (re-run when
 `twistKeyNow()` = region + warmed-by-vent changes), `updateVents` and the plankton density. The area banner shows the
 twist's `hint` in a smaller line (`HudScene.areaBanner(name, hint)`). E2E: `region_twists.mjs`.
+
+Gates (one per border): Root Tangle (10, bite), Weed Raft (20, bite, golden), Rock Fall (30, ram), Trench Lip (40,
+ram), Kelp Curtain (50, bite), Ice Walls (60, ram, both sides of the Frozen Sea). Gate styles: roots, weed, kelp
+(strands painted with their palette), rocks, ice.
 
 ## Gates between regions (`src/systems/gates.ts` rules, `src/scenes/GateSystem.ts` art and play, `balance.json` "gates")
 Each Tide opens the next region: Root Tangle (Coral Sea -> Swamp, x 24000, after the level 10 crab, bite it 5x with EAT),

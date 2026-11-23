@@ -41,6 +41,8 @@ ok(await waitPanel(25000), 'an unmade pick is offered again after Continue');
 ok((await G(()=>window.game.scene.getScene('Game').perks)).length===1, 'the first perk came back with the save');
 await G(()=>document.querySelector('[data-perk]').click()); await p.waitForTimeout(300);
 ok((await G(()=>window.game.scene.getScene('Game').perks)).length===2, 'second perk picked');
+// The HUD redraws its icons on its own clock: give a slow runner a few seconds.
+for (let t=0; t<5000 && (await G(()=>window.game.scene.getScene('Hud').perkIcons.length))<2; t+=200) await p.waitForTimeout(200);
 const icons = await G(()=>window.game.scene.getScene('Hud').perkIcons.map(i=>i.texture.key));
 ok(icons.length===2 && icons.every(k=>k.startsWith('perk_')), 'HUD shows the two perks as pixel icons: '+icons.join(', '));
 // beat the level 10 Checkpoint Crab, evolve, die as a juvenile, swim again from 10: perks kept

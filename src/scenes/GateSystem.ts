@@ -178,25 +178,30 @@ function makeGate(scene: Phaser.Scene, key: string, style: GateStyle, cols: numb
   if (scene.textures.exists(key)) return; // the same every run (made once)
   const [c, g] = canvas(cols, rows);
   const r = rng(seed);
-  if (style === 'roots') {
-    // Thick roots twisting down, crossed by thinner ones; leaves at the top.
+  if (style === 'roots' || style === 'weed' || style === 'kelp') {
+    // Thick strands twisting down, crossed by thinner ones; leaves at the top. Mangrove roots (brown),
+    // a raft of golden sargassum with round air bladders, or a curtain of kelp blades.
+    const pal = style === 'roots' ? { edge: C.bark, body: [C.bark, C.brown, C.clay], cross: C.brown, top: [C.leaf, C.leafDark], dot: null }
+      : style === 'weed' ? { edge: C.brown, body: [C.coral, C.gold, C.sandDark], cross: C.clay, top: [C.gold, C.yellow], dot: C.yellow }
+      : { edge: C.leafDark, body: [C.leafDark, C.brown, C.leaf], cross: C.bark, top: [C.leaf, C.leafLight], dot: null };
     for (let k = 0; k < Math.round(cols * 0.65); k++) {
       let x = r() * cols;
       const w = 2 + Math.floor(r() * 3);
-      const col = [C.bark, C.brown, C.clay][k % 3];
+      const col = pal.body[k % 3];
       for (let y = 0; y < rows; y++) {
         x += Math.sin(y * 0.07 + k) * 0.5 + (r() - 0.5) * 0.6;
-        for (let i = 0; i < w; i++) px(g, Math.floor(x + i) % cols, y, i === 0 ? C.bark : col);
+        for (let i = 0; i < w; i++) px(g, Math.floor(x + i) % cols, y, i === 0 ? pal.edge : col);
+        if (pal.dot && r() < 0.04) px(g, Math.floor(x + w) % cols, y, pal.dot);
       }
     }
     for (let y = aboveRows + 6; y < rows; y += 9 + Math.floor(r() * 8)) {
       let yy = y;
       for (let x = 0; x < cols; x++) {
         yy += (r() - 0.5) * 0.8;
-        px(g, x, Math.floor(yy), C.brown);
+        px(g, x, Math.floor(yy), pal.cross);
       }
     }
-    for (let i = 0; i < cols * 3; i++) px(g, Math.floor(r() * cols), Math.floor(r() * aboveRows), r() < 0.5 ? C.leaf : C.leafDark);
+    for (let i = 0; i < cols * 3; i++) px(g, Math.floor(r() * cols), Math.floor(r() * aboveRows), r() < 0.5 ? pal.top[0] : pal.top[1]);
   } else if (style === 'rocks') {
     // Boulders piled from the seabed up past the surface, a few lava cracks glowing between them.
     for (let y = rows; y > 0; ) {
@@ -249,7 +254,7 @@ function makeCracks(scene: Phaser.Scene, key: string, style: GateStyle, cols: nu
   if (scene.textures.exists(key)) return; // the same every run (made once)
   const [c, g] = canvas(cols, rows);
   const r = rng(seed);
-  const col = style === 'roots' ? C.sand : style === 'rocks' ? C.gold : C.navy;
+  const col = style === 'roots' || style === 'kelp' ? C.sand : style === 'weed' ? C.brown : style === 'rocks' ? C.gold : C.navy;
   const lines = stage * 5;
   for (let k = 0; k < lines; k++) {
     let x = 2 + r() * (cols - 4);

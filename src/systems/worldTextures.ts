@@ -93,11 +93,21 @@ export function regionStops(colors: string[]): Array<[number, string]> {
 export function makeWaterBlend(scene: Phaser.Scene, key: string, from: Array<[number, string]>, to: Array<[number, string]>, cols: number, rows: number): void {
   if (scene.textures.exists(key)) return;
   const [c, g] = canvas(cols, rows);
+  // Written straight into the pixels (one fillRect per pixel was the slowest part of starting the game).
+  const img = g.createImageData(cols, rows);
+  const rgb = new Map<string, number>();
   for (let y = 0; y < rows; y++) {
     const d = y / (rows - 1);
     // Scattered (not ordered) dither, so a wide blend has no stripes.
-    for (let x = 0; x < cols; x++) px(g, x, y, waterColor(d, x, y, 0.06, 0.7 * bayer(x, y) + 0.3 * hash01(x, y) < (x + 0.5) / cols ? to : from));
+    for (let x = 0; x < cols; x++) {
+      const col = waterColor(d, x, y, 0.06, 0.7 * bayer(x, y) + 0.3 * hash01(x, y) < (x + 0.5) / cols ? to : from);
+      let v = rgb.get(col);
+      if (v === undefined) rgb.set(col, (v = parseInt(col.slice(1, 7), 16)));
+      const i = (y * cols + x) * 4;
+      img.data[i] = v >> 16; img.data[i + 1] = (v >> 8) & 255; img.data[i + 2] = v & 255; img.data[i + 3] = 255;
+    }
   }
+  g.putImageData(img, 0, 0);
   add(scene, key, c);
 }
 
@@ -177,6 +187,38 @@ export function makeKelp(scene: Phaser.Scene, key: string, seed: number, h: numb
   }
   // A light tip.
   px(g, stemX(0), 0, light);
+  add(scene, key, c);
+}
+
+/**
+ * Giant kelp (Kelp Forest): a tall golden-brown stalk (stipe) with broad blades all the way up, a small
+ * gas-filled bladder at the base of each blade (what keeps real kelp floating up toward the light), and a
+ * floating canopy of blades at the top. `h` art pixels tall, so it can reach from the seabed to the surface.
+ */
+export function makeGiantKelp(scene: Phaser.Scene, key: string, seed: number, h: number): void {
+  const W = 24;
+  const r = rng(seed);
+  const [c, g] = canvas(W, h);
+  const phase = r() * Math.PI * 2;
+  const stemX = (y: number) => Math.round(W / 2 - 1 + Math.sin(y / 23 + phase) * 3);
+  const blade = (x: number, y: number, side: number, len: number) => {
+    for (let k = 1; k <= len; k++) {
+      const yy = y + Math.floor(k * 0.6);
+      const xx = x + side * k + (side > 0 ? 1 : 0);
+      px(g, xx, yy, k > len - 2 ? C.gold : C.clay);
+      px(g, xx, yy + 1, C.sandDark);
+      px(g, xx, yy + 2, C.brown);
+    }
+    px(g, x + side + (side > 0 ? 1 : 0), y - 1, C.yellow); // the bladder
+  };
+  for (let y = 0; y < h; y++) {
+    const x = stemX(y);
+    px(g, x, y, C.clay);
+    px(g, x + 1, y, C.brown);
+    if (y > 24 && y < h - 6 && (y + seed) % 9 === 0) blade(x, y, ((y / 9) | 0) % 2 === 0 ? -1 : 1, 5 + Math.floor(r() * 4));
+  }
+  // The canopy: blades spreading out at the top.
+  for (let k = 0; k < 7; k++) blade(stemX(2 + k * 3), 2 + k * 3, k % 2 === 0 ? -1 : 1, 7 + Math.floor(r() * 4));
   add(scene, key, c);
 }
 

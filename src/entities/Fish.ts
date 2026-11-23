@@ -51,6 +51,8 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   xp = 0;
   /** Difficulty multiplier on swim speed (AI only; player stays 1). */
   speedMul = 1;
+  /** Where you are: big bodies swim slower among the kelp (region twist; 1 elsewhere). */
+  envSpeed = 1;
   /** Velocity asked for this frame, before collisions (how hard you hit something head-on). */
   lastVx = 0;
   lastVy = 0;
@@ -246,7 +248,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
 
   /** Normal top speed right now (no sprint), used as the ramming reference. */
   get cruiseSpeed(): number {
-    return this.species.maxSpeed * this.speedFactor * this.speedMul;
+    return this.species.maxSpeed * this.speedFactor * this.speedMul * this.envSpeed;
   }
 
   /** Bigger bodies swim a bit faster in absolute terms but turn more slowly. */
@@ -368,7 +370,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     const woundMul = this.wounded ? c.woundedSpeedMul : 1;
     // While dashing, the cap is the dash speed so the lunge is not clipped.
     const dashMul = this.dashing ? c.dash.speedMul : 1;
-    const maxSpeed = sp.maxSpeed * this.speedFactor * Math.max(sprintMul * woundMul, dashMul) * this.speedMul;
+    const maxSpeed = sp.maxSpeed * this.speedFactor * Math.max(sprintMul * woundMul, dashMul) * this.speedMul * this.envSpeed;
     const accel = sp.accel * this.speedFactor * (this.isSprinting ? 1.6 : 1) * this.speedMul;
 
     let vx = body.velocity.x;

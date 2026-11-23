@@ -1,9 +1,10 @@
-// Regions of the looping sea (left to right): the Coral Sea, the Mangrove Swamp, the Volcanic Rift and the Frozen Sea.
+// Regions of the looping sea (left to right): the Coral Sea, the Mangrove Swamp, the Sargasso Drift, the Volcanic Rift,
+// the Twilight Trench, the Kelp Forest and the Frozen Sea.
 // Each region has its own water colors, ground, rocks and plants; neighbors blend over `blend` px.
 // Pure data and math; numbers live in balance.json "regions".
 import { bayer, hash01 } from './worldTextures';
 
-export type RegionId = 'coral' | 'swamp' | 'volcano' | 'ice';
+export type RegionId = 'coral' | 'swamp' | 'sargasso' | 'volcano' | 'trench' | 'kelp' | 'ice';
 export interface RegionDef {
   id: RegionId;
   name: string;
@@ -13,6 +14,18 @@ export interface RegionDef {
   /** Water colors at the surface, the Reef band, the Deep band and the seabed (like WATER_STOPS). */
   water: string[];
 }
+/**
+ * Saves from the 4-region sea (72000 px: Coral, Swamp, Volcanic Rift, Frozen Sea) put the player at the same
+ * place in the 7-region sea (114000 px), where the Rift starts at 54000 and the Frozen Sea at 98000.
+ */
+export function migrateX(x: number, savedWidth: number | undefined, width: number): number {
+  if ((savedWidth ?? 72000) !== 72000 || width !== 114000) return x;
+  const w = ((x % 72000) + 72000) % 72000;
+  if (w >= 56000) return w + 42000;
+  if (w >= 38000) return w + 16000;
+  return w;
+}
+
 export interface RegionsConfig {
   blend: number;
   list: RegionDef[];

@@ -73,10 +73,12 @@ describe('each region has its own fish', () => {
     expect(shares('bull_shark').swamp).toBeGreaterThan(0.6);
     expect(shares('polar_cod').ice).toBe(1);
     expect(shares('leopard_seal').ice).toBe(1);
-    expect(shares('sperm_whale').ice).toBeGreaterThan(0.5);
+    // Sperm whales dive into the Twilight Trench to hunt squid, and roam the cold Frozen Sea.
+    expect(shares('sperm_whale').ice + shares('sperm_whale').trench).toBeGreaterThan(0.5);
   });
-  it('every region has prey for a hatchling from the start', () => {
-    for (const r of BALANCE.regions.list) {
+  it('the first regions have prey for a hatchling from the start', () => {
+    // A new run starts in the Coral Sea; the gates keep hatchlings out of the later regions.
+    for (const r of BALANCE.regions.list.filter((r) => r.id === 'coral' || r.id === 'swamp' || r.id === 'ice')) {
       const prey = Object.keys(pop).filter((id) => SPECIES[id].tier === 1 && (SPECIES[id].unlockLevel ?? 1) === 1);
       const n = prey.reduce((s, id) => s + pop[id] * shares(id)[r.id], 0);
       expect(n, r.id).toBeGreaterThan(10);
@@ -89,12 +91,12 @@ describe('each region has its own fish', () => {
   it('pickHomeX picks regions by weight x width and stays put where it is happy', () => {
     let seed = 1;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    const counts: Record<string, number> = { coral: 0, swamp: 0, volcano: 0, ice: 0 };
+    const counts: Record<string, number> = { coral: 0, swamp: 0, sargasso: 0, volcano: 0, trench: 0, kelp: 0, ice: 0 };
     for (let i = 0; i < 4000; i++) counts[regions.at(pickHomeX(regions, (r) => biomeWeight('bull_shark', r), undefined, 1500, rand)!).id]++;
     expect(counts.ice).toBe(0);
     expect(counts.swamp / 4000).toBeCloseTo(shares('bull_shark').swamp, 1);
     // a cod in the ice wanders nearby; a cod that drifted into the coral heads back to the ice
-    expect(Math.abs(pickHomeX(regions, (r) => biomeWeight('polar_cod', r), 64000, 1500, rand)! - 64000)).toBeLessThanOrEqual(1500);
+    expect(Math.abs(pickHomeX(regions, (r) => biomeWeight('polar_cod', r), 106000, 1500, rand)! - 106000)).toBeLessThanOrEqual(1500);
     for (let i = 0; i < 50; i++) expect(regions.at(pickHomeX(regions, (r) => biomeWeight('polar_cod', r), 3000, 1500, rand)!).id).toBe('ice');
     expect(pickHomeX(regions, () => 0)).toBeNull();
   });
@@ -139,13 +141,13 @@ describe('creatures that are not fish (Nov 22)', () => {
 });
 
 describe('the Volcanic Rift', () => {
-  it('sits between the swamp and the ice in a sea 72000 px wide (each region doubled twice)', () => {
-    expect(BALANCE.world.width).toBe(72000);
-    expect(BALANCE.regions.list.map((r) => r.id)).toEqual(['coral', 'swamp', 'volcano', 'ice']);
+  it('sits between the Sargasso Drift and the Twilight Trench in the 7-region sea (114000 px)', () => {
+    expect(BALANCE.world.width).toBe(114000);
+    expect(BALANCE.regions.list.map((r) => r.id)).toEqual(['coral', 'swamp', 'sargasso', 'volcano', 'trench', 'kelp', 'ice']);
     const list = BALANCE.regions.list;
     for (let i = 1; i < list.length; i++) expect(list[i].from).toBe(list[i - 1].to);
     expect(list[list.length - 1].to).toBe(BALANCE.world.width);
-    expect(regions.at(47000).name).toBe('Volcanic Rift');
+    expect(regions.at(63000).name).toBe('Volcanic Rift');
   });
   it('has volcano islands, hot vents and its own music', () => {
     const inV = (x: number) => regions.at(x).id === 'volcano';

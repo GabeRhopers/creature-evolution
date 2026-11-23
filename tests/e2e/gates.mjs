@@ -54,15 +54,16 @@ await placeAt(23800);
 const through = await holdUntil(['ArrowRight'], ()=>window.game.scene.getScene('Game').player.x > 24300, 30000);
 ok(through, 'you can swim into the Mangrove Swamp');
 
-// 3. The Rock Fall after the level 20 crab: ram it (sprint into it) until it breaks.
-await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(21); g.crabLevel=20;});
-await placeAt(37500);
+// 3. The Rock Fall (into the Volcanic Rift) after the level 30 crab: ram it (sprint into it) until it breaks.
+ok((await gate('weed_raft')).open === false && (await gate('trench_lip')).open === false && (await gate('kelp_curtain')).open === false, 'the Weed Raft, Trench Lip and Kelp Curtain start closed');
+await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(31); g.crabLevel=30;});
+await placeAt(53500);
 await holdUntil(['Shift', 'ArrowRight'], ()=>(window.game.scene.getScene('Game').gates.gates.find(x=>x.def.id==='rock_fall').hits)>=1, 40000);
 await p.screenshot({path:'/home/claude/stages/gate_rocks.png'});
 const rammed = await holdUntil(['Shift', 'ArrowRight'], ()=>window.game.scene.getScene('Game').gates.isOpen('rock_fall'), 90000);
-ok(rammed, 'after the level 20 crab, ramming breaks the Rock Fall');
-ok((await gate('ice_wall_east')).open === false, 'the Ice Walls stay closed until the level 30 crab');
-await placeAt(55600); await p.waitForTimeout(800);
+ok(rammed, 'after the level 30 crab, ramming breaks the Rock Fall');
+ok((await gate('ice_wall_east')).open === false, 'the Ice Walls stay closed until the level 60 crab');
+await placeAt(97600); await p.waitForTimeout(800);
 await p.screenshot({path:'/home/claude/stages/gate_ice.png'});
 
 // 4. Saved with the run: reload and continue.
