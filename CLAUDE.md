@@ -99,9 +99,12 @@ circles in the `rocks` group (solid, open underneath); vents puff bubbles and he
 ball, bottles) bob at the surface. Far parallax layers: islands on the horizon (Shallows), faded peaks (Reef).
 
 ## The looping world and regions (`src/systems/regions.ts`, `balance.json` "world", "regions")
-The sea is `world.width` (36000) wide and loops: x and x + W are the same place. Regions left to right: Coral Sea
-(0-12000; 0-9000 is the original map), Mangrove Swamp (12000-19000), Volcanic Rift (19000-28000), Frozen Sea
-(28000-36000); each has water colors (`regionStops`), ground colors (`makeGround`, chunked to 1024 art px for iPads),
+The sea is `world.width` (72000) wide and loops: x and x + W are the same place. Regions left to right: Coral Sea
+(0-24000; 0-9000 is the original map), Mangrove Swamp (24000-38000), Volcanic Rift (38000-56000), Frozen Sea
+(56000-72000). Each region was doubled on Nov 23: its first half is the layout it had before and its second half is a
+mirror of it (islands, seamounts, ridges, scenery, floats); overlapping features were dropped. Fish farther than
+`ai.sleepDistance` (12000) from the player sleep (`Creature.asleep`: no thinking, no physics body, not drawn) and wake
+where they were; `populationScale` doubled with the sea (about 940 creatures, about 340 awake). Each region has water colors (`regionStops`), ground colors (`makeGround`, chunked to 1024 art px for iPads),
 kelp (reeds, tube worms, brown kelp), rock tint, island style (`sand`, `mangrove`, `volcano`, `iceberg`) and music
 mood. Volcano islands (`makeVolcano`, cone shape `volcanoRows`/`VOLCANO_REACH`, shared with `landTopAt`) have a
 glowing crater, lava streams and cracks, no roots; LightScene makes every vent glow orange; borders blend over `regions.blend` (dithered). Terrain shapes use loop distance and
@@ -114,8 +117,8 @@ frame (`LOD_DISTANCE`); far scenery is hidden (`cullStatics`). A region banner s
 `world.startX`. Region gameplay twists come next (plan doc).
 
 ## Gates between regions (`src/systems/gates.ts` rules, `src/scenes/GateSystem.ts` art and play, `balance.json` "gates")
-Each Tide opens the next region: Root Tangle (Coral Sea -> Swamp, x 12000, after the level 10 crab, bite it 5x with EAT),
-Rock Fall (-> Volcanic Rift, x 19000, crab 20, ram 4x), two Ice Walls (-> Frozen Sea, x 28000 and 35900 at the loop's
+Each Tide opens the next region: Root Tangle (Coral Sea -> Swamp, x 24000, after the level 10 crab, bite it 5x with EAT),
+Rock Fall (-> Volcanic Rift, x 38000, crab 20, ram 4x), two Ice Walls (-> Frozen Sea, x 56000 and 71900 at the loop's
 seam, crab 30, ram 4x). A wall spans the whole water column, is solid for the player only (fish slip through), shows 3
 crack stages, then breaks with bursts and a banner (`HudScene.bigBanner`). Too early: pushed back plus a "Beat the level N
 Checkpoint Crab" popup. Rams count the speed aimed at the wall above `gates.ramSpeedRatio` x cruise (or a dash); the wall

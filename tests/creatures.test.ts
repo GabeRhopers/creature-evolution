@@ -94,7 +94,7 @@ describe('each region has its own fish', () => {
     expect(counts.ice).toBe(0);
     expect(counts.swamp / 4000).toBeCloseTo(shares('bull_shark').swamp, 1);
     // a cod in the ice wanders nearby; a cod that drifted into the coral heads back to the ice
-    expect(Math.abs(pickHomeX(regions, (r) => biomeWeight('polar_cod', r), 32000, 1500, rand)! - 32000)).toBeLessThanOrEqual(1500);
+    expect(Math.abs(pickHomeX(regions, (r) => biomeWeight('polar_cod', r), 64000, 1500, rand)! - 64000)).toBeLessThanOrEqual(1500);
     for (let i = 0; i < 50; i++) expect(regions.at(pickHomeX(regions, (r) => biomeWeight('polar_cod', r), 3000, 1500, rand)!).id).toBe('ice');
     expect(pickHomeX(regions, () => 0)).toBeNull();
   });
@@ -139,13 +139,13 @@ describe('creatures that are not fish (Nov 22)', () => {
 });
 
 describe('the Volcanic Rift', () => {
-  it('sits between the swamp and the ice in a sea twice as wide', () => {
-    expect(BALANCE.world.width).toBe(36000);
+  it('sits between the swamp and the ice in a sea 72000 px wide (each region doubled twice)', () => {
+    expect(BALANCE.world.width).toBe(72000);
     expect(BALANCE.regions.list.map((r) => r.id)).toEqual(['coral', 'swamp', 'volcano', 'ice']);
     const list = BALANCE.regions.list;
     for (let i = 1; i < list.length; i++) expect(list[i].from).toBe(list[i - 1].to);
     expect(list[list.length - 1].to).toBe(BALANCE.world.width);
-    expect(regions.at(23000).name).toBe('Volcanic Rift');
+    expect(regions.at(47000).name).toBe('Volcanic Rift');
   });
   it('has volcano islands, hot vents and its own music', () => {
     const inV = (x: number) => regions.at(x).id === 'volcano';
