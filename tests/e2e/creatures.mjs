@@ -36,8 +36,12 @@ for (const [lv, id, name] of [[8,'box_jelly','Box Jellyfish'],[12,'sea_snake','S
   ok(await waitFor((n)=>window.__news.includes(n), 25000, name), `with a NEW banner for ${name}`);
 }
 const seal = await where('leopard_seal'), whale = await where('sperm_whale'), bull = await where('bull_shark');
-ok(seal.ice > seal.coral + seal.swamp + seal.volcano, 'leopard seals stay mostly in the Frozen Sea: '+JSON.stringify(seal));
-ok(bull.swamp >= bull.coral && bull.ice + bull.volcano === 0, 'bull sharks stay mostly in the swamp: '+JSON.stringify(bull));
+// Hunters roam while they chase: check where they head home to, not one snapshot.
+const homes=(id)=>G((id)=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,volcano:0,ice:0};
+  for (const c of g.creatures) if (c.fish.species.id===id) for (let i=0;i<20;i++) n[g.regions.at(c.homeX()).id]++; return n;}, id);
+const sealHome = await homes('leopard_seal'), bullHome = await homes('bull_shark');
+ok(sealHome.ice > 0 && sealHome.coral + sealHome.swamp + sealHome.volcano === 0, 'leopard seals live only in the Frozen Sea: '+JSON.stringify(sealHome)+' now '+JSON.stringify(seal));
+ok(bullHome.swamp > (bullHome.coral + bullHome.ice + bullHome.volcano) * 2 && bullHome.ice + bullHome.volcano === 0, 'bull sharks live mostly in the swamp: '+JSON.stringify(bullHome)+' now '+JSON.stringify(bull));
 ok(whale.swamp === 0, 'no whales in the shallow swamp: '+JSON.stringify(whale));
 
 const octo = await where('giant_octopus'), orca = await where('orca');
@@ -49,7 +53,7 @@ ok(orcaHome.ice > (orcaHome.coral + orcaHome.swamp + orcaHome.volcano) * 3 && or
 ok(await G(()=>{const c=window.game.scene.getScene('Game').creatures.find(c=>c.fish.species.id==='box_jelly'); return c.fish.alpha < 1;}), 'the box jellyfish is see-through');
 // An octopus sitting still fades and hides from fish farther away.
 const camo = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.fish.species.id==='giant_octopus'); const f=c.fish;
-  f.arcadeBody.setVelocity(0,0); f.hp=f.maxHp; f.pose(0.016); const fish=g.creatures.find(o=>o.fish.species.id==='red_grouper').fish;
+  const pl=g.player; f.arcadeBody.reset(pl.x+300, pl.y); f.setVisible(true); f.hp=f.maxHp; f.pose(0.016); const fish=g.creatures.find(o=>o.fish.species.id==='red_grouper').fish;
   fish.setPosition(f.x + f.size*8, f.y); const far=g.isHidden(f, fish); fish.setPosition(f.x + f.size*2, f.y); const near=g.isHidden(f, fish);
   return {alpha:f.alpha, camo:f.camouflaged, far, near};});
 ok(camo.camo && camo.alpha < 0.5 && camo.far && !camo.near, 'a still octopus fades and hides from fish farther away: '+JSON.stringify(camo));
