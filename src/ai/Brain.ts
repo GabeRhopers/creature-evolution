@@ -40,6 +40,8 @@ export interface AIWorld {
   wrapNear?(x: number, near: number): number;
   /** Creatures near a point (a spatial grid, rebuilt each frame), written into `out`. Without it, all creatures. */
   nearby?(x: number, y: number, r: number, out: Creature[]): Creature[];
+  /** Region twist: how far fish see at x (1 = normal; murky water less). */
+  visionAt?(x: number): number;
 }
 
 // Reused lists for nearby creatures (brains think one at a time).
@@ -193,7 +195,8 @@ export class Brain {
     // Time of day: everyone sees less at night; predators see better than prey in the dim light.
     const light = this.world.light;
     const dayMul = light ? (sp.tier >= 3 ? light.predatorVision : light.preyVision) : 1;
-    const vision = sp.behavior.visionRange * dayMul * (this.desperate ? BALANCE.ai.desperateVisionMul : 1) * Math.max(1, me.size / sp.baseSize);
+    const murk = this.world.visionAt ? this.world.visionAt(me.x) : 1;
+    const vision = sp.behavior.visionRange * dayMul * murk * (this.desperate ? BALANCE.ai.desperateVisionMul : 1) * Math.max(1, me.size / sp.baseSize);
 
     let threat: Creature | null = null;
     let threatD = Infinity;

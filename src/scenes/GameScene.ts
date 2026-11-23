@@ -31,6 +31,7 @@ import { PlayerBot } from '../dev/PlayerBot';
 import { saves, type Checkpoint, type DeathCause } from '../save';
 import { buildSkinTexture, getActiveSkin, getStageLook, validateProject, type SkinArt, type SkinFrames, type StudioProject } from '../skins';
 import { stageIndex } from '../systems/growth';
+import { playerTwist, twistFor, type RegionTwist } from '../systems/regionTwists';
 import { earlyHelpMods, offerPerks, perkById, perkMods, perksOwed } from '../systems/perks';
 
 /** `?bot=1`: an automated playtester drives the player and metrics are recorded. */
@@ -106,6 +107,24 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   regions!: Regions;
   /** The region the player is in (for the banner). */
   region: RegionDef | null = null;
+  /** Region twists by region id (see src/systems/regionTwists.ts). */
+  private twists = new Map<string, RegionTwist>();
+  twistOf(id: string | undefined): RegionTwist {
+    const k = id ?? '';
+    let t = this.twists.get(k);
+    if (!t) this.twists.set(k, (t = twistFor(id)));
+    return t;
+  }
+  /** The twist of the region the player is in. */
+  get twist(): RegionTwist {
+    return this.twistOf(this.region?.id);
+  }
+  /** How far fish see at x (murky water sees less). Used by the brains. */
+  visionAt(x: number): number {
+    return this.regions ? this.twistOf(this.regions.at(x).id).vision : 1;
+  }
+  /** Region and vent state the player's perks were last set for (re-apply when it changes). */
+  private twistKey = '';
   food!: FoodField;
   swimArea!: Phaser.Geom.Rectangle;
   difficulty!: Difficulty;
@@ -369,7 +388,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
     if (!this.dead) {
       // Level changed (level up, checkpoint, test tools): refresh the head start and perks.
-      if (this.player.level !== this.modsLevel) this.applyPerks();
+      if (this.player.level !== this.modsLevel || this.twistKeyNow() !== this.twistKey) this.applyPerks();
       const intent = this.bot ? this.bot.read(dt) : this.controller.read();
       // Tucked in the shell, or mid-evolution: hold still.
       if (this.shellTimer > 0 || this.evolveLock > 0) {
@@ -927,9 +946,17 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       m.bite *= f.biteMul;
       m.speed *= f.speedMul;
     }
+    // Region twist: cold water slows you, hot and cold water make you hungry (a warm vent helps in the cold).
+    const pt = playerTwist(this.twist, this.inVent);
+    m.speed *= pt.speed;
+    this.twistKey = this.twistKeyNow();
     this.player.mods = m;
     this.stomach.capacityMul = m.stomach;
-    this.stomach.hungerMul = m.hunger;
+    this.stomach.hungerMul = m.hunger * pt.hunger;
+  }
+
+  private twistKeyNow(): string {
+    return `${this.region?.id ?? ''}:${this.inVent && this.twist.ventWarms}`;
   }
 
   /** Offer a perk choice if one is earned (not in test swims; the bot picks at random). */
@@ -1806,7 +1833,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.stars.forEach((st, i) => st.setAlpha(L.stars * (0.55 + 0.45 * Math.sin(tw + i * 1.7))));
     // Plankton: more at night (it rises to the surface), and it glows.
     if (this.food) {
-      this.food.density = L.plankton;
+      this.food.density = L.plankton * this.twist.food;
       this.food.glow = L.glow;
     }
     const p = dn.periodAt(this.dayTime);
@@ -1966,7 +1993,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         const first = this.region === null;
         this.region = r;
         if (!first && !this.menuMode) {
-          this.hud.areaBanner(r.name);
+          this.hud.areaBanner(r.name, this.twistOf(r.id).hint);
           this.sfx.chime();
         }
       }
@@ -2210,7 +2237,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       const p = this.player;
       if (!this.menuMode && !this.dead && p && Phaser.Math.Distance.Between(p.x, p.y, v.x, v.y - cfg.radius * 0.4) < cfg.radius) this.inVent = true;
     }
-    if (this.inVent && this.player.hp < this.player.maxHp) this.player.heal(this.player.maxHp * cfg.healPerSecond * dt);
+    if (this.inVent && this.player.hp < this.player.maxHp) this.player.heal(this.player.maxHp * cfg.healPerSecond * this.twist.ventHeal * dt);
   }
 
   /**
