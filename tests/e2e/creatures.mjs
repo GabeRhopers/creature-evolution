@@ -42,7 +42,10 @@ ok(whale.swamp === 0, 'no whales in the shallow swamp: '+JSON.stringify(whale));
 
 const octo = await where('giant_octopus'), orca = await where('orca');
 ok(octo.volcano > octo.coral + octo.swamp + octo.ice, 'octopuses live mostly in the Volcanic Rift: '+JSON.stringify(octo));
-ok(orca.ice > orca.coral + orca.swamp + orca.volcano, 'orca pods hunt mostly in the Frozen Sea: '+JSON.stringify(orca));
+// Fast pod hunters roam while they chase: check where they head home to, not one snapshot.
+const orcaHome = await G(()=>{const g=window.game.scene.getScene('Game'); const n={coral:0,swamp:0,volcano:0,ice:0};
+  for (const c of g.creatures) if (c.fish.species.id==='orca') for (let i=0;i<20;i++) n[g.regions.at(c.homeX()).id]++; return n;});
+ok(orcaHome.ice > (orcaHome.coral + orcaHome.swamp + orcaHome.volcano) * 3 && orcaHome.swamp + orcaHome.volcano === 0, 'orca pods live in the Frozen Sea (where they head home): '+JSON.stringify(orcaHome)+' now '+JSON.stringify(orca));
 ok(await G(()=>{const c=window.game.scene.getScene('Game').creatures.find(c=>c.fish.species.id==='box_jelly'); return c.fish.alpha < 1;}), 'the box jellyfish is see-through');
 // An octopus sitting still fades and hides from fish farther away.
 const camo = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.fish.species.id==='giant_octopus'); const f=c.fish;
