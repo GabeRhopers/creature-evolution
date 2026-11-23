@@ -109,7 +109,7 @@ were doubled on Nov 23 (first half = old layout, second half mirrored); the 7-re
 moved +16000, the Frozen Sea +42000). Saves from the 72000 px sea are moved to the same place (`migrateX`,
 `Checkpoint.worldW`). Fish farther than
 `ai.sleepDistance` (12000) from the player sleep (`Creature.asleep`: no thinking, no physics body, not drawn) and wake
-where they were; `populationScale` doubled with the sea (about 940 creatures, about 340 awake). Each region has water colors (`regionStops`), ground colors (`makeGround`, chunked to 1024 art px for iPads),
+where they were; `populationScale` grew with the sea; crowd control caps the density (below). Each region has water colors (`regionStops`), ground colors (`makeGround`, chunked to 1024 art px for iPads),
 kelp (reeds, tube worms, brown kelp), rock tint, island style (`sand`, `mangrove`, `volcano`, `iceberg`) and music
 mood. Volcano islands (`makeVolcano`, cone shape `volcanoRows`/`VOLCANO_REACH`, shared with `landTopAt`) have a
 glowing crater, lava streams and cracks, no roots; LightScene makes every vent glow orange; borders blend over `regions.blend` (dithered). Terrain shapes use loop distance and
@@ -241,6 +241,18 @@ spawns in groups with rolled levels (`rollLevel`, elites get a golden tint, `Fis
 `respawnAmbient` applies nearPlayer, levels and `respawnT`; the creature loop caps hunters per species (`maxHunters`,
 `brain.forget`). Brains, player eating and rams ignore sleeping fish. All factors are sliders in Options > Enemy settings,
 in sections (`EnemyField.group`, `ENEMY_GROUPS`). E2E tests pick fish with `!c.away`. E2E: `spawn_factors.mjs`.
+
+## Crowd control (`src/systems/crowd.ts`, `balance.json` "crowd")
+Keeps the sea lively but never packed. (1) Region density cap: `regionMaxDensity` fish per 1000 px; species counts x
+`populationScale` are spread by region weight x width, and a region above the cap thins every species there alike
+(`GameScene.crowdFactors`, set in `spawnAmbientFish`; `targetCount` x `keptShare`, `homeX` weights x the factor). Before
+this, single-region species (archerfish, polar cod, lanternfish) were 2 to 3x denser than the original reef because the
+world grew more than their region. (2) Tide growth capped at `maxTideMul` x the base count. (3) Outgrown fish: once the
+player's rank is `outgrownRankRatio` x a fish's, only `outgrownShare` of them stay out (`outgrownMul` in
+`updateSpawnFactors`). (4) Screen budget: at most `nearMax` awake fish within `nearRadius` of the player; extra ones off
+screen nap (`Creature.crowded`, asleep like far fish), farthest first, and wake off screen below `nearWake`
+(`updateScreenBudget`, `trimCrowd`; never hides a fish in view). (5) `maxHuntersTotal` fish of all kinds hunt the player
+at once. E2E: `crowd.mjs`; unit: `tests/crowd.test.ts`.
 
 ## Rams and bumps (`GameScene.updateRams`, rock collider)
 A ram counts only the speed aimed into the target (`Fish.lastVx/lastVy` along the line to it), never a graze.

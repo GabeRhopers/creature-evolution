@@ -2526,5 +2526,16 @@
     "cloudRange": 3.0,
     "cloudCooldown": 12,
     "blindAlpha": 0.75
+  },
+  "crowd": {
+    "_comment": "Crowd control (src/systems/crowd.ts). regionMaxDensity: most fish per 1000 px in any region (crowded regions thin every species alike). maxTideMul: Tides add enemies up to this x the base count. outgrownRankRatio/outgrownShare: fish this many times weaker than you are background, only this share stay out. nearRadius/nearMax/nearWake: at most nearMax awake fish within nearRadius px of you; extra ones off screen nap until fewer than nearWake are around. maxHuntersTotal: most fish of all kinds hunting you at once.",
+    "regionMaxDensity": 11,
+    "maxTideMul": 1.5,
+    "outgrownRankRatio": 6,
+    "outgrownShare": 0.35,
+    "nearRadius": 1800,
+    "nearMax": 32,
+    "nearWake": 26,
+    "maxHuntersTotal": 3
   }
 }
