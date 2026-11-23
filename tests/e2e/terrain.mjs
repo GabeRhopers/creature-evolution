@@ -83,5 +83,30 @@ const healed = await G(async () => {
 ok(healed.inVent && healed.after > healed.before, `a warm vent heals (${healed.before.toFixed(1)} -> ${healed.after.toFixed(1)})`);
 ok(await G(async () => { const g = window.game.scene.getScene('Game'); for (let i = 0; i < 10; i++) { g.player.setPosition(4700, g.terrain.groundAt(4700) - 80); g.player.body.velocity.set(0, 0); await new Promise((r) => setTimeout(r, 100)); } return g.playerHidden; }), 'the galleon hides you');
 
+// Smooth swimming (Nov 23): ramming a fish your size stuns it but no longer halves your speed; brushing past is not a ram.
+const bump = await G(() => {
+  const g = window.game.scene.getScene('Game'), p = g.player;
+  p.setLevel(1); p.stunTimer = 0; p.dashTimer = 0;
+  const others = g.creatures.filter((c) => !c.isPlayer);
+  const tryRam = (c) => {
+    c.fish.stunTimer = 0;
+    p.setPosition(5000, 700); c.fish.setPosition(5000 + (p.size + c.fish.size) * 0.5, 700);
+    const v = p.cruiseSpeed;
+    p.arcadeBody.setVelocity(v, 0); p.lastVx = v; p.lastVy = 0; p.lastSpeed = v;
+    g.updateRams();
+    return p.arcadeBody.velocity.x / v;
+  };
+  const small = others.find((c) => c.fish.rank <= p.rank * 1.1 && !c.guardian);
+  const keepSmall = tryRam(small);
+  const rammedStunned = small.fish.stunned;
+  // brushing past (moving sideways next to it) is not a ram
+  small.fish.stunTimer = 0; p.setPosition(5000, 700); small.fish.setPosition(5000 + (p.size + small.fish.size) * 0.5, 700);
+  p.arcadeBody.setVelocity(0, p.cruiseSpeed); p.lastVx = 0; p.lastVy = p.cruiseSpeed; g.updateRams();
+  return { keepSmall, rammedStunned, grazeStunned: small.fish.stunned };
+});
+ok(bump.keepSmall > 0.95, `bumping into a fish your size keeps your speed (x${bump.keepSmall.toFixed(2)})`);
+ok(bump.rammedStunned, 'a head-on ram still stuns the fish');
+ok(!bump.grazeStunned, 'brushing past a fish is not a ram');
+
 ok(errs.length === 0, 'no page errors ' + errs.slice(0, 3).join(' | '));
 await b.close();

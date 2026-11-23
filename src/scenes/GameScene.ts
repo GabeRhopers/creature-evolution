@@ -272,9 +272,13 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.creatures.push(this.playerCreature);
     this.controller = new PlayerController(this, this.player);
     // Hitting a rock at speed stuns you.
-    this.physics.add.collider(this.player, this.rocks, () => {
+    this.physics.add.collider(this.player, this.rocks, (_p, rock) => {
       const p = this.player;
-      if (!p.stunned && p.lastSpeed > p.cruiseSpeed * BALANCE.combat.ramSpeedRatio) {
+      // Only a head-on hit stuns: the speed aimed into the rock, not a graze along it.
+      const r = rock as Phaser.GameObjects.Image;
+      const d = Math.hypot(r.x - p.x, r.y - p.y) || 1;
+      const into = (p.lastVx * (r.x - p.x) + p.lastVy * (r.y - p.y)) / d;
+      if (!p.stunned && into > p.cruiseSpeed * BALANCE.combat.ramSpeedRatio) {
         p.stun(BALANCE.combat.rockStunSeconds);
         this.sfx.stun();
         this.cameras.main.shake(120, 0.004);
@@ -1299,11 +1303,12 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       const d = Phaser.Math.Distance.Between(p.x, p.y, t.x, t.y);
       if (d > (p.size + t.size) * 0.9) continue;
 
-      // The player ramming an AI fish.
-      const fast = p.dashing || p.lastSpeed > p.cruiseSpeed * cb.ramSpeedRatio;
+      // The player ramming an AI fish: the speed aimed at it counts (brushing past is not a ram).
+      const nx = (t.x - p.x) / (d || 1);
+      const ny = (t.y - p.y) / (d || 1);
+      const into = p.lastVx * nx + p.lastVy * ny;
+      const fast = p.dashing || into > p.cruiseSpeed * cb.ramSpeedRatio;
       if (fast && !t.stunned) {
-        const nx = (t.x - p.x) / (d || 1);
-        const ny = (t.y - p.y) / (d || 1);
         if (p.dashing && t.rank > p.rank * cb.dash.reboundSizeRatio) {
           p.arcadeBody.setVelocity(-nx * p.lastSpeed * 0.5, -ny * p.lastSpeed * 0.5);
           p.dashTimer = 0;
@@ -1313,7 +1318,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         } else if (t.rank <= p.rank * cb.ramSizeRatio || p.dashing) {
           t.stun(cb.ramStunSeconds);
           t.arcadeBody.setVelocity(nx * cb.dash.knockback, ny * cb.dash.knockback);
-          p.arcadeBody.velocity.scale(0.5);
+          // A fish about your size or smaller is just knocked aside; only bumping into something clearly stronger slows you.
+          if (t.rank > p.rank * cb.ramSlowRankRatio) p.arcadeBody.velocity.scale(0.5);
           this.burst(t.x, t.y, t.size * 0.5);
           if (p.dashing) {
             p.dashTimer = 0;
