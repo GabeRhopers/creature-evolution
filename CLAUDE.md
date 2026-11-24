@@ -102,8 +102,8 @@ ball, bottles) bob at the surface. Far parallax layers: islands on the horizon (
 The sea is `world.width` (114000) wide and loops: x and x + W are the same place. Seven regions left to right
 (tropics, then the deep, then the poles; one Tide each): Coral Sea (0-24000; 0-9000 is the original map), Mangrove
 Swamp (24000-38000), Sargasso Drift (38000-54000: open blue water, golden weed mats float at the surface and are
-hiding places, `scenery.floats` kind `weed`), Volcanic Rift (54000-72000), Twilight Trench (72000-84000: dark water,
-high seamount walls either side of a deep floor, glowing sea pens), Kelp Forest (84000-98000: rocky ridges and dense
+hiding places, `scenery.floats` kind `weed`), Volcanic Rift (54000-72000), Twilight Trench (72000-84000: a sea cave, five overlapping `cave` rocks make one roof over
+the whole trench, so no sunlight reaches in; high seamount walls either side of a deep floor, glowing sea pens), Kelp Forest (84000-98000: rocky ridges and dense
 giant kelp, `makeGiantKelp`, extra patches on top of `world.kelpPatches`), Frozen Sea (98000-114000). The 4 old regions
 were doubled on Nov 23 (first half = old layout, second half mirrored); the 7-region order came the same day (the Rift
 moved +16000, the Frozen Sea +42000). Saves from the 72000 px sea are moved to the same place (`migrateX`,
@@ -222,6 +222,12 @@ more at night), Viperfish (41, `ambush`, `lure` on its dorsal ray, fangs), Vampi
 `cloud` seconds (`GameScene.blindT`, LightScene `glare`) and it flees; then `trench.cloudCooldown`; one cloud at a time),
 Gulper Eel (44, `devourRatio` 1: swallows fish its own size). `glow` (a color) gives a body glow drawn by LightScene,
 brighter in the dark. All four live only in the Trench. E2E: `tests/e2e/trench.mjs`; unit: `tests/trench.test.ts`.
+
+Sargasso Drift (`tools/fish/draw_sargasso.py`, all unlock at 20 to 25 and live in the Sargasso): Flying Fish (prey schools
+near the surface), Sargassum Fish (`camo` ambusher in the weed), Mahi-mahi (20, golden packs), Yellowfin Tuna (22, fastest
+sprinters), Sailfish (25, sail and bill, `ambush`), Man o' War (drifts at the surface, `venom`, see-through) and the
+**Green Sea Turtle** (`friendly`: the player can't eat or bite it and no fish hunts it; `armor`). A diet may name a species id
+as well as tiers (`Brain.dietAllows`): the turtle's diet is `man_o_war`, so it eats them. E2E: `sargasso.mjs`.
 
 ## Bosses (`src/scenes/BossSystem.ts`, rules in `src/systems/bosses.ts`, `balance.json` "bosses")
 First boss: the **Electric Eel** (species `electric_eel`, look `beast-electric_eel` drawn by `tools/fish/draw_boss.py`,

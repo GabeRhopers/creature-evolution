@@ -288,8 +288,11 @@ export class Brain {
   }
 
   private dietAllows(c: Creature): boolean {
+    // Friends (turtles) are never hunted; a diet can also name one species (the turtle eats the man o' war).
+    if (c.fish.species.friendly) return false;
     if (this.desperate) return true;
-    return this.fish.species.diet.includes(`tier${c.fish.species.tier}`);
+    const diet = this.fish.species.diet;
+    return diet.includes(`tier${c.fish.species.tier}`) || diet.includes(c.fish.species.id);
   }
 
   private nearestFood(range: number): FoodItem | null {

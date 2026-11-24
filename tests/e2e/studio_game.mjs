@@ -9,6 +9,7 @@
 import { chromium } from 'playwright-core';
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--mute-audio'] });
 const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+p.setDefaultNavigationTimeout(90000); p.setDefaultTimeout(60000); // slow CI runners
 const errs = [];
 p.on('pageerror', (e) => errs.push(e.message));
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };

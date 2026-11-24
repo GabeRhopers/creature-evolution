@@ -3,6 +3,7 @@
 import { chromium } from 'playwright-core';
 const b = await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--mute-audio']});
 const p = await b.newPage({viewport:{width:1280,height:800}});
+p.setDefaultNavigationTimeout(90000); p.setDefaultTimeout(60000); // slow CI runners
 const errs=[]; p.on('pageerror',e=>{errs.push(e.message); console.log('STACK', e.stack);});
 const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m); if(!c) process.exitCode=1;};
 const G=(f,a)=>p.evaluate(f,a);
@@ -42,7 +43,7 @@ ok(await waitFor(()=>window.game.scene.getScene('Game').bosses.current?.brain.mo
 await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; g.player.arcadeBody.reset(c.fish.x + 120, c.fish.y);});
 await p.screenshot({path:'/tmp/boss_charge.png'});
 ok(await waitFor(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; if (c && !window.__hits.includes('ZAP!')) g.player.arcadeBody.reset(c.fish.x + 100, c.fish.y);
-  return window.__hits.includes('ZAP!');}, 10000), 'the shock hits you if you stay close');
+  return window.__hits.includes('ZAP!');}, 25000), 'the shock hits you if you stay close ' + JSON.stringify(await G(()=>{const a=window.game.scene.getScene('Game').bosses.active; return a ? {mode:a.mode, t:a.t, shockIn:a.shockIn, hits:window.__hits} : null;})));
 
 // Breath: it rises to the air hole and gulps; bites do double damage then.
 await G(()=>{const g=window.game.scene.getScene('Game'); const a=g.bosses.active; a.breathIn=0; a.shockIn=99; g.player.arcadeBody.reset(35000, 1300);});

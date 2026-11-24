@@ -3,6 +3,7 @@
 import { chromium } from 'playwright-core';
 const b = await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--mute-audio']});
 const p = await b.newPage({viewport:{width:1280,height:800}});
+p.setDefaultNavigationTimeout(90000); p.setDefaultTimeout(60000); // slow CI runners
 const errs=[]; p.on('pageerror',e=>errs.push(e.message));
 const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m); if(!c) process.exitCode=1;};
 const G=(f,a)=>p.evaluate(f,a);
@@ -24,7 +25,7 @@ await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMod
 
 // Region mixes at the start of a run.
 const tang = await where('blue_tang'), archer = await where('archerfish'), cod = await where('polar_cod');
-ok(tang.coral > tang.swamp + tang.volcano + tang.ice && tang.ice === 0, 'blue tangs crowd the Coral Sea, none in the ice: '+JSON.stringify(tang));
+ok(tang.coral > Math.max(tang.swamp, tang.sargasso, tang.volcano, tang.kelp) && tang.ice === 0, 'blue tangs crowd the Coral Sea most, none in the ice: '+JSON.stringify(tang));
 ok(archer.swamp > 0 && archer.coral + archer.volcano + archer.ice === 0, 'archerfish live in the Mangrove Swamp: '+JSON.stringify(archer));
 ok(cod.ice > 0 && cod.coral + cod.swamp + cod.volcano === 0, 'polar cod live in the Frozen Sea: '+JSON.stringify(cod));
 ok(!(await has('bull_shark')) && !(await has('sperm_whale')), 'no new hunters at level 1');

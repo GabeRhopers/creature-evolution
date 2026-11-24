@@ -535,7 +535,7 @@ export class HudScene extends Phaser.Scene {
     this.deathStats.setPosition(width / 2, height * 0.4 + 80);
     this.deathAgain.setPosition(width / 2 - 100, height * 0.4 + 170);
     this.deathHome.setPosition(width / 2 + 100, height * 0.4 + 170);
-    this.banner.setPosition(width / 2, height * 0.28);
+    this.banner.setPosition(width / 2, height * 0.28).setWordWrapWidth(width - 60).setAlign('center');
     this.bannerHint.setPosition(width / 2, height * 0.28 + 34).setWordWrapWidth(Math.min(560, width - 40));
     this.hint.setPosition(16, height - 28);
     const touch = this.sys.game.device.input.touch;

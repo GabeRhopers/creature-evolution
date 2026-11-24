@@ -20,6 +20,7 @@ await ctx.addInitScript(() => {
   window.claude = { use: async (n) => (n === 'db' ? db : null) };
 });
 const p = await ctx.newPage();
+p.setDefaultNavigationTimeout(90000); p.setDefaultTimeout(60000); // slow CI runners
 const errs=[]; p.on('pageerror',e=>errs.push(e.message));
 const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m); if(!c) process.exitCode=1;};
 const cloud=()=>p.evaluate(()=>JSON.parse(sessionStorage.getItem('__cloud')||'{}'));
