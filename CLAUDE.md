@@ -27,8 +27,12 @@ Owner tests mostly on an **iPad** (touch) and a laptop (keyboard/mouse).
   rebuilt each frame (`src/systems/spatialGrid.ts`, `AIWorld.nearby`, `ai.gridCell`); never loop over all creatures
   inside a brain. AI fish more than half a screen outside the view are not drawn (`visible` = drawn, not "exists":
   brains only skip a hidden player) and skip their look updates; culled kelp pauses its sway tween. The game loop
-  (`GameScene.update` -> `step`) and the light overlay catch errors, log each once (`ce:error`, `frameErrors`) and
-  keep running. CI runs the browser suites in three parallel shards (`browser-shard`); a new e2e suite must be
+  (`GameScene.update` -> `step`) and the light overlay catch errors, log each once (`ce:error`, `frameErrors`, and the
+  device's problem log via `noteError`) and keep running. `main.ts` also wraps `Phaser.Game.prototype.step`: Phaser asks
+  for the next frame only after the current one finishes, so any other uncaught error (HUD, rendering) used to freeze the
+  game for good; now it is reported (`reportError` -> the "Something went wrong" panel, which shows the message) and the
+  frames keep coming. Options > Problem log lists the device's logged errors (`ce.errors`) so iPad reports can be screenshotted.
+  `GameScene.guardPlayer` puts a hero with a broken position, or stuck in the air over `land.maxAirSeconds`, back in the water. CI runs the browser suites in three parallel shards (`browser-shard`); a new e2e suite must be
   added to one shard's list in `.github/workflows/test.yml`.
 - `src/entities/Food.ts`: plankton field kept around the camera (pooled images).
 - Eating lives in `GameScene.updateEating()`: mouth = circle ahead of the head
@@ -67,8 +71,13 @@ polygon shapes, grey back, white belly, tooth row, yellow eye; framework `white_
 helpers (eye-anchored placement, bite frames, blink, egg) live in `tools/heroes/heroart.py`.
 **Every hero's hatchling hatches from an egg**: it sits in a broken shell and wears a shell cap
 (`heroart.egg`; the shark's shell is beige so it stands out from its white belly).
+**Fang** is the fourth hero: a pixel-art great white from a sheet of four poses (idle, swim, attack, hurt) supplied by
+Rhopers (`tools/fang/fang_sheet.jpg`). `tools/fang/convert_fang.py` samples each pose to art pixels, maps them to Endesga 32
+plus three neutral body greys (its signature colors), turns them to face right and writes `fang-*.json` (framework `fang`,
+100x44 canvas, same art for all three stages; the hatchling wears a beige eggshell cap). The hurt pose is the `damage` frame.
 Abilities: croc Shell Guard / Lunge / Death Roll; Mosa Dart / Tail Slam / Crushing Bite;
-White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks).
+White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks); Fang Lunge / Crushing Bite /
+Feeding Frenzy (tougher skin than the White Shark).
 
 ## Sprite Studio -> game (`src/skins.ts`, `public/studio/index.html`)
 Every creature look (hero stages and reef creatures) is a studio project id. The menu loads them all with

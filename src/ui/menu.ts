@@ -15,7 +15,7 @@ import { ENEMY_FIELDS, ENEMY_GROUPS, enemiesChanged, enemyIds, resetEnemies, sav
 import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
 import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
 import { earlyHelpMods, earlyHelpStrength, perkById, type PerkDef } from '../systems/perks';
-import { installSafetyNet, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
+import { installSafetyNet, lastErrorLine, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
 
 /** Sprite Studio lives in the same artifact, so both pages share saves. */
 const STUDIO_URL = 'studio/index.html';
@@ -428,6 +428,7 @@ export function initMenu(game: Phaser.Game): void {
       <div class="toggle"><span>Your crocodile<br><span style="color:var(--muted);font-size:13px">Drawings from Sprite Studio</span></span><select id="oSkin" aria-label="Your crocodile"><option value="">Grows with each stage</option></select></div>
       <div class="toggle"><span>Controller buttons<br><span style="color:var(--muted);font-size:13px">Choose which button does what</span></span><button class="btn" id="oPad">Set up</button></div>
       <div class="toggle"><span>Enemy settings<br><span style="color:var(--muted);font-size:13px">${enemiesChanged() ? 'Changed on this device' : 'When enemies appear, how strong they are'}</span></span><button class="btn" id="oEnemies">Edit</button></div>
+      <div class="toggle"><span>Problem log<br><span style="color:var(--muted);font-size:13px">${readErrorLog().length ? `${readErrorLog().length} problem(s) noted on this device` : 'No problems noted'}</span></span><button class="btn" id="oErrors">Show</button></div>
       <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${profile.best.level ? `Level ${profile.best.level} · ${lt.runs} runs played` : 'None yet'}</span></span><button class="btn" id="oReset" data-label="Reset">Reset</button></div>
       <div class="toggle"><span>Reset everything<br><span style="color:var(--muted);font-size:13px">Settings, records and the saved run</span></span><button class="btn" id="oResetAll" data-label="Reset all">Reset all</button></div>
       <p style="color:var(--muted);font-size:13px">${
@@ -442,6 +443,7 @@ export function initMenu(game: Phaser.Game): void {
         fillSkinPicker($('oSkin') as HTMLSelectElement);
         $('oPad').onclick = openPadMap;
         $('oEnemies').onclick = openEnemies;
+        $('oErrors').onclick = openErrors;
         confirmButton('oReset', 'Tap again to reset', () => {
           profile.best = { level: 0, kills: 0, fish: 0 };
           saveProfile();
@@ -456,6 +458,25 @@ export function initMenu(game: Phaser.Game): void {
     );
   }
   $('cardOptions').addEventListener('click', openOptions);
+
+  /** The problems this device noted (newest first), so they can be screenshotted and sent. */
+  function openErrors(): void {
+    const list = readErrorLog().slice().reverse();
+    const rows = list
+      .map((e) => {
+        const top = (e.stack ?? '').split('\n').slice(0, 3).join(' / ');
+        return `<li><b>${esc(new Date(e.t).toLocaleString())}</b> v${esc(e.app)}<br>${esc(e.msg)}<br><span style="color:var(--muted)">${esc(e.where ?? '')} ${esc(top)}</span></li>`;
+      })
+      .join('');
+    openPanel(
+      `<h3>Problem log</h3>
+      ${list.length ? `<ol id="errList" style="font-size:12px;word-break:break-word;max-height:50vh;overflow:auto;padding-left:18px">${rows}</ol>` : '<p>No problems noted on this device.</p>'}
+      <div class="row"><button class="btn" id="eBack">Back</button></div>`,
+      () => {
+        $('eBack').onclick = openOptions;
+      },
+    );
+  }
 
   // ---------------------------------------------------------------- enemy settings (admin)
   function openEnemies(): void {
@@ -915,6 +936,7 @@ export function initMenu(game: Phaser.Game): void {
       openPanel(
         `<h3>Something went wrong</h3>
         <p>${saved ? 'Your run was saved.' : 'Your settings and records are safe.'} You can keep playing, or reload the game to start clean.</p>
+        <p class="err-line" style="color:var(--muted);font-size:12px;word-break:break-word">${esc(lastErrorLine())}</p>
         <div class="row"><button class="btn btn-play" id="eResume">Keep playing</button><button class="btn" id="eReload">Reload</button></div>`,
         () => {
           $('eResume').onclick = () => (wasPaused ? wrap.classList.remove('open') : closePanel());
