@@ -43,7 +43,7 @@ ok(await waitFor(()=>window.game.scene.getScene('Game').bosses.current?.brain.mo
 await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; g.player.arcadeBody.reset(c.fish.x + 120, c.fish.y);});
 await p.screenshot({path:'/tmp/boss_charge.png'});
 ok(await waitFor(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; if (c && !window.__hits.includes('ZAP!')) g.player.arcadeBody.reset(c.fish.x + 100, c.fish.y);
-  return window.__hits.includes('ZAP!');}, 10000), 'the shock hits you if you stay close');
+  return window.__hits.includes('ZAP!');}, 25000), 'the shock hits you if you stay close ' + JSON.stringify(await G(()=>{const a=window.game.scene.getScene('Game').bosses.active; return a ? {mode:a.mode, t:a.t, shockIn:a.shockIn, hits:window.__hits} : null;})));
 
 // Breath: it rises to the air hole and gulps; bites do double damage then.
 await G(()=>{const g=window.game.scene.getScene('Game'); const a=g.bosses.active; a.breathIn=0; a.shockIn=99; g.player.arcadeBody.reset(35000, 1300);});

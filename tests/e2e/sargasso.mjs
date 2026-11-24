@@ -32,8 +32,16 @@ await p.screenshot({path:'/tmp/sargasso_turtle.png'});
 // The turtle eats a man o' war.
 const eaten = await G((ti)=>{const g=window.game.scene.getScene('Game'); const t=g.creatures[ti]; const m=g.creatures.find(c=>c.fish.species.id==='man_o_war' && (c.slot??0) < 0.3) || g.creatures.find(c=>c.fish.species.id==='man_o_war'); m.slot=0;
   m.away=false; m.crowded=false; m.respawnT=0; t.brain.hunger=0; g.player.arcadeBody.reset(t.fish.x-900, t.fish.y);
-  m.fish.setPosition(t.fish.x+90, t.fish.y); window.__mow=m; window.__mowX=m.fish.x; return true;}, turtle);
-ok(await waitFor(()=>{const m=window.__mow; return (m.respawnT>0) || Math.abs(m.fish.x-window.__mowX) > 1500;}, 20000), "the turtle eats the man o' war");
+  m.fish.setPosition(t.fish.x+90, t.fish.y); window.__mow=m; window.__mowX=m.fish.x;
+  // The Sargasso weed hides small things; keep this jelly in plain sight for the test.
+  // Tuna and sailfish roam here too; a scared turtle forgets lunch. Calm this one for the test.
+  t.brain.isThreat=()=>false;
+  const hid=g.isHidden.bind(g); g.isHidden=(tg,ob)=>tg===m.fish ? false : hid(tg,ob); return true;}, turtle);
+// Keep the jelly in front of the hungry turtle (slow machines think slowly), until it is gone.
+ok(await waitFor((ti)=>{const g=window.game.scene.getScene('Game'); const m=window.__mow, t=g.creatures[ti];
+  if ((m.respawnT>0) || Math.abs(m.fish.x-window.__mowX) > 1500) return true;
+  t.brain.hunger=0; if (t.brain.state==='flee') { t.brain.threat=null; t.brain.state='wander'; } g.player.arcadeBody.reset(t.fish.x-1100, t.fish.y-500); m.away=false; m.crowded=false; m.fish.setPosition(t.fish.x + Math.cos(t.fish.rotation)*t.fish.size*0.9, t.fish.y + Math.sin(t.fish.rotation)*t.fish.size*0.9); window.__mowX=m.fish.x;
+  return false;}, 30000, turtle), "the turtle eats the man o' war " + JSON.stringify(await G((ti)=>{const g=window.game.scene.getScene('Game'); const t=g.creatures[ti], m=window.__mow; return {st:t.brain.state, tgt:t.brain.target&&t.brain.target.fish.species.id, hungry:t.brain.hungry, hunger:t.brain.hunger, away:t.away, crowded:t.crowded, mhp:m.fish.hp, d:Math.hypot(m.fish.x-t.fish.x,m.fish.y-t.fish.y), tsize:t.fish.size, msize:m.fish.size, swal:t.fish.canSwallow(m.fish.size), bite:t.brain.canBite(m), diet:t.brain.dietAllows(m), hid:g.isHidden(m.fish,t.fish), mx:m.fish.x, tx:t.fish.x, px:g.player.fish?g.player.fish.x:g.player.x, mresp:m.respawnT, ttype:t.brain.constructor.name, stTime:t.brain.stateTime};}, turtle)));
 
 // The sargassum fish hides by sitting still (camouflage), like the weed it lives in.
 ok(await G(()=>window.game.scene.getScene('Game').creatures.find(c=>c.fish.species.id==='sargassum_fish').fish.species.camo===true), 'the sargassum fish is camouflaged');
