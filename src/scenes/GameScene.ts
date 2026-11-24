@@ -1258,7 +1258,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     let biteTarget: Creature | null = null;
     const checkR = p.mouthRadius(true);
     for (const c of this.creatures) {
-      if (c.isPlayer || c.asleep) continue;
+      // Friends (green sea turtles) can't be eaten or bitten.
+      if (c.isPlayer || c.asleep || c.fish.species.friendly) continue;
       const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, c.fish.x, c.fish.y);
       if (p.canSwallow(c.fish.size) && !c.guardian) {
         if (d <= checkR + c.fish.size * 0.5 && (!swallowTarget || c.fish.size > swallowTarget.fish.size)) swallowTarget = c;

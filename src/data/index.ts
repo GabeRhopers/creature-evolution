@@ -91,6 +91,8 @@ export interface Species {
   alpha?: number;
   /** Camouflage (octopus): fades and hides from fish farther away while it sits still. */
   camo?: boolean;
+  /** A friend (green sea turtle): the player can't eat or bite it, and no fish hunts it. */
+  friendly?: boolean;
   /** Bioluminescent (Twilight Trench): a soft glow of this color on its body, brighter in the dark. */
   glow?: string;
   /** Vampire squid: scared by the player, it puffs a glowing cloud that blinds you for this many seconds. */

@@ -581,6 +581,36 @@
         "width": 1100,
         "depth": 620,
         "style": "cave"
+      },
+      {
+        "x": 73500,
+        "width": 2600,
+        "depth": 850,
+        "style": "cave"
+      },
+      {
+        "x": 75700,
+        "width": 2600,
+        "depth": 850,
+        "style": "cave"
+      },
+      {
+        "x": 77900,
+        "width": 2600,
+        "depth": 850,
+        "style": "cave"
+      },
+      {
+        "x": 80100,
+        "width": 2600,
+        "depth": 850,
+        "style": "cave"
+      },
+      {
+        "x": 82300,
+        "width": 2400,
+        "depth": 850,
+        "style": "cave"
       }
     ],
     "rootsDepth": 120,
@@ -1449,7 +1479,14 @@
     "lanternfish": 20,
     "viperfish": 2,
     "gulper_eel": 1,
-    "vampire_squid": 3
+    "vampire_squid": 3,
+    "flying_fish": 26,
+    "sargassum_fish": 8,
+    "mahi_mahi": 6,
+    "yellowfin_tuna": 5,
+    "sailfish": 2,
+    "green_turtle": 3,
+    "man_o_war": 10
   },
   "biomes": {
     "_comment": "How much each species likes each region (0 = never there). A species' fish are shared out by weight x region width; they wander mostly where they like it. Missing = 1 everywhere.",
@@ -1657,6 +1694,69 @@
       "sargasso": 0,
       "volcano": 0,
       "trench": 1,
+      "kelp": 0,
+      "ice": 0
+    },
+    "flying_fish": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 1,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 0,
+      "ice": 0
+    },
+    "sargassum_fish": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 1,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 0,
+      "ice": 0
+    },
+    "mahi_mahi": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 1,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 0,
+      "ice": 0
+    },
+    "yellowfin_tuna": {
+      "coral": 0.1,
+      "swamp": 0,
+      "sargasso": 1,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 0,
+      "ice": 0
+    },
+    "sailfish": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 1,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 0,
+      "ice": 0
+    },
+    "green_turtle": {
+      "coral": 0.15,
+      "swamp": 0,
+      "sargasso": 1,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 0,
+      "ice": 0
+    },
+    "man_o_war": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 1,
+      "volcano": 0,
+      "trench": 0,
       "kelp": 0,
       "ice": 0
     }
@@ -1870,6 +1970,31 @@
     },
     "vampire_squid": {
       "groupMax": 2
+    },
+    "flying_fish": {
+      "groupMin": 6,
+      "groupMax": 10
+    },
+    "mahi_mahi": {
+      "groupMin": 3,
+      "groupMax": 5,
+      "maxHunters": 2
+    },
+    "yellowfin_tuna": {
+      "groupMin": 3,
+      "groupMax": 6,
+      "maxHunters": 2
+    },
+    "sailfish": {
+      "maxHunters": 1,
+      "respawnDelay": 25
+    },
+    "man_o_war": {
+      "groupMin": 2,
+      "groupMax": 4
+    },
+    "green_turtle": {
+      "respawnDelay": 30
     }
   },
   "ai": {
@@ -2507,7 +2632,7 @@
       "vision": 0.5,
       "hunger": 1.1,
       "food": 0.8,
-      "hint": "Dark water: everyone sees half as far. Glowing fish give themselves away",
+      "hint": "A sea cave: no sunlight reaches in. Everyone sees half as far, and glowing fish give themselves away",
       "dark": 0.75
     },
     "kelp": {

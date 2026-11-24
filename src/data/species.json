@@ -870,7 +870,7 @@
     },
     "ability": null,
     "spawn": {
-      "depthMin": 0.3,
+      "depthMin": 0.38,
       "depthMax": 0.95,
       "weight": 0
     },
@@ -1023,5 +1023,250 @@
     },
     "look": "beast-electric_eel",
     "intro": "The Electric Eel guards the Spring Cave. It must come up for air: bite it then!"
+  },
+  "flying_fish": {
+    "displayName": "Flying Fish",
+    "sprite": "fish_grey",
+    "tier": 1,
+    "baseSize": 12,
+    "baseHP": 14,
+    "baseBite": 2,
+    "accel": 600,
+    "maxSpeed": 260,
+    "sprintMultiplier": 1.9,
+    "drag": 0.95,
+    "turnSpeed": 6.0,
+    "devourRatio": 0.4,
+    "xpValue": 34,
+    "diet": [
+      "food"
+    ],
+    "behavior": {
+      "schooling": true,
+      "aggression": 0.0,
+      "visionRange": 320,
+      "fleeRatio": 1.2
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.2,
+      "weight": 0
+    },
+    "look": "fish-flying_fish",
+    "unlockLevel": 20,
+    "intro": "Flying fish school just under the surface. Real ones glide over the waves on their wing-like fins"
+  },
+  "sargassum_fish": {
+    "displayName": "Sargassum Fish",
+    "sprite": "fish_grey",
+    "tier": 2,
+    "baseSize": 18,
+    "baseHP": 40,
+    "baseBite": 8,
+    "accel": 420,
+    "maxSpeed": 150,
+    "sprintMultiplier": 1.6,
+    "drag": 0.95,
+    "turnSpeed": 4.4,
+    "devourRatio": 0.7,
+    "xpValue": 90,
+    "diet": [
+      "tier1"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.6,
+      "visionRange": 180,
+      "fleeRatio": 1.4,
+      "ambush": true
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.12,
+      "weight": 0
+    },
+    "look": "fish-sargassum_fish",
+    "camo": true,
+    "unlockLevel": 20,
+    "intro": "The sargassum fish looks just like the floating weed. It waits very still and gulps passing fish"
+  },
+  "mahi_mahi": {
+    "displayName": "Mahi-mahi",
+    "sprite": "fish_grey",
+    "tier": 3,
+    "baseSize": 34,
+    "baseHP": 200,
+    "baseBite": 24,
+    "accel": 560,
+    "maxSpeed": 250,
+    "sprintMultiplier": 1.9,
+    "drag": 0.97,
+    "turnSpeed": 3.6,
+    "devourRatio": 0.6,
+    "xpValue": 420,
+    "diet": [
+      "tier1",
+      "tier2"
+    ],
+    "behavior": {
+      "schooling": true,
+      "aggression": 0.85,
+      "visionRange": 460,
+      "fleeRatio": 2.0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.5,
+      "weight": 0
+    },
+    "look": "fish-mahi_mahi",
+    "rankMul": 3.9,
+    "unlockLevel": 20,
+    "intro": "Mahi-mahi hunt in fast golden packs under the floating weed"
+  },
+  "yellowfin_tuna": {
+    "displayName": "Yellowfin Tuna",
+    "sprite": "fish_grey",
+    "tier": 3,
+    "baseSize": 40,
+    "baseHP": 260,
+    "baseBite": 26,
+    "accel": 640,
+    "maxSpeed": 290,
+    "sprintMultiplier": 2.0,
+    "drag": 0.975,
+    "turnSpeed": 3.0,
+    "devourRatio": 0.6,
+    "xpValue": 520,
+    "diet": [
+      "tier1",
+      "tier2"
+    ],
+    "behavior": {
+      "schooling": true,
+      "aggression": 0.8,
+      "visionRange": 520,
+      "fleeRatio": 2.0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.1,
+      "depthMax": 0.7,
+      "weight": 0
+    },
+    "look": "fish-yellowfin_tuna",
+    "rankMul": 3.6,
+    "unlockLevel": 22,
+    "intro": "Yellowfin tuna are built for speed: the fastest sprinters of the open sea"
+  },
+  "sailfish": {
+    "displayName": "Sailfish",
+    "sprite": "fish_grey",
+    "tier": 4,
+    "baseSize": 60,
+    "baseHP": 420,
+    "baseBite": 34,
+    "accel": 700,
+    "maxSpeed": 300,
+    "sprintMultiplier": 2.2,
+    "drag": 0.975,
+    "turnSpeed": 2.6,
+    "devourRatio": 0.5,
+    "xpValue": 900,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.9,
+      "visionRange": 600,
+      "fleeRatio": 2.0,
+      "ambush": true
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.05,
+      "depthMax": 0.6,
+      "weight": 0
+    },
+    "look": "fish-sailfish",
+    "rankMul": 2.8,
+    "unlockLevel": 25,
+    "intro": "The sailfish raises its giant sail to herd fish, then strikes with its spear-like bill"
+  },
+  "green_turtle": {
+    "displayName": "Green Sea Turtle",
+    "sprite": "fish_grey",
+    "tier": 3,
+    "baseSize": 46,
+    "baseHP": 400,
+    "baseBite": 6,
+    "accel": 300,
+    "maxSpeed": 140,
+    "sprintMultiplier": 1.5,
+    "drag": 0.97,
+    "turnSpeed": 2.4,
+    "devourRatio": 0.5,
+    "xpValue": 0,
+    "diet": [
+      "man_o_war"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.0,
+      "visionRange": 380,
+      "fleeRatio": 1.0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.4,
+      "weight": 0
+    },
+    "look": "beast-green_turtle",
+    "armor": 0.6,
+    "friendly": true,
+    "unlockLevel": 20,
+    "intro": "A friend! Green sea turtles grow up hiding in the floating weed, and they eat the stinging man o' war"
+  },
+  "man_o_war": {
+    "displayName": "Man o' War",
+    "sprite": "fish_grey",
+    "tier": 1,
+    "baseSize": 16,
+    "baseHP": 20,
+    "baseBite": 6,
+    "accel": 120,
+    "maxSpeed": 60,
+    "sprintMultiplier": 1.2,
+    "drag": 0.95,
+    "turnSpeed": 1.6,
+    "devourRatio": 0.4,
+    "xpValue": 20,
+    "diet": [
+      "tier1"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.5,
+      "visionRange": 120,
+      "fleeRatio": 99
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.06,
+      "weight": 0
+    },
+    "look": "beast-man_o_war",
+    "venom": 0.08,
+    "alpha": 0.85,
+    "unlockLevel": 20,
+    "intro": "The man o' war drifts at the surface trailing long stinging tentacles. Don't bite it"
   }
 }

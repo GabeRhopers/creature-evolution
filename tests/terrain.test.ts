@@ -96,11 +96,22 @@ describe('scenery layout', () => {
       const spans = list.map((f) => [f.x - f.width / 2, f.x + f.width / 2]).sort((a, b) => a[0] - b[0]);
       return spans.filter((s, i) => i > 0 && s[0] < spans[i - 1][1]).map((s) => (s[0] + s[1]) / 2);
     };
-    const cfg = balance.terrain as unknown as { islands: Array<{ x: number; width: number }>; seamounts: Array<{ x: number; width: number }>; ridges: Array<{ x: number; width: number }> };
-    expect(overlaps(cfg.islands)).toEqual([]);
+    const cfg = balance.terrain as unknown as { islands: Array<{ x: number; width: number; style?: string }>; seamounts: Array<{ x: number; width: number }>; ridges: Array<{ x: number; width: number }> };
+    // Cave rocks overlap on purpose (together they make one long roof, like over the Twilight Trench).
+    expect(overlaps(cfg.islands.filter((i) => i.style !== 'cave'))).toEqual([]);
     expect(overlaps([...cfg.seamounts, ...cfg.ridges])).toEqual([]);
   });
   it('keeps floats in open water, away from islands', () => {
     for (const f of sc.floats) expect(isFinite(t.ceilAt(f.x))).toBe(false);
+  });
+});
+
+describe('the Twilight Trench is a sea cave (Nov 24)', () => {
+  it('has a rock roof over the whole trench, with room to swim under it', () => {
+    const trench = balance.regions.list.find((r) => r.id === 'trench')!;
+    for (let x = trench.from + 600; x < trench.to - 600; x += 50) {
+      expect(isFinite(t.ceilAt(x)), `roof at ${x}`).toBe(true);
+      expect(t.groundAt(x) - t.ceilAt(x), `room at ${x}`).toBeGreaterThan(250);
+    }
   });
 });
