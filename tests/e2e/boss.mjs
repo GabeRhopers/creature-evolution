@@ -38,7 +38,10 @@ await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.curren
 ok(await waitFor(()=>window.game.scene.getScene('Game').bosses.current?.brain.mode==='charge', 6000), 'it charges up before a shock (the warning)');
 const hp0 = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; g.player.arcadeBody.reset(c.fish.x + 120, c.fish.y); return g.player.hp;});
 await p.screenshot({path:'/tmp/boss_charge.png'});
-ok(await waitFor((h)=>window.game.scene.getScene('Game').player.hp < h, 6000, hp0), 'the shock hurts you if you stay close');
+// Stay right next to it (a bite just before can leave you briefly invulnerable, so keep that cleared).
+ok(await waitFor((h)=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; if (!c) return false;
+  if (g.player.hp >= h) { g.player.invulnTimer=0; g.player.arcadeBody.reset(c.fish.x + 100, c.fish.y); }
+  return g.player.hp < h;}, 8000, hp0), 'the shock hurts you if you stay close');
 
 // Breath: it rises to the air hole and gulps; bites do double damage then.
 await G(()=>{const g=window.game.scene.getScene('Game'); const a=g.bosses.active; a.breathIn=0; a.shockIn=99; g.player.invulnTimer=1e9; g.player.arcadeBody.reset(35000, 1300);});
