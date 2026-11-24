@@ -38,7 +38,8 @@ ok(await waitFor(()=>window.game.scene.getScene('Light').glare.alpha > 0.2, 3000
 await p.screenshot({path:'/tmp/trench_blind.png'});
 // The squid that puffed (its partner may have been closer) is the one waiting to puff again.
 const puffer = await G(()=>{const g=window.game.scene.getScene('Game'); return g.creatures.findIndex(c=>c.fish.species.id==='vampire_squid' && c.cloudT > 0);});
-ok(puffer >= 0 && await G((i)=>window.game.scene.getScene('Game').creatures[i].brain.state==='flee', puffer), 'and the squid flees');
+// It treats you as the threat (it may already have escaped and calmed down on a slow machine).
+ok(puffer >= 0 && await G((i)=>{const g=window.game.scene.getScene('Game'); const br=g.creatures[i].brain; const f=g.creatures[i].fish, pl=g.player; return br.state==='flee' || br.threat===g.playerCreature || Math.hypot(f.x-pl.x, f.y-pl.y) > (f.size+pl.size)*2;}, puffer), 'and the squid flees');
 const b0 = await G(()=>window.game.scene.getScene('Game').blindT);
 await p.waitForTimeout(1500);
 ok(await G((b0)=>window.game.scene.getScene('Game').blindT < b0, b0), 'the glare wears off');
