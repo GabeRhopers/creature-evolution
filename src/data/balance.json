@@ -2382,6 +2382,39 @@
           }
         }
       }
+    },
+    "fang": {
+      "name": "Fang",
+      "blurb": "A pixel great white with tougher skin. Lunge, Crushing Bite, Feeding Frenzy.",
+      "stages": {
+        "hatchling": {
+          "skin": "fang-hatchling",
+          "ability": "lunge",
+          "art": {
+            "radius": 14,
+            "mouthReach": 2.5,
+            "mouthRadius": 0.7
+          }
+        },
+        "juvenile": {
+          "skin": "fang-juvenile",
+          "ability": "crush",
+          "art": {
+            "radius": 14,
+            "mouthReach": 2.5,
+            "mouthRadius": 0.7
+          }
+        },
+        "adult": {
+          "skin": "fang-adult",
+          "ability": "frenzy",
+          "art": {
+            "radius": 14,
+            "mouthReach": 2.5,
+            "mouthRadius": 0.7
+          }
+        }
+      }
     }
   },
   "checkpointCrab": {
@@ -2598,7 +2631,8 @@
     "crawlSpeed": 90,
     "hopSpeed": 420,
     "drySafeSeconds": 5,
-    "dryDamagePerSecond": 0.06
+    "dryDamagePerSecond": 0.06,
+    "maxAirSeconds": 6
   },
   "regionTwists": {
     "_comment": "Each region plays a little differently (src/systems/regionTwists.ts). 1 = no change. vision: how far every fish sees; food: plankton amount; hunger and speed: the player's; ventHeal: warm vent healing; ventWarms: resting by a vent cancels the hunger and speed twist. current: px/s pushing everything east (Sargasso Drift). dark: darkness around the player day and night, plankton glows (Trench, 0 to 1). bigSlow: speed of creatures above juvenile size there (Kelp Forest).",

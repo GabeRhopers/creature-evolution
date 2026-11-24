@@ -18,7 +18,7 @@ const shot=async(n,z=2)=>{await G((z)=>{window.game.scene.getScene('Game').camer
 await p.goto('http://localhost:4173/'); await G(()=>localStorage.clear()); await p.reload(); await p.waitForTimeout(3500);
 await G(()=>window.addEventListener('ce:perk',()=>setTimeout(()=>document.querySelector('[data-perk]')?.click(),30)));
 const heroes = await G(()=>[...document.querySelectorAll('[data-hero]')].map(b=>b.dataset.hero));
-ok(heroes.join()==='crocodile,mosa,white_shark', 'home offers Croc, Mosa and Shark: '+heroes.join());
+ok(heroes.join()==='crocodile,mosa,white_shark,fang', 'home offers Croc, Mosa, Shark and Fang: '+heroes.join());
 await p.click('[data-hero="white_shark"]'); await p.waitForTimeout(800);
 ok(await G(()=>document.getElementById('heroCroc').getAttribute('aria-label')==='The White Shark'), 'the home logo shows the shark');
 await p.screenshot({path:'/home/claude/stages/shark_home.png'});

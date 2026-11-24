@@ -143,5 +143,20 @@
       52
     ],
     "notes": "The biggest creatures (Sperm Whale): long body, square head, flukes that swing up and down. About 5 world pixels per art pixel."
+  },
+  "fang": {
+    "extends": "default",
+    "name": "Fang",
+    "canvas": [
+      100,
+      44
+    ],
+    "bodyRadius": 14,
+    "mouth": [
+      84,
+      28
+    ],
+    "pixelScale": 2,
+    "notes": "The fourth playable hero: a pixel-art great white from a sheet of four poses (idle, swim, attack, hurt), converted by tools/fang/convert_fang.py. Long and low, so the canvas is wide. The snout stays in the same place in every frame so the mouth does not jump."
   }
 }

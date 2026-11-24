@@ -36,6 +36,7 @@ import { buildSkinTexture, getActiveSkin, getStageLook, validateProject, type Sk
 import { stageIndex } from '../systems/growth';
 import { playerTwist, twistFor, type RegionTwist } from '../systems/regionTwists';
 import { earlyHelpMods, offerPerks, perkById, perkMods, perksOwed } from '../systems/perks';
+import { noteError } from '../ui/safety';
 
 /** `?bot=1`: an automated playtester drives the player and metrics are recorded. */
 export const BOT_MODE = new URLSearchParams(window.location.search).has('bot');
@@ -381,6 +382,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (!this.loggedErrors.has(msg)) {
         this.loggedErrors.add(msg);
         console.error('[game] frame error (the game keeps running):', err);
+        // Kept on the device too (Options > Problem log), so a freeze on the iPad can be reported.
+        noteError(err, `game frame (${this.player?.species.id ?? '?'}, ${this.landState})`);
         window.dispatchEvent(new CustomEvent('ce:error', { detail: { message: msg } }));
       }
     }
@@ -407,6 +410,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         intent.sprint = false;
       }
       this.lastIntentStrength = intent.strength;
+      this.guardPlayer(dt);
       if (this.landState === 'water') {
         this.player.swim(intent, dt);
         this.checkLeap();
@@ -2043,6 +2047,32 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (h > P * 0.5 && (best === null || top < best)) best = top;
     }
     return best;
+  }
+
+  /** Seconds in the air since the last leap or hop (a long fall means something went wrong). */
+  private airTime = 0;
+  private safeX = 0;
+  private safeY = 0;
+  /**
+   * A safety check every frame: a hero with a broken position (not a number) or stuck in the air
+   * goes back into the water at the last good spot instead of hanging the run.
+   */
+  private guardPlayer(dt: number): void {
+    const p = this.player;
+    const body = p.arcadeBody;
+    const bad = !Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(body.velocity.x) || !Number.isFinite(body.velocity.y);
+    this.airTime = this.landState === 'air' ? this.airTime + dt : 0;
+    if (bad || this.airTime > BALANCE.land.maxAirSeconds) {
+      this.landState = 'water';
+      this.airTime = 0;
+      body.reset(this.safeX || this.terrain.wrap(Number.isFinite(p.x) ? p.x : 4500), Math.max(this.safeY, BALANCE.world.surfaceY + p.size * 2 + 40));
+      body.setVelocity(0, 0);
+      return;
+    }
+    if (this.landState === 'water' && p.y > BALANCE.world.surfaceY + p.size) {
+      this.safeX = p.x;
+      this.safeY = p.y;
+    }
   }
 
   /** Sprinting up through the surface fast enough launches you into the air. */

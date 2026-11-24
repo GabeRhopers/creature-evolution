@@ -71,10 +71,49 @@ export interface SafetyHooks {
   showGraphicsLost(saved: boolean): void;
 }
 
+let reportHook: ((msg: string, where?: string, stack?: string) => void) | null = null;
+
+/** Report an error caught by the game loop guard (main.ts): logged and shown like any other. */
+export function reportError(err: unknown, where: string): void {
+  const e = err as { message?: string; stack?: string } | null;
+  const msg = e?.message ?? String(err);
+  if (reportHook) reportHook(msg, where, e?.stack);
+  else console.error(where, err);
+}
+
+/**
+ * Note a problem in the device's problem log without the panel (the game loop already recovered).
+ * Each message is noted once per page load, so an error that repeats every frame is one entry.
+ */
+const noted = new Set<string>();
+export function noteError(err: unknown, where: string): void {
+  const e = err as { message?: string; stack?: string } | null;
+  const msg = String(e?.message ?? err).slice(0, 300);
+  if (noted.has(msg)) return;
+  noted.add(msg);
+  logError({ t: Date.now(), app: APP_VERSION, msg, where, stack: e?.stack?.slice(0, 600) });
+}
+
+/** The newest logged problem, in one short line (shown on the error panel so it can be screenshotted). */
+export function lastErrorLine(): string {
+  const e = readErrorLog().at(-1);
+  if (!e) return '';
+  const top = (e.stack ?? '').split('\n').find((l) => /\.(js|ts)/.test(l))?.trim() ?? e.where ?? '';
+  return `${e.msg} ${top}`.slice(0, 220);
+}
+
 export function installSafetyNet(game: Phaser.Game, hooks: SafetyHooks): void {
   let lastShown = 0;
+  let lastMsg = '';
+  let lastLogged = 0;
   const onError = (msg: string, where?: string, stack?: string) => {
-    logError({ t: Date.now(), app: APP_VERSION, msg: String(msg).slice(0, 300), where, stack: stack?.slice(0, 600) });
+    // A repeating error (every frame) is logged once every few seconds, not 60 times a second.
+    const now = Date.now();
+    if (msg !== lastMsg || now - lastLogged > 5000) {
+      lastMsg = msg;
+      lastLogged = now;
+      logError({ t: now, app: APP_VERSION, msg: String(msg).slice(0, 300), where, stack: stack?.slice(0, 600) });
+    }
     // Show the panel at most once every 10 s so a repeating error cannot lock the screen.
     if (Date.now() - lastShown < 10_000) return;
     lastShown = Date.now();
@@ -86,6 +125,7 @@ export function installSafetyNet(game: Phaser.Game, hooks: SafetyHooks): void {
     }
     hooks.showError(saved);
   };
+  reportHook = onError;
   window.addEventListener('error', (ev) => {
     // Ignore failed resource loads here (the loader shows its own retry).
     if (!(ev instanceof ErrorEvent)) return;

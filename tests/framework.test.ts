@@ -11,7 +11,7 @@ function framework(name: string): Record<string, unknown> {
 }
 const E32: string[] = JSON.parse(fs.readFileSync('public/studio/palette-endesga32.json', 'utf8')).colors;
 /** Signature colors a creature may add on top of the shared palette (at most 3 each). */
-const SIGNATURE: Record<string, string[]> = { crocodile: ['#aad678'], mosa: ['#429698', '#58c2c2', '#fefeb4'] };
+const SIGNATURE: Record<string, string[]> = { crocodile: ['#aad678'], mosa: ['#429698', '#58c2c2', '#fefeb4'], fang: ['#444854', '#666a73', '#848a91'] };
 const seeds = fs.readdirSync('public/studio/seeds').map((f) => ({ id: f.replace('.json', ''), p: JSON.parse(fs.readFileSync('public/studio/seeds/' + f, 'utf8')) as StudioProject }));
 
 describe('sprite framework', () => {
@@ -62,7 +62,7 @@ describe('sprite framework', () => {
       if (id.endsWith('-hatchling') && id !== 'croc-hatchling')
         it('hatches from an egg: eggshell pixels in every drawn frame', () => {
           // The eggshell color: white for Mosa, beige for the shark (its belly is already white).
-          const shell = new Set([id.startsWith('white_shark') ? '#ead4aa' : '#ffffff']);
+          const shell = new Set([id.startsWith('white_shark') || id.startsWith('fang') ? '#ead4aa' : '#ffffff']);
           for (const pose of p.poses)
             pose.frames.forEach((s, i) => {
               const px = decodeFrame(s, p.w * p.h);
