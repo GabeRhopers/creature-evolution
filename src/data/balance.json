@@ -87,16 +87,6 @@
         "height": 220
       },
       {
-        "x": 34600,
-        "width": 560,
-        "height": 170
-      },
-      {
-        "x": 36600,
-        "width": 600,
-        "height": 160
-      },
-      {
         "x": 54700,
         "width": 500,
         "height": 240
@@ -327,6 +317,11 @@
         "x": 95200,
         "width": 1300,
         "top": 0.62
+      },
+      {
+        "x": 36100,
+        "width": 3600,
+        "top": 0.62
       }
     ],
     "islands": [
@@ -436,18 +431,6 @@
         "x": 34344,
         "width": 450,
         "depth": 200,
-        "style": "mangrove"
-      },
-      {
-        "x": 35667,
-        "width": 700,
-        "depth": 260,
-        "style": "mangrove"
-      },
-      {
-        "x": 36911,
-        "width": 500,
-        "depth": 220,
         "style": "mangrove"
       },
       {
@@ -586,6 +569,18 @@
         "x": 91400,
         "width": 640,
         "depth": 150
+      },
+      {
+        "x": 35500,
+        "width": 1700,
+        "depth": 620,
+        "style": "cave"
+      },
+      {
+        "x": 37050,
+        "width": 1100,
+        "depth": 620,
+        "style": "cave"
       }
     ],
     "rootsDepth": 120,
@@ -977,7 +972,7 @@
       },
       {
         "kind": "chest",
-        "x": 35100
+        "x": 36700
       },
       {
         "kind": "helmet",
@@ -1221,7 +1216,7 @@
       },
       {
         "kind": "rowboat",
-        "x": 35000
+        "x": 33800
       },
       {
         "kind": "bottle",
@@ -1461,7 +1456,7 @@
     "blue_tang": {
       "coral": 1,
       "swamp": 0.25,
-      "volcano": 0.5,
+      "volcano": 0.3,
       "ice": 0,
       "sargasso": 0.6,
       "trench": 0,
@@ -2537,5 +2532,49 @@
     "nearMax": 32,
     "nearWake": 26,
     "maxHuntersTotal": 3
+  },
+  "bosses": {
+    "_comment": "Bosses (src/scenes/BossSystem.ts). Each lives in a cave (left/right = the chamber's x range under the cave rocks) and appears once the player reaches `level` and comes within `wakeRange` px; beaten bosses are saved with the run (Checkpoint.bossesBeaten) and do not come back. Health = `hitsToDefeat` of the player's bites; sizeRatio x the player's size. Bites take biteHpFraction of the player's health. Moves: shock (a ring, warned by `shock.telegraph` seconds of crackling), breath (rises to the air hole at airX every `breath.every` s and gulps for `breath.gulp` s: no shocks, `breath.damageMul` x damage), leap (below `leap.belowHealth`: while breathing it shocks anyone within `leap.radius` of the air hole). Leaving the cave (beyond `leash` px) pauses the fight and it heals `regenPerSecond` of its health per second. Reward: `rewardLevels` levels of XP and a free perk pick. caveDark: how dark the cave is.",
+    "caveDark": 0.45,
+    "list": [
+      {
+        "id": "electric_eel",
+        "name": "Electric Eel",
+        "species": "electric_eel",
+        "cave": "Spring Cave",
+        "level": 15,
+        "left": 34900,
+        "right": 37400,
+        "airX": 36430,
+        "wakeRange": 600,
+        "leash": 900,
+        "hitsToDefeat": 12,
+        "sizeRatio": 1.25,
+        "biteHpFraction": 0.06,
+        "biteStunSeconds": 0.3,
+        "regenPerSecond": 0.05,
+        "shock": {
+          "every": 5.5,
+          "telegraph": 1.1,
+          "radius": 330,
+          "hpFraction": 0.1,
+          "stunSeconds": 0.6
+        },
+        "breath": {
+          "every": 16,
+          "gulp": 4,
+          "riseLimit": 6,
+          "damageMul": 2
+        },
+        "leap": {
+          "belowHealth": 0.5,
+          "radius": 380,
+          "hpFraction": 0.12
+        },
+        "rewardLevels": 1,
+        "trophy": "Insulated",
+        "trophyShockMul": 0.7
+      }
+    ]
   }
 }

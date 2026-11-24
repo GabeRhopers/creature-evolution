@@ -68,7 +68,7 @@ describe('terrain', () => {
   });
 
   it('gives hiding places under every island and on every seamount', () => {
-    expect(t.rootZones()).toHaveLength(t.cfg.islands.filter((i) => i.style !== 'iceberg' && i.style !== 'volcano').length);
+    expect(t.rootZones()).toHaveLength(t.cfg.islands.filter((i) => i.style !== 'iceberg' && i.style !== 'volcano' && i.style !== 'cave').length);
     expect(t.plateaus()).toHaveLength(t.cfg.seamounts.length);
   });
 });

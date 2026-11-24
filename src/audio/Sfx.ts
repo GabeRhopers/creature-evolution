@@ -117,6 +117,21 @@ export class Sfx {
     this.tone('triangle', b, b, 0.8, 0.12, 0.35);
   }
 
+  /** A boss's electric shock: a buzzing crack. */
+  zap(): void {
+    if (!this.gate('zap', 0.15)) return;
+    this.tone('sawtooth', 1800, 120, 0.25, 0.3);
+    this.tone('square', 90, 60, 0.3, 0.2);
+    this.noiseHit(5000, 0.2, 0.4, 'highpass');
+  }
+
+  /** A boss charging up a shock: a rising electric crackle (the warning). */
+  crackle(): void {
+    if (!this.gate('crackle', 0.5)) return;
+    this.tone('sawtooth', 200, 900, 0.9, 0.12);
+    this.noiseHit(3000, 0.9, 0.12, 'bandpass');
+  }
+
   /** The Checkpoint Crab shows up: a low horn with a clack. */
   crabHorn(): void {
     this.tone('sawtooth', 110, 98, 0.7, 0.22, 0, 600);

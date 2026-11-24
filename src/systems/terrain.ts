@@ -21,8 +21,8 @@ export interface RidgeDef {
 export interface IslandDef {
   x: number;
   width: number;
-  /** Look: sandy island with palms (default), a mangrove clump, or an iceberg. */
-  style?: 'sand' | 'mangrove' | 'iceberg' | 'volcano';
+  /** Look: sandy island with palms (default), a mangrove clump, an iceberg, a volcano, or a cave rock (flat underside: the Spring Cave's roof). */
+  style?: 'sand' | 'mangrove' | 'iceberg' | 'volcano' | 'cave';
   /** How far the island's sandbank reaches below the surface, in world px. */
   depth: number;
 }
@@ -106,7 +106,9 @@ export class Terrain {
       for (const isl of cfg.islands) {
         const t = near(x, isl.x) / (isl.width / 2);
         if (t >= 1) continue;
-        c = Math.max(c, isl.depth * Math.pow(1 - t * t, 0.7) * (0.95 + 0.05 * wobble(x, isl.x)));
+        // A cave rock has a flat roof that drops steeply at its ends; other islands are rounded sandbanks.
+        const shape = isl.style === 'cave' ? Math.pow(1 - Math.pow(t, 6), 0.5) : Math.pow(1 - t * t, 0.7);
+        c = Math.max(c, isl.depth * shape * (0.95 + 0.05 * wobble(x, isl.x)));
       }
       this.ceil[i] = c > 0 ? surfaceY + c : -Infinity;
     }
@@ -198,7 +200,7 @@ export class Terrain {
   /** Mangrove root hiding places under each island (world rectangles: x, y, w, h). */
   rootZones(): Array<[number, number, number, number]> {
     // Icebergs and volcanoes have no roots; mangroves have a deep tangle.
-    return this.cfg.islands.filter((isl) => isl.style !== 'iceberg' && isl.style !== 'volcano').map((isl) => {
+    return this.cfg.islands.filter((isl) => isl.style !== 'iceberg' && isl.style !== 'volcano' && isl.style !== 'cave').map((isl) => {
       const w = isl.width * 0.6;
       const roots = this.cfg.rootsDepth * (isl.style === 'mangrove' ? 1.4 : 1);
       return [isl.x - w / 2, this.surfaceY + isl.depth * 0.55, w, isl.depth * 0.45 + roots];

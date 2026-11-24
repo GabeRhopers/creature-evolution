@@ -22,6 +22,8 @@
 import { sanitizePadMap, type PadMap } from '../input/gamepad';
 
 export const SAVE_VERSION = 1;
+/** When the 7-region, 114000 px sea went live (Nov 23 2026, 18:40 UTC). */
+export const SEVEN_REGIONS_SINCE = Date.UTC(2026, 10, 23, 18, 40);
 export const SLOT_COUNT = 3;
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -81,6 +83,8 @@ export interface Checkpoint {
   dayTime?: number;
   /** World width when saved (missing = the 72000 px, 4-region sea; positions are moved to the new layout). */
   worldW?: number;
+  /** Bosses beaten in this run (ids); they don't come back. Missing = none. */
+  bossesBeaten?: string[];
 }
 
 /** What is actually written: the payload plus a header. */
@@ -217,6 +221,8 @@ export function sanitizeCheckpoint(raw: unknown, lim: SaveLimits): Checkpoint | 
     crabLevel: int(r.crabLevel, 0, level, 0),
     ...(Array.isArray(r.gatesOpen) ? { gatesOpen: r.gatesOpen.filter((x): x is string => typeof x === 'string' && /^[a-z_]{2,32}$/.test(x)).slice(0, 20) } : {}),
     ...(typeof r.dayTime === 'number' && Number.isFinite(r.dayTime) ? { dayTime: num(r.dayTime, 0, 1e6, 0) } : {}),
+    ...(typeof r.worldW === 'number' && Number.isFinite(r.worldW) ? { worldW: num(r.worldW, 1000, 1e7, 0) } : {}),
+    ...(Array.isArray(r.bossesBeaten) ? { bossesBeaten: r.bossesBeaten.filter((x): x is string => typeof x === 'string' && /^[a-z_]{2,32}$/.test(x)).slice(0, 20) } : {}),
     perks: Array.isArray(r.perks) ? r.perks.filter((x): x is string => typeof x === 'string' && /^[a-z]{2,16}$/.test(x)).slice(0, 30) : [],
     stats: {
       plankton: int(st.plankton, 0, 1e7, 0),
@@ -321,7 +327,11 @@ export class SaveManager {
 
   /** The run saved in the active slot (or in slot `n`, for the save list). */
   loadCheckpoint(n = this.slot): Loaded<Checkpoint | null> {
-    return this.read<Checkpoint | null>('checkpoint', SaveManager.slotKey(n), (d) => sanitizeCheckpoint(d, this.limits), null);
+    const got = this.read<Checkpoint | null>('checkpoint', SaveManager.slotKey(n), (d) => sanitizeCheckpoint(d, this.limits), null);
+    // Saves written by v0.42-0.44 lost their world width (the field was not kept): they are already in the
+    // 7-region layout, so they must not be moved again. Anything older is from the 72000 px sea.
+    if (got.data && got.data.worldW === undefined && got.savedAt >= SEVEN_REGIONS_SINCE) got.data.worldW = 114000;
+    return got;
   }
 
   saveCheckpoint(c: Checkpoint): boolean {

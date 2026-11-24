@@ -267,3 +267,21 @@ describe('save slots', () => {
     for (const n of [1, 2, 3]) expect(store.getItem(SaveManager.slotKey(n))).toBeNull();
   });
 });
+
+describe('world width and bosses in the save (Nov 23)', () => {
+  it('keeps the world width and the beaten bosses', () => {
+    const c = sanitizeCheckpoint({ ...CP, worldW: 114000, bossesBeaten: ['electric_eel', 'BAD id!'] }, LIM)!;
+    expect(c.worldW).toBe(114000);
+    expect(c.bossesBeaten).toEqual(['electric_eel']);
+  });
+  it('saves written after the 7-region sea went live are not moved again', async () => {
+    const { SEVEN_REGIONS_SINCE } = await import('../src/save/SaveManager');
+    const store = new MemoryStore();
+    const before = new SaveManager(store, LIM, '0.41.0', () => SEVEN_REGIONS_SINCE - 1000);
+    before.saveCheckpoint(CP);
+    expect(before.loadCheckpoint().data!.worldW).toBeUndefined();
+    const after = new SaveManager(new MemoryStore(), LIM, '0.43.0', () => SEVEN_REGIONS_SINCE + 1000);
+    after.saveCheckpoint(CP);
+    expect(after.loadCheckpoint().data!.worldW).toBe(114000);
+  });
+});

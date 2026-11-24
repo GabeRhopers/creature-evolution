@@ -400,6 +400,32 @@ export class HudScene extends Phaser.Scene {
 
   /** Arrow at the screen edge toward the Checkpoint Crab while it is out of view. */
   private crabArrow!: Phaser.GameObjects.Graphics;
+  /** The boss health bar at the top of the screen (name, bar, and a yellow edge while it gulps air). */
+  private bossGfx?: Phaser.GameObjects.Graphics;
+  private bossName?: Phaser.GameObjects.Text;
+
+  bossBar(name: string | null, ratio: number, weak: boolean): void {
+    if (!this.bossGfx) {
+      this.bossGfx = this.add.graphics().setDepth(50);
+      this.bossName = this.add
+        .text(0, 0, '', { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#fee761', stroke: '#0a2236', strokeThickness: 4 })
+        .setOrigin(0.5, 1)
+        .setDepth(50);
+    }
+    const g = this.bossGfx, t = this.bossName!;
+    g.clear();
+    if (!name) {
+      t.setVisible(false);
+      return;
+    }
+    const { width } = this.scale;
+    const w = Math.min(420, width - 260), h = 12, x = (width - w) / 2, y = 96;
+    t.setVisible(true).setText(weak ? `${name.toUpperCase()}  (GULPING AIR!)` : name.toUpperCase()).setPosition(width / 2, y - 4);
+    g.fillStyle(0x0a2236, 0.85).fillRect(x - 3, y - 3, w + 6, h + 6);
+    g.fillStyle(0x3a4466, 1).fillRect(x, y, w, h);
+    g.fillStyle(weak ? 0xfee761 : 0xf77622, 1).fillRect(x, y, Math.max(0, Math.min(1, ratio)) * w, h);
+    if (weak) g.lineStyle(2, 0xffffff, 1).strokeRect(x - 3, y - 3, w + 6, h + 6);
+  }
   private crabLabel!: Phaser.GameObjects.Text;
   private updateCrabArrow(): void {
     const g = this.game$;

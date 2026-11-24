@@ -29,7 +29,9 @@ const s = await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player; 
 console.log(JSON.stringify(s));
 ok(s.near <= 34, `few enough awake fish around you (${s.near} within 1800 px)`);
 ok(s.hunters <= 3, `at most 3 hunt you at once (${s.hunters})`);
-ok(s.archOut < s.archers * 0.6, `most of the tiny archerfish hide from a level 56 giant (${s.archOut} of ${s.archers} out)`);
+// The share is checked once a second of game time (slower on slow machines): give it time.
+const hid = await waitFor(()=>{const g=window.game.scene.getScene('Game'); const a=g.creatures.filter(c=>c.fish.species.id==='archerfish'); return a.filter(c=>!c.away).length < a.length*0.6;}, 20000);
+ok(hid, `most of the tiny archerfish hide from a level 56 giant (${s.archOut} of ${s.archers} out at first)`);
 await p.screenshot({path:'/tmp/crowd_swamp.png'});
 
 // Back at level 12 in the swamp, the archerfish are all out again (they matter to a juvenile).

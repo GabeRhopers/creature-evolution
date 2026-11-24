@@ -993,5 +993,35 @@
     "cloud": 3,
     "unlockLevel": 42,
     "intro": "The vampire squid is harmless and eats falling marine snow. Scare it and it puffs a glowing cloud that blinds you"
+  },
+  "electric_eel": {
+    "displayName": "Electric Eel",
+    "sprite": "fish_grey",
+    "tier": 4,
+    "baseSize": 40,
+    "baseHP": 400,
+    "baseBite": 30,
+    "accel": 460,
+    "maxSpeed": 230,
+    "sprintMultiplier": 1.8,
+    "drag": 0.97,
+    "turnSpeed": 3.0,
+    "devourRatio": 0.6,
+    "xpValue": 600,
+    "diet": [],
+    "behavior": {
+      "schooling": false,
+      "aggression": 1.0,
+      "visionRange": 500,
+      "fleeRatio": 0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.25,
+      "depthMax": 0.65,
+      "weight": 0
+    },
+    "look": "beast-electric_eel",
+    "intro": "The Electric Eel guards the Spring Cave. It must come up for air: bite it then!"
   }
 }

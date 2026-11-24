@@ -279,6 +279,60 @@ function undersideOf(t: Terrain, left: number, P: number) {
   };
 }
 
+/** The rows a cave rock rises above the water at u (0 center, 1 edge). Shared with GameScene.landTopAt. */
+export function caveRockRows(u: number, aboveRows: number): number {
+  return u >= 1 ? 0 : Math.min(7, aboveRows - 2) * Math.pow(1 - u * u, 0.6);
+}
+
+/**
+ * A cave rock (the Spring Cave's roof): a low mossy hump with a few ferns above the water, and below it a thick
+ * slab of dark stone with a flat underside, wet streaks and stalactites dripping from the roof.
+ */
+export function makeCaveRock(scene: Phaser.Scene, key: string, t: Terrain, cx: number, width: number, depth: number, above: number, P: number, seed: number): void {
+  if (scene.textures.exists(key)) return;
+  const cols = Math.ceil(width / P) + 4;
+  const aboveRows = Math.floor(above / P);
+  const rows = aboveRows + Math.ceil(depth / P) + 10;
+  const [c, g] = canvas(cols, rows);
+  const r = rng(seed);
+  const left = cx - (cols * P) / 2;
+  const bottom = undersideOf(t, left, P);
+  const half = cols / 2;
+  const hump = (x: number) => Math.round(caveRockRows(Math.abs(x - half) / (half * 0.8), aboveRows));
+  for (let x = 0; x < cols; x++) {
+    const h = hump(x);
+    for (let k = 0; k < h; k++) {
+      const y = aboveRows - 1 - k;
+      const edge = k === h - 1 || hump(x - 1) <= k || hump(x + 1) <= k;
+      px(g, x, y, edge ? (r() < 0.5 ? C.leaf : C.leafDark) : bayer(x, y) < 0.5 ? C.grey : C.slate);
+    }
+    // Ferns on top.
+    if (h > 3 && r() < 0.06) for (let k = 1; k <= 3; k++) px(g, x + (k % 2), aboveRows - h - k, k === 3 ? C.leafLight : C.leaf);
+  }
+  for (let x = 0; x < cols; x++) {
+    const b = bottom(x);
+    if (b < 0) continue;
+    for (let y = 0; y <= b; y++) {
+      const edge = y === b || bottom(x - 1) < y || bottom(x + 1) < y;
+      const u = y / Math.max(1, b);
+      let col = u < 0.15 ? C.grey : u < 0.6 ? (bayer(x, y) < (u - 0.15) / 0.45 ? C.slate : C.grey) : bayer(x, y) < (u - 0.6) / 0.4 ? C.navy : C.slate;
+      if ((x * 7 + y * 3) % 23 === 0) col = C.navy;                  // pits
+      if (x % 17 === 5 && u > 0.2 && u < 0.9 && (y >> 1) % 3 === 0) col = C.stone; // wet streaks
+      px(g, x, aboveRows + y, edge ? C.ink : col);
+    }
+    // Stalactites: short dripping cones under the flat roof, with a bright drop at the tip.
+    if (b > 8 && bottom(x - 2) > 8 && bottom(x + 2) > 8 && r() < 0.12) {
+      const len = 2 + Math.floor(r() * 6);
+      for (let k = 1; k <= len; k++) {
+        px(g, x, aboveRows + b + k, k === len ? C.stone : C.slate);
+        if (k < len / 2) { px(g, x - 1, aboveRows + b + k, C.navy); px(g, x + 1, aboveRows + b + k, C.navy); }
+      }
+      if (r() < 0.4) px(g, x, aboveRows + b + len + 2, C.cyan);
+    }
+  }
+  add(scene, key, c);
+}
+
 /** An iceberg: a jagged white peak above the water and a big blue-white body below (no roots). */
 export function makeIceberg(scene: Phaser.Scene, key: string, t: Terrain, cx: number, width: number, depth: number, above: number, P: number, seed: number): void {
   if (scene.textures.exists(key)) return;
