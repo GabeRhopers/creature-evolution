@@ -26,6 +26,10 @@ export interface Creature {
   slot?: number;
   /** A guardian (the Checkpoint Crab) stays in its band, fights only the player, never flees, and other fish leave it alone. */
   guardian?: boolean;
+  /** A boss (balance.json "bosses" id): a guardian with its own moves (src/scenes/BossSystem.ts). */
+  boss?: string;
+  /** How far from its home a guardian chases the player (default: the Checkpoint Crab's guardRange). */
+  guardRange?: number;
 }
 
 /** What a brain needs from the world. GameScene implements this. */
@@ -370,11 +374,11 @@ export class Brain {
   }
 
   /** Guardian: chase the player while it is within `guardRange` of home, otherwise patrol home. */
-  private guardIntent(dt: number): SwimIntent {
+  protected guardIntent(dt: number): SwimIntent {
     const me = this.fish;
     const home = this.self.band ?? this.world.swimArea;
     const player = this.world.creatures.find((c) => c.isPlayer);
-    const range = BALANCE.checkpointCrab.guardRange;
+    const range = this.self.guardRange ?? BALANCE.checkpointCrab.guardRange;
     const near =
       player &&
       player.fish.active &&

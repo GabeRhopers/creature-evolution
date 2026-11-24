@@ -10,10 +10,12 @@ import { SpatialGrid } from '../systems/spatialGrid';
 import { countInTide, factorsFor, groupSizes, outShare, rollLevel, type PeriodId, type SpawnFactors } from '../systems/spawnFactors';
 import { openedFromSave, type GatesConfig } from '../systems/gates';
 import { GateSystem } from './GateSystem';
+import { beatenFromSave, shockMul, type BossDef } from '../systems/bosses';
+import { BossSystem } from './BossSystem';
 import { keptShare, outgrownMul, regionDensities, regionFactors, trimCrowd, type CrowdConfig } from '../systems/crowd';
 import { Regions, migrateX, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
 import { DayNight, type DayNightConfig, type Light, type Period } from '../systems/dayNight';
-import { CORAL_KINDS, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow, makeVolcano, volcanoRows, VOLCANO_REACH } from '../systems/terrainArt';
+import { caveRockRows, CORAL_KINDS, makeCaveRock, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow, makeVolcano, volcanoRows, VOLCANO_REACH } from '../systems/terrainArt';
 import { Grid, SCENERY_SIZE, makeFarIslands, makeFarPeaks, makeFloat, makeScenery, type FloatKind, type SceneryKind } from '../systems/sceneryArt';
 
 /** World px per art px for the seabed, water and plants. */
@@ -70,6 +72,8 @@ let nextPerks: string[] = [];
 let nextCrabLevel = 0;
 /** Gates broken in the run that carries on (SWIM AGAIN keeps them, like the crab level). */
 let nextGatesOpen: string[] = [];
+/** Bosses beaten in the run that SWIM AGAIN continues. */
+let nextBossesBeaten: string[] = [];
 
 /** Seconds of play between automatic checkpoints. */
 const AUTOSAVE_SECONDS = 20;
@@ -333,6 +337,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (!this.menuMode) this.time.delayedCall(700, () => this.checkPerks());
     this.sfx = new Sfx(this.sound);
     this.buildGates();
+    this.buildBosses();
     if (BOT_MODE) {
       this.bot = new PlayerBot(this);
       playtestLog().run++;
@@ -433,6 +438,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     let huntersTotal = 0;
     this.updateSpawnFactors(dt);
     this.updateEnvironment(dt);
+    this.bosses.update(dt, this.player.level);
     for (let i = 0; i < this.creatures.length; i++) {
       const c = this.creatures[i];
       if (!c.brain) continue;
@@ -554,6 +560,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     nextPerks = [];
     nextCrabLevel = 0;
     nextGatesOpen = [];
+    nextBossesBeaten = [];
     this.reportRun(true);
     if (!BOT_MODE && !this.testMode) saves.clearCheckpoint();
     pendingResume = null;
@@ -568,6 +575,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     nextPerks = this.perks.slice();
     nextCrabLevel = this.crabLevel;
     nextGatesOpen = this.gates?.openIds() ?? [];
+    nextBossesBeaten = this.bossesBeaten.slice();
     this.reportRun(true);
     pendingResume = null;
     nextMenuMode = false;
@@ -586,6 +594,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     currentDifficulty = difficulty;
     nextCrabLevel = 0;
     nextGatesOpen = [];
+    nextBossesBeaten = [];
     if (hero && isHero(hero)) currentHero = hero;
     pendingResume = test ? null : resume;
     nextTestMode = test;
@@ -643,6 +652,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       gatesOpen: this.gates?.openIds() ?? [],
       dayTime: this.dayTime,
       worldW: BALANCE.world.width,
+      bossesBeaten: [],
     });
   }
 
@@ -913,6 +923,79 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   gates!: GateSystem;
 
+  private buildBosses(): void {
+    this.bossesBeaten = this.resumedBosses ?? nextBossesBeaten.slice();
+    this.resumedBosses = null;
+    nextBossesBeaten = [];
+    const host = this;
+    this.bosses = new BossSystem({
+      scene: this,
+      world: this,
+      player: this.player,
+      playerCreature: this.playerCreature,
+      creatures: this.creatures,
+      get dead() { return host.dead; },
+      surfaceY: BALANCE.world.surfaceY,
+      ceilAt: (x) => this.terrain.ceilAt(x),
+      groundAt: (x) => this.terrain.groundAt(x),
+      addCreature: (fish, c) => {
+        const look = this.speciesLook(fish.species.look);
+        if (look) {
+          fish.applySkin(look.key, look.frames);
+          fish.setArt(look.art);
+        }
+        fish.setDepth(6);
+        this.physics.add.collider(fish, this.rocks);
+        this.creatures.push(c);
+      },
+      hurtPlayer: (by, frac, stun, label) => this.hurtPlayerBy(by, frac, stun, label),
+      bossBar: (name, ratio, weak) => this.hud.bossBar(name, ratio, weak),
+      banner: (title, line) => this.hud.bigBanner(title, line),
+      popup: (t, x, y, color) => this.hud.popup(t, x, y, true, color),
+      sfx: (k) => (k === 'zap' ? this.sfx.zap() : k === 'warn' ? this.sfx.crackle() : k === 'gulp' ? this.sfx.splash() : this.sfx.crabHorn()),
+      beaten: (id) => this.bossesBeaten.includes(id),
+      defeated: (id, c) => this.bossDefeated(id, c),
+    });
+  }
+
+  /** A boss's bite or shock: a share of the player's health (trophies soften shocks), a stun, knockback. */
+  private hurtPlayerBy(by: Creature, hpFraction: number, stun: number, label: string): void {
+    const p = this.player;
+    if (this.dead || p.invulnTimer > 0) return;
+    const def = BALANCE.playerDefense;
+    const mul = label === 'BITE' ? 1 : shockMul(this.bossesBeaten, BALANCE.bosses.list as unknown as BossDef[]);
+    const dmg = Math.min(p.armored(p.maxHp * hpFraction * mul), p.maxHp * def.maxHitFraction);
+    const killed = p.takeDamage(dmg, false);
+    p.invulnTimer = def.invulnerableSeconds;
+    p.stun(Math.max(def.stunOnHitSeconds, stun));
+    const a = by.fish;
+    const d = Phaser.Math.Distance.Between(a.x, a.y, p.x, p.y) || 1;
+    p.arcadeBody.setVelocity(((p.x - a.x) / d) * def.knockback, ((p.y - a.y) / d) * def.knockback);
+    this.hud.popup(label === 'BITE' ? `-${Math.round(dmg)}` : `${label} -${Math.round(dmg)}`, p.x, p.y - p.size, true, label === 'BITE' ? '#ff5c5c' : '#fee761');
+    this.hud.hurt();
+    this.sfx.hurt();
+    this.cameras.main.shake(160, 0.007);
+    if (killed) this.playerDied(by, 'bitten');
+  }
+
+  /** A boss beaten: a big reward (XP and full health), its trophy, a banner, and the save is written right away. */
+  private bossDefeated(id: string, c: Creature): void {
+    const def = (BALANCE.bosses.list as unknown as BossDef[]).find((b) => b.id === id)!;
+    const p = this.player;
+    for (const o of this.creatures) o.brain?.forget(c);
+    const i = this.creatures.indexOf(c);
+    if (i >= 0) this.creatures.splice(i, 1);
+    c.fish.destroy();
+    if (!this.bossesBeaten.includes(id)) this.bossesBeaten.push(id);
+    p.hp = p.maxHp;
+    this.spawnChunks(c.fish.x, c.fish.y, p, p.xpNeeded * def.rewardLevels, 8);
+    this.cameras.main.flash(450, 255, 240, 160);
+    this.sfx.levelUp();
+    this.hud.bigBanner(`${def.name.toUpperCase()} DEFEATED!`, `Trophy: ${def.trophy}. Shocks hurt you ${Math.round((1 - def.trophyShockMul) * 100)}% less`);
+    if (!this.testMode && !BOT_MODE) this.checkpoint(true);
+    window.dispatchEvent(new CustomEvent('ce:boss', { detail: { defeated: id } }));
+  }
+
   private buildGates(): void {
     const all = (BALANCE as unknown as { gates: GatesConfig }).gates.list;
     // A continued run keeps its broken gates (older saves: all open); SWIM AGAIN keeps them; a new run has none.
@@ -982,7 +1065,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (f.species.cloud) this.checkCloud(c, dt);
     }
     this.blindT = Math.max(0, this.blindT - dt);
-    const want = this.dead ? 0 : this.twist.dark;
+    const cave = this.bosses && !this.dead && this.bosses.caveAt(this.player.x, this.player.y) ? BALANCE.bosses.caveDark : 0;
+    const want = this.dead ? 0 : Math.max(this.twist.dark, cave);
     this.regionDark += (want - this.regionDark) * Math.min(1, dt * 1.5);
   }
 
@@ -1075,6 +1159,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       gatesOpen: this.gates?.openIds() ?? [],
       dayTime: this.dayTime,
       worldW: BALANCE.world.width,
+      bossesBeaten: this.bossesBeaten.slice(),
     });
     if (ok) {
       this.lastCheckpointAt = saves.lastSavedAt;
@@ -1085,11 +1170,17 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     return ok;
   }
 
+  /** Bosses beaten in this run (saved; they don't come back), and the list from a continued save. */
+  bossesBeaten: string[] = [];
+  private resumedBosses: string[] | null = null;
+  bosses!: BossSystem;
+
   /** Gates saved with the run being continued (undefined = a save from before gates: keep the sea open). */
   private resumedGates: string[] | undefined | null = null;
 
   private applyCheckpoint(c: Checkpoint): void {
     this.resumedGates = c.gatesOpen;
+    this.resumedBosses = beatenFromSave(c.bossesBeaten, BALANCE.bosses.list as unknown as BossDef[]);
     const p = this.player;
     p.setLevel(c.level);
     p.hp = Math.max(1, Math.round(p.maxHp * c.hpRatio));
@@ -1215,6 +1306,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.attackPlayer(attacker, damageMul);
       return;
     }
+    // A boss gulping air takes extra damage from your bites.
+    if (attacker.isPlayer && target.boss) damageMul *= this.bosses.damageMulAgainst(target);
     const dmg = t.armored(a.biteDamage * damageMul);
     const killed = t.takeDamage(dmg);
 
@@ -1254,6 +1347,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.hud.popup('Blocked!', p.x, p.y - p.size * 1.5, true, '#fff3c4');
       this.sfx.stun();
       return;
+    }
+    if (attacker.boss) {
+      const bd = (BALANCE.bosses.list as unknown as BossDef[]).find((b) => b.id === attacker.boss);
+      if (bd) return this.hurtPlayerBy(attacker, bd.biteHpFraction, bd.biteStunSeconds, 'BITE');
     }
     const chomp = a.canSwallow(p.size);
     // The Checkpoint Crab's pinch is set from your health, so the fight is fair for every hero.
@@ -1302,6 +1399,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (by.isPlayer) {
       this.stats.kills++;
       this.sfx.kill();
+    }
+    if (victim.boss) {
+      this.bosses.onKilled(victim);
+      return;
     }
     if (victim.guardian) {
       this.crabDefeated(victim);
@@ -1795,6 +1896,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (isl.style === 'iceberg') makeIceberg(this, key, t, isl.x, isl.width, isl.depth, above, WORLD_PX, 60 + i);
       else if (isl.style === 'volcano') makeVolcano(this, key, t, isl.x, isl.width, isl.depth, above, WORLD_PX, 60 + i);
       else if (isl.style === 'mangrove') makeMangrove(this, key, t, isl.x, isl.width, isl.depth, t.cfg.rootsDepth * 1.4, above, WORLD_PX, 60 + i);
+      else if (isl.style === 'cave') makeCaveRock(this, key, t, isl.x, isl.width, isl.depth, above, WORLD_PX, 60 + i);
       else makeIsland(this, key, t, isl.x, isl.width, isl.depth, t.cfg.rootsDepth, above, WORLD_PX, 60 + i);
       this.add.image(isl.x, t.surfaceY - Math.floor(above / WORLD_PX) * WORLD_PX, key).setOrigin(0.5, 0).setScale(WORLD_PX).setDepth(-18);
       const sw = Math.round((isl.width * 0.9) / WORLD_PX);
@@ -1934,6 +2036,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (isl.style === 'iceberg') h = (aboveRows - 3) * P * Math.pow(1 - u, 1.1);
       else if (isl.style === 'volcano') h = Math.max(0, volcanoRows(u, aboveRows) - 1) * P;
       else if (isl.style === 'mangrove') h = 2 * P;
+      else if (isl.style === 'cave') h = Math.max(0, caveRockRows(u, aboveRows) - 1) * P;
       else h = Math.min(8, aboveRows - 2) * P * Math.pow(1 - u * u, 0.6);
       const top = surfaceY - h;
       if (h > P * 0.5 && (best === null || top < best)) best = top;
@@ -2026,7 +2129,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const region = this.regions.at(x).id;
     let mood = 'sunny';
     const crabNear = this.crab && p && Phaser.Math.Distance.Between(this.crab.fish.x, this.crab.fish.y, p.x, p.y) < 1400;
-    if (!this.menuMode && crabNear) mood = 'crab';
+    const bossNear = this.bosses?.current && p && Phaser.Math.Distance.Between(this.bosses.current.fish.x, this.bosses.current.fish.y, p.x, p.y) < 1400;
+    if (!this.menuMode && (crabNear || bossNear)) mood = 'crab';
     else if (!this.menuMode && p && this.depthOf(p.y) > 0.72) mood = 'deep';
     else if (region === 'swamp') mood = 'swamp';
     else if (region === 'ice') mood = 'ice';

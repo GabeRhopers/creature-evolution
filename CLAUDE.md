@@ -223,6 +223,22 @@ more at night), Viperfish (41, `ambush`, `lure` on its dorsal ray, fangs), Vampi
 Gulper Eel (44, `devourRatio` 1: swallows fish its own size). `glow` (a color) gives a body glow drawn by LightScene,
 brighter in the dark. All four live only in the Trench. E2E: `tests/e2e/trench.mjs`; unit: `tests/trench.test.ts`.
 
+## Bosses (`src/scenes/BossSystem.ts`, rules in `src/systems/bosses.ts`, `balance.json` "bosses")
+First boss: the **Electric Eel** (species `electric_eel`, look `beast-electric_eel` drawn by `tools/fish/draw_boss.py`,
+its `celebrate` pose = the crackling warning frames) in the **Spring Cave**, east Mangrove Swamp (x 34900-37400). The cave is
+two `cave`-style islands (flat roof, `makeCaveRock`: mossy hump above, dark stone and stalactites below, no roots) over a
+seamount floor a juvenile can reach, with an air hole between them (`airX`); inside it is dim (`bosses.caveDark` via
+`regionDark`). Optional: from level 15 (mid juvenile) the eel appears when you come within `wakeRange`; it is a guardian
+(`Creature.boss`, `guardRange`) with a `BossBrain` whose `mode` BossSystem drives: hunt -> charge (crackles for
+`shock.telegraph` s, a growing warning ring) -> shock ring; hunt -> rise (to the air hole) -> gulp (`breath.gulp` s, your
+bites x `breath.damageMul`, the boss bar turns yellow); below `leap.belowHealth` shocks come faster and it leap-shocks the air
+hole while gulping. Health = `hitsToDefeat` of your bites; its bite and shocks take shares of your health (`hurtPlayerBy`,
+capped by maxHitFraction). Leave the cave (`leash`) and the fight pauses while it heals. Beaten: XP (`rewardLevels`), full
+health, the trophy (Insulated: shocks x `trophyShockMul`, `shockMul`), banner, saved (`Checkpoint.bossesBeaten`, kept by
+SWIM AGAIN via `nextBossesBeaten`); it never comes back in that run. HUD: `HudScene.bossBar`. Music: Crab Showdown nearby.
+Saves keep `worldW` and `bossesBeaten` (the sanitizer used to drop `worldW`; saves from v0.42 to v0.44 have none and count as
+114000 px if written after `SEVEN_REGIONS_SINCE`). E2E: `boss.mjs`; unit: `tests/bosses.test.ts`.
+
 ## Region fish (`balance.json` "biomes", `pickHomeX` in `src/systems/regions.ts`)
 Each species has a weight per region (0 = never there; missing = 1, read with `biomeWeight`). `spawnAmbientFish`
 shares a species' fish out by weight x region width; each Creature gets `homeX(near?)`: Brains use it for wander
