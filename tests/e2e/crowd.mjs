@@ -3,6 +3,7 @@
 import { chromium } from 'playwright-core';
 const b = await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--mute-audio']});
 const p = await b.newPage({viewport:{width:1280,height:800}});
+p.setDefaultNavigationTimeout(90000); p.setDefaultTimeout(60000); // slow CI runners
 const errs=[]; p.on('pageerror',e=>{errs.push(e.message); console.log('STACK', e.stack);});
 const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m); if(!c) process.exitCode=1;};
 const G=(f,a)=>p.evaluate(f,a);
@@ -20,7 +21,8 @@ ok(cfg.swamp < 1 && cfg.kelp === 1, 'busy regions are thinned, quiet ones are no
 await G(()=>{const g=window.game.scene.getScene('Game'); g.gates.openAll(); g.player.setLevel(55); g.grantXp(g.player.xpNeeded+1); g.player.invulnTimer=1e9;});
 await p.waitForTimeout(3000);
 await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player; pl.arcadeBody.reset(30500, 700); g.cameras.main.centerOn(30500, 700);});
-await p.waitForTimeout(6000);
+// The screen budget runs once a second of game time (slower on slow machines): wait for it to settle.
+await waitFor(()=>{const g=window.game.scene.getScene('Game'), pl=g.player; return g.creatures.filter(c=>c.brain && !c.isPlayer && !c.asleep && Math.hypot(c.fish.x-pl.x, c.fish.y-pl.y) < 1800).length <= 34;}, 25000);
 const s = await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player; const R=window.game.scene.getScene('Game').constructor; 
   const near = g.creatures.filter(c=>c.brain && !c.isPlayer && !c.asleep && Math.hypot(c.fish.x-pl.x, c.fish.y-pl.y) < 1800);
   const hunters = g.creatures.filter(c=>c.brain && !c.asleep && c.brain.state==='hunt' && c.brain.target===g.playerCreature).length;

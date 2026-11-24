@@ -294,6 +294,17 @@ export function makeCaveRock(scene: Phaser.Scene, key: string, t: Terrain, cx: n
   const aboveRows = Math.floor(above / P);
   const rows = aboveRows + Math.ceil(depth / P) + 10;
   const [c, g] = canvas(cols, rows);
+  // Written straight into the pixels (one fillRect per pixel is slow for a roof this big).
+  const img = g.createImageData(cols, rows);
+  const rgbOf = new Map<string, number>();
+  const px = (_g: unknown, x: number, y: number, col: string) => {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || y < 0 || x >= cols || y >= rows) return;
+    let v = rgbOf.get(col);
+    if (v === undefined) rgbOf.set(col, (v = parseInt(col.slice(1, 7), 16)));
+    const k = (y * cols + x) * 4;
+    img.data[k] = v >> 16; img.data[k + 1] = (v >> 8) & 255; img.data[k + 2] = v & 255; img.data[k + 3] = 255;
+  };
   const r = rng(seed);
   const left = cx - (cols * P) / 2;
   const bottom = undersideOf(t, left, P);
@@ -330,6 +341,7 @@ export function makeCaveRock(scene: Phaser.Scene, key: string, t: Terrain, cx: n
       if (r() < 0.4) px(g, x, aboveRows + b + len + 2, C.cyan);
     }
   }
+  g.putImageData(img, 0, 0);
   add(scene, key, c);
 }
 
