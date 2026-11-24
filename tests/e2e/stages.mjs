@@ -36,7 +36,7 @@ ok(s.hp===s.maxHp, 'evolution heals fully');
 ok(s.ability==='LUNGE', 'juvenile ability is LUNGE');
 await p.waitForTimeout(400); await p.screenshot({path:'/home/claude/stages/st_evolve.png'});
 ok(await G(()=>window.game.scene.getScene('Hud').banner.text.includes('EVOLVED')), 'evolution banner shown');
-ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.level===11), 'evolution writes a checkpoint');
+ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.run.p1.crocodile.1')).data.level===11), 'evolution writes a checkpoint');
 await p.waitForTimeout(2500); await shot('st_juv',2);
 // to adult and Death Roll
 await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(20); g.grantXp(g.player.xpNeeded+1);}); await p.waitForTimeout(3000);
@@ -65,11 +65,11 @@ ok(s.lv===31 && s.stage==='adult', 'no level cap: 30 -> 31, still an adult (Lege
 // death after beating the level 20 Checkpoint Crab -> swim again from 20 (the crab's level); checkpoint at 20
 await G(()=>{const g=window.game.scene.getScene('Game'); g.crabLevel=20; g.player.setLevel(24); g.playerDied(null,'starved');}); await p.waitForTimeout(1500);
 ok((await G(()=>window.game.scene.getScene('Hud').deathAgain.text)).includes('20'), 'death screen offers SWIM AGAIN FROM LEVEL 20 (the last crab)');
-ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.level===20), 'checkpoint saved at level 20');
+ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.run.p1.crocodile.1')).data.level===20), 'checkpoint saved at level 20');
 await p.screenshot({path:'/home/claude/stages/st_dead.png'});
 await G(()=>window.game.scene.getScene('Hud').respawn()); await p.waitForTimeout(1500);
 s=await S(); ok(s.lv===20 && s.stage==='juvenile' && !s.dead && s.hp===s.maxHp, 'back at level 20 with full health');
 // death before beating any crab -> level 1, no checkpoint
 await G(()=>{const g=window.game.scene.getScene('Game'); g.crabLevel=0; g.player.setLevel(5); g.playerDied(null,'starved');}); await p.waitForTimeout(300);
-ok(await G(()=>localStorage.getItem('ce.save.checkpoint')===null), 'a death before the first crab leaves no checkpoint');
+ok(await G(()=>localStorage.getItem('ce.save.run.p1.crocodile.1')===null), 'a death before the first crab leaves no checkpoint');
 console.log('errors', errs); await b.close();

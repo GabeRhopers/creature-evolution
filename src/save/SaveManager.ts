@@ -4,10 +4,13 @@
 //   profile    settings, best record, lifetime stats, save slot names (always kept)
 //   checkpoint the run in progress (cleared when the run ends), one per save slot
 //
-// There are SLOT_COUNT save slots, each with its own name. Slot 1 uses the
-// original checkpoint key, so a save from before slots existed simply becomes
-// slot 1. The active slot is where the game writes; the others are only read
-// for the save list.
+// Players: up to MAX_PLAYERS people share a device ("Who's playing?"). Each player
+// has their own profile (settings, hero, records) and, for every hero, SLOT_COUNT
+// save slots with their own names. A run is saved under player + hero + slot.
+// Player 1 keeps the original profile key. Saves from before players existed
+// (3 slots shared by every hero) are moved once to player 1, each into a slot of
+// the hero it was played with (`migrateToPlayers`). The active player, hero and
+// slot are where the game writes; the others are only read for the save lists.
 //
 // Each kind uses two slots: the current save and the last good one. A write
 // first copies the current (valid) save into the backup slot, then writes the
@@ -24,7 +27,11 @@ import { sanitizePadMap, type PadMap } from '../input/gamepad';
 export const SAVE_VERSION = 1;
 /** When the 7-region, 114000 px sea went live (Nov 23 2026, 18:40 UTC). */
 export const SEVEN_REGIONS_SINCE = Date.UTC(2026, 10, 23, 18, 40);
-export const SLOT_COUNT = 3;
+export const SLOT_COUNT = 5;
+/** How many players can share the device. */
+export const MAX_PLAYERS = 4;
+/** Slots per hero before players existed (they all used one list). */
+const OLD_SLOT_COUNT = 3;
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type DeathCause = 'swallowed' | 'bitten' | 'starved' | 'dried';
@@ -49,8 +56,17 @@ export interface Profile {
   settings: Settings;
   best: Best;
   lifetime: { runs: number; deaths: Record<DeathCause, number> };
-  /** Save slots: which one the game uses, and the name of each (renameable). */
-  slots: { active: number; names: string[] };
+  /** Save slots per hero (species id): which one the game uses, and the name of each (renameable). */
+  slots: Record<string, HeroSlots>;
+}
+export interface HeroSlots {
+  active: number;
+  names: string[];
+}
+/** Who plays on this device, and who is playing now. */
+export interface PlayerList {
+  active: number;
+  players: Array<{ id: number; name: string }>;
 }
 export interface RunStats {
   plankton: number;
@@ -90,7 +106,7 @@ export interface Checkpoint {
 /** What is actually written: the payload plus a header. */
 interface Envelope<T> {
   v: number;
-  kind: 'profile' | 'checkpoint';
+  kind: 'profile' | 'checkpoint' | 'players';
   savedAt: number;
   app: string;
   device: string;
@@ -117,6 +133,8 @@ export interface KeyValueStore {
 /** Limits used to clamp loaded values. */
 export interface SaveLimits {
   species: string[];
+  /** Playable heroes (species ids): each has its own save slots. */
+  heroes: string[];
   maxLevel: number;
   worldWidth: number;
   worldHeight: number;
@@ -127,8 +145,9 @@ export const DEFAULT_PROFILE: Profile = {
   settings: { music: true, sfx: true, difficulty: 'normal', skin: null, hero: null, padMap: null },
   best: { level: 0, kills: 0, fish: 0 },
   lifetime: { runs: 0, deaths: { swallowed: 0, bitten: 0, starved: 0, dried: 0 } },
-  slots: { active: 1, names: defaultSlotNames() },
+  slots: {},
 };
+export const DEFAULT_PLAYERS: PlayerList = { active: 1, players: [{ id: 1, name: 'Player 1' }] };
 
 export function defaultSlotNames(): string[] {
   return Array.from({ length: SLOT_COUNT }, (_, i) => `Game ${i + 1}`);
@@ -140,9 +159,44 @@ export function cleanSlotName(v: unknown, slot: number): string {
   return s || `Game ${slot}`;
 }
 
+/** A player name: trimmed, no control characters, 1 to 16 characters (empty = "Player N"). */
+export function cleanPlayerName(v: unknown, id: number): string {
+  const s = typeof v === 'string' ? v.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16) : '';
+  return s || `Player ${id}`;
+}
+
+/** Check a player list: 1 to MAX_PLAYERS players with unique ids, and an active one that exists. */
+export function sanitizePlayers(raw: unknown): PlayerList {
+  const r = obj(raw);
+  const list = Array.isArray(r.players) ? r.players : [];
+  const players: PlayerList['players'] = [];
+  for (const p of list) {
+    const o = obj(p);
+    const id = o.id;
+    if (typeof id !== 'number' || !Number.isInteger(id) || id < 1 || id > MAX_PLAYERS || players.some((x) => x.id === id)) continue;
+    players.push({ id, name: cleanPlayerName(o.name, id) });
+    if (players.length >= MAX_PLAYERS) break;
+  }
+  if (!players.length) players.push({ id: 1, name: 'Player 1' });
+  const active = players.some((p) => p.id === r.active) ? (r.active as number) : players[0].id;
+  return { active, players };
+}
+
+/** One hero's slots, checked (old saves had one list for every hero: see migrateToPlayers). */
+function sanitizeHeroSlots(raw: unknown): HeroSlots {
+  const r = obj(raw);
+  const names = Array.isArray(r.names) ? r.names : [];
+  return {
+    active: int(r.active, 1, SLOT_COUNT, 1),
+    names: Array.from({ length: SLOT_COUNT }, (_, i) => cleanSlotName(names[i], i + 1)),
+  };
+}
+
 const KEYS = {
   profile: 'ce.save.profile',
   checkpoint: 'ce.save.checkpoint',
+  players: 'ce.save.players',
+  run: 'ce.save.run',
   device: 'ce.device',
   legacyOptions: 'ce.options',
   legacyBest: 'ce.best',
@@ -177,7 +231,10 @@ export function sanitizeProfile(raw: unknown): Profile {
   const l = obj(r.lifetime);
   const d = obj(l.deaths);
   const sl = obj(r.slots);
-  const names = Array.isArray(sl.names) ? sl.names : [];
+  const slots: Record<string, HeroSlots> = {};
+  // The old shape ({ active, names } for all heroes) is not a hero list: it is dropped here (migrateToPlayers moved it).
+  if (!Array.isArray(sl.names))
+    for (const [hero, v] of Object.entries(sl)) if (/^[\w-]{1,40}$/.test(hero) && v && typeof v === 'object') slots[hero] = sanitizeHeroSlots(v);
   return {
     settings: {
       music: bool(s.music, true),
@@ -192,10 +249,7 @@ export function sanitizeProfile(raw: unknown): Profile {
       runs: int(l.runs, 0, 1e7, 0),
       deaths: { swallowed: int(d.swallowed, 0, 1e7, 0), bitten: int(d.bitten, 0, 1e7, 0), starved: int(d.starved, 0, 1e7, 0), dried: int(d.dried, 0, 1e7, 0) },
     },
-    slots: {
-      active: int(sl.active, 1, SLOT_COUNT, 1),
-      names: Array.from({ length: SLOT_COUNT }, (_, i) => cleanSlotName(names[i], i + 1)),
-    },
+    slots,
   };
 }
 
@@ -269,7 +323,9 @@ export class SaveManager {
   lastSavedAt = 0;
   /** False when the device refuses storage (private mode, blocked in an app view). */
   readonly persistent: boolean;
-  /** The save slot the game reads and writes (1 to SLOT_COUNT). */
+  /** The player, hero and save slot the game reads and writes. */
+  private player = 1;
+  private hero: string;
   private slot = 1;
 
   constructor(
@@ -285,13 +341,134 @@ export class SaveManager {
       this.safeSet(KEYS.device, dev);
     }
     this.device = dev;
+    this.hero = limits.heroes[0] ?? limits.species[0] ?? 'crocodile';
+  }
+
+  // ---------------------------------------------------------------- players
+
+  /** Who plays on this device. The first time, older saves are moved to player 1. */
+  loadPlayers(): PlayerList {
+    const got = this.read<PlayerList>('players', KEYS.players, (d) => sanitizePlayers(d), DEFAULT_PLAYERS);
+    if (got.source !== 'default') return got.data;
+    const list = sanitizePlayers(DEFAULT_PLAYERS);
+    this.migrateToPlayers();
+    this.savePlayers(list);
+    return list;
+  }
+
+  savePlayers(list: PlayerList): boolean {
+    return this.write('players', KEYS.players, sanitizePlayers(list));
+  }
+
+  get activePlayer(): number {
+    return this.player;
+  }
+
+  /** Switch player (only from the home screen; the page reloads with their profile). */
+  setPlayer(id: number): void {
+    this.player = Math.min(MAX_PLAYERS, Math.max(1, Math.round(id) || 1));
+  }
+
+  /** A new player (null when the device is full). Settings like sound and controller buttons are copied from `from`. */
+  addPlayer(name: string, from?: Profile): number | null {
+    const list = this.loadPlayers();
+    if (list.players.length >= MAX_PLAYERS) return null;
+    let id = 1;
+    while (list.players.some((p) => p.id === id)) id++;
+    list.players.push({ id, name: cleanPlayerName(name, id) });
+    this.savePlayers(list);
+    // A fresh profile (anything left from a player who used this id before is wiped first).
+    this.deletePlayerData(id);
+    const prof = structuredClone(DEFAULT_PROFILE);
+    if (from) prof.settings = { ...prof.settings, music: from.settings.music, sfx: from.settings.sfx, padMap: from.settings.padMap };
+    this.write('profile', SaveManager.profileKey(id), sanitizeProfile(prof));
+    return id;
+  }
+
+  renamePlayer(id: number, name: string): void {
+    const list = this.loadPlayers();
+    const p = list.players.find((x) => x.id === id);
+    if (!p) return;
+    p.name = cleanPlayerName(name, id);
+    this.savePlayers(list);
+  }
+
+  /** Remove a player with their profile and every saved run (the last player can't be removed). */
+  deletePlayer(id: number): boolean {
+    const list = this.loadPlayers();
+    if (list.players.length <= 1 || !list.players.some((p) => p.id === id)) return false;
+    list.players = list.players.filter((p) => p.id !== id);
+    if (list.active === id) list.active = list.players[0].id;
+    this.savePlayers(list);
+    this.deletePlayerData(id);
+    return true;
+  }
+
+  private deletePlayerData(id: number): void {
+    const keys = [SaveManager.profileKey(id)];
+    for (const h of this.limits.heroes) for (let n = 1; n <= SLOT_COUNT; n++) keys.push(SaveManager.slotKey(n, h, id));
+    for (const k of keys) {
+      this.safeRemove(k);
+      this.safeRemove(k + '.bak');
+    }
+  }
+
+  /**
+   * Before players: one profile and 3 slots shared by every hero. Each saved run moves to player 1, into the
+   * next free slot of the hero it was played with, keeping its name (and its backup copy). The old keys go away.
+   */
+  private migrateToPlayers(): void {
+    const prof = this.parse(this.safeGet(KEYS.profile)) as Envelope<Record<string, unknown>> | null;
+    const oldSlots = obj(obj(prof?.data).slots);
+    const oldNames = Array.isArray(oldSlots.names) ? oldSlots.names : [];
+    const oldActive = typeof oldSlots.active === 'number' ? oldSlots.active : 1;
+    const slots: Record<string, HeroSlots> = {};
+    let activeHero: string | null = null;
+    for (let n = 1; n <= OLD_SLOT_COUNT; n++) {
+      const key = n === 1 ? KEYS.checkpoint : `${KEYS.checkpoint}.${n}`;
+      const main = this.safeGet(key);
+      const bak = this.safeGet(key + '.bak');
+      const env = (main && this.verify(main, 'checkpoint')) || (bak && this.verify(bak, 'checkpoint'));
+      const species = env ? obj(env.data).species : null;
+      const hero = typeof species === 'string' && this.limits.heroes.includes(species) ? species : null;
+      if (hero) {
+        const hs = (slots[hero] ??= sanitizeHeroSlots({}));
+        let k = 1;
+        while (k <= SLOT_COUNT && this.safeGet(SaveManager.slotKey(k, hero, 1))) k++;
+        if (k <= SLOT_COUNT) {
+          const to = SaveManager.slotKey(k, hero, 1);
+          if (main) this.safeSet(to, main);
+          if (bak) this.safeSet(to + '.bak', bak);
+          // A name the player chose comes along; a default one ("Game 2") becomes the new slot's default.
+          const name = cleanSlotName(oldNames[n - 1], n);
+          hs.names[k - 1] = name === `Game ${n}` ? `Game ${k}` : name;
+          if (n === oldActive) {
+            hs.active = k;
+            activeHero = hero;
+          }
+        }
+      }
+      this.safeRemove(key);
+      this.safeRemove(key + '.bak');
+    }
+    if (!prof) return;
+    const data: Record<string, unknown> = { ...obj(prof.data), slots };
+    // The hero whose game was in use stays picked, so CONTINUE still shows it.
+    if (activeHero) data.settings = { ...obj(data.settings), hero: activeHero };
+    this.write('profile', KEYS.profile, sanitizeProfile(data));
   }
 
   // ---------------------------------------------------------------- profile
 
+  /** Storage key of a player's profile. Player 1 keeps the original key. */
+  static profileKey(player: number): string {
+    return player === 1 ? KEYS.profile : `${KEYS.profile}.p${player}`;
+  }
+
+  /** The active player's profile. */
   loadProfile(): Loaded<Profile> {
-    const got = this.read<Profile>('profile', KEYS.profile, (d) => sanitizeProfile(d));
-    if (got.source !== 'default') return got;
+    const got = this.read<Profile>('profile', SaveManager.profileKey(this.player), (d) => sanitizeProfile(d));
+    if (got.source !== 'default' || this.player !== 1) return got;
     // Nothing saved yet with this system: bring over the older loose keys.
     const legacyOpts = this.parse(this.safeGet(KEYS.legacyOptions));
     const legacyBest = this.parse(this.safeGet(KEYS.legacyBest));
@@ -304,7 +481,7 @@ export class SaveManager {
   }
 
   saveProfile(p: Profile): boolean {
-    return this.write('profile', KEYS.profile, sanitizeProfile(p));
+    return this.write('profile', SaveManager.profileKey(this.player), sanitizeProfile(p));
   }
 
   // ---------------------------------------------------------------- save slots
@@ -313,21 +490,30 @@ export class SaveManager {
     return this.slot;
   }
 
+  get activeHero(): string {
+    return this.hero;
+  }
+
   /** Switch the slot the game reads and writes (only from the home screen, never mid-run). */
   setSlot(n: number): void {
     this.slot = Math.min(SLOT_COUNT, Math.max(1, Math.round(n) || 1));
   }
 
-  /** Storage key of a slot's checkpoint. Slot 1 keeps the original key. */
-  static slotKey(n: number): string {
-    return n === 1 ? KEYS.checkpoint : `${KEYS.checkpoint}.${n}`;
+  /** Switch the hero whose slots the game reads and writes (only from the home screen). */
+  setHero(hero: string): void {
+    if (this.limits.heroes.includes(hero)) this.hero = hero;
+  }
+
+  /** Storage key of a run: player, hero and slot. */
+  static slotKey(n: number, hero: string, player: number): string {
+    return `${KEYS.run}.p${player}.${hero}.${n}`;
   }
 
   // ---------------------------------------------------------------- checkpoint
 
   /** The run saved in the active slot (or in slot `n`, for the save list). */
-  loadCheckpoint(n = this.slot): Loaded<Checkpoint | null> {
-    const got = this.read<Checkpoint | null>('checkpoint', SaveManager.slotKey(n), (d) => sanitizeCheckpoint(d, this.limits), null);
+  loadCheckpoint(n = this.slot, hero = this.hero): Loaded<Checkpoint | null> {
+    const got = this.read<Checkpoint | null>('checkpoint', SaveManager.slotKey(n, hero, this.player), (d) => sanitizeCheckpoint(d, this.limits), null);
     // Saves written by v0.42-0.44 lost their world width (the field was not kept): they are already in the
     // 7-region layout, so they must not be moved again. Anything older is from the 72000 px sea.
     if (got.data && got.data.worldW === undefined && got.savedAt >= SEVEN_REGIONS_SINCE) got.data.worldW = 114000;
@@ -337,19 +523,20 @@ export class SaveManager {
   saveCheckpoint(c: Checkpoint): boolean {
     const clean = sanitizeCheckpoint(c, this.limits);
     if (!clean) return false;
-    return this.write('checkpoint', SaveManager.slotKey(this.slot), clean);
+    return this.write('checkpoint', SaveManager.slotKey(this.slot, this.hero, this.player), clean);
   }
 
   /** The run ended (death, new run) or the player deleted the slot: forget it, backup included. */
-  clearCheckpoint(n = this.slot): void {
-    this.safeRemove(SaveManager.slotKey(n));
-    this.safeRemove(SaveManager.slotKey(n) + '.bak');
+  clearCheckpoint(n = this.slot, hero = this.hero): void {
+    this.safeRemove(SaveManager.slotKey(n, hero, this.player));
+    this.safeRemove(SaveManager.slotKey(n, hero, this.player) + '.bak');
   }
 
   /** Wipe everything this game stores (Options > Reset everything). */
   resetAll(): void {
-    const slots = Array.from({ length: SLOT_COUNT }, (_, i) => SaveManager.slotKey(i + 1));
-    for (const k of [KEYS.profile, ...slots, KEYS.legacyOptions, KEYS.legacyBest]) {
+    for (let id = 1; id <= MAX_PLAYERS; id++) this.deletePlayerData(id);
+    const old = Array.from({ length: OLD_SLOT_COUNT }, (_, i) => (i === 0 ? KEYS.checkpoint : `${KEYS.checkpoint}.${i + 1}`));
+    for (const k of [KEYS.players, ...old, KEYS.legacyOptions, KEYS.legacyBest]) {
       this.safeRemove(k);
       this.safeRemove(k + '.bak');
     }
@@ -357,10 +544,19 @@ export class SaveManager {
 
   /** Export every save as one text block (for a manual backup). */
   exportAll(): string {
+    const players = this.loadPlayers();
     return JSON.stringify({
-      profile: this.parse(this.safeGet(KEYS.profile)),
-      checkpoint: this.parse(this.safeGet(KEYS.checkpoint)),
-      slots: Array.from({ length: SLOT_COUNT }, (_, i) => this.parse(this.safeGet(SaveManager.slotKey(i + 1)))),
+      players,
+      profiles: players.players.map((p) => this.parse(this.safeGet(SaveManager.profileKey(p.id)))),
+      runs: Object.fromEntries(
+        players.players.flatMap((p) =>
+          this.limits.heroes.flatMap((h) =>
+            Array.from({ length: SLOT_COUNT }, (_, i) => SaveManager.slotKey(i + 1, h, p.id))
+              .map((k) => [k, this.parse(this.safeGet(k))] as const)
+              .filter(([, v]) => v),
+          ),
+        ),
+      ),
     });
   }
 

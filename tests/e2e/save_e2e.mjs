@@ -38,7 +38,7 @@ await G(()=>{Object.defineProperty(document,'visibilityState',{value:'visible',c
 await p.click('#pResume'); await p.waitForTimeout(300);
 // corrupt main slot -> backup used with a notice
 await G(()=>window.game.scene.getScene('Game').goHome()); await p.waitForTimeout(600);
-await G(()=>{const k='ce.save.checkpoint'; localStorage.setItem(k, localStorage.getItem(k).slice(0,30));});
+await G(()=>{const k='ce.save.run.p1.crocodile.1'; localStorage.setItem(k, localStorage.getItem(k).slice(0,30));});
 await p.reload(); await p.waitForTimeout(3500);
 ok(!(await G(()=>document.getElementById('btnContinue').hidden)), 'damaged save falls back to backup');
 ok(await G(()=>document.getElementById('notice').classList.contains('open')), 'player told about the damaged save');
@@ -51,7 +51,7 @@ await p.click('#eResume'); await p.waitForTimeout(300);
 ok(!(await G(()=>window.game.scene.isPaused('Game'))), 'Keep playing resumes');
 // death clears the checkpoint
 await G(()=>window.game.scene.getScene('Game').playerDied(null,'starved')); await p.waitForTimeout(500);
-ok(await G(()=>localStorage.getItem('ce.save.checkpoint')===null), 'death clears the saved run');
+ok(await G(()=>localStorage.getItem('ce.save.run.p1.crocodile.1')===null), 'death clears the saved run');
 ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.profile')).data.lifetime.deaths.starved===1), 'lifetime death counted');
 // new run confirmation when a save exists
 await G(()=>{const g=window.game.scene.getScene('Game'); g.restartRun();}); await p.waitForTimeout(1500);

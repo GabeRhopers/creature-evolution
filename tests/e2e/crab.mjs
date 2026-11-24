@@ -48,7 +48,7 @@ console.log('bites to defeat:', bites);
 ok(bites>=4 && bites<=9, `defeating it takes about 6 bites (${bites})`);
 ok(await G(()=>window.game.scene.getScene('Game').crabLevel===10), 'level 10 is saved');
 ok(await G(()=>window.__crab.includes('saved 10')), 'with a banner');
-ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.crabLevel===10), 'and written to the save');
+ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.run.p1.crocodile.1')).data.crabLevel===10), 'and written to the save');
 await p.waitForTimeout(1500);
 ok(await G(()=>!window.game.scene.getScene('Game').crab), 'no new crab until level 20');
 

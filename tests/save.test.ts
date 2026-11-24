@@ -8,11 +8,12 @@ import {
   migrate,
   sanitizeCheckpoint,
   sanitizeProfile,
+  sanitizePlayers,
   type Checkpoint,
   type SaveLimits,
 } from '../src/save/SaveManager';
 
-const LIM: SaveLimits = { species: ['crocodile', 'blue_tang'], maxLevel: 99, worldWidth: 6000, worldHeight: 3000, maxStamina: 100 };
+const LIM: SaveLimits = { species: ['crocodile', 'mosa', 'blue_tang'], heroes: ['crocodile', 'mosa'], maxLevel: 99, worldWidth: 6000, worldHeight: 3000, maxStamina: 100 };
 
 const CP: Checkpoint = {
   species: 'crocodile',
@@ -28,6 +29,9 @@ const CP: Checkpoint = {
   runTime: 140,
   stats: { plankton: 40, fish: 9, kills: 2, maxLevel: 7 },
 };
+
+/** Player 1's crocodile, slot 1. */
+const RUN1 = 'ce.save.run.p1.crocodile.1';
 
 function fresh(store = new MemoryStore(), t = 1000) {
   return { store, sm: new SaveManager(store, LIM, '0.7.0', () => t) };
@@ -81,7 +85,7 @@ describe('two slots', () => {
     sm.saveCheckpoint({ ...CP, level: 5 });
     sm.saveCheckpoint({ ...CP, level: 6 });
     // Damage the main slot (as if a write was cut off half way).
-    store.setItem('ce.save.checkpoint', store.raw('ce.save.checkpoint')!.slice(0, 40));
+    store.setItem(RUN1, store.raw(RUN1)!.slice(0, 40));
     const got = sm.loadCheckpoint();
     expect(got.source).toBe('backup');
     expect(got.data?.level).toBe(5);
@@ -91,9 +95,9 @@ describe('two slots', () => {
   it('detects edited data through the checksum', () => {
     const { store, sm } = fresh();
     sm.saveCheckpoint(CP);
-    const env = JSON.parse(store.raw('ce.save.checkpoint')!);
+    const env = JSON.parse(store.raw(RUN1)!);
     env.data.level = 99; // tampered, sum no longer matches
-    store.setItem('ce.save.checkpoint', JSON.stringify(env));
+    store.setItem(RUN1, JSON.stringify(env));
     const got = sm.loadCheckpoint();
     expect(got.source).toBe('default');
     expect(got.data).toBeNull();
@@ -104,9 +108,9 @@ describe('two slots', () => {
     const { store, sm } = fresh();
     sm.saveCheckpoint({ ...CP, level: 4 });
     sm.saveCheckpoint({ ...CP, level: 5 }); // backup = 4, main = 5
-    store.setItem('ce.save.checkpoint', '{broken');
+    store.setItem(RUN1, '{broken');
     sm.saveCheckpoint({ ...CP, level: 6 }); // main damaged: backup must stay 4... or be the damaged one? stays 4
-    const bak = JSON.parse(store.raw('ce.save.checkpoint.bak')!);
+    const bak = JSON.parse(store.raw(RUN1 + '.bak')!);
     expect(bak.data.level).toBe(4);
     expect(sm.loadCheckpoint().data?.level).toBe(6);
   });
@@ -116,8 +120,8 @@ describe('two slots', () => {
     sm.saveCheckpoint(CP);
     sm.saveCheckpoint(CP);
     sm.clearCheckpoint();
-    expect(store.raw('ce.save.checkpoint')).toBeUndefined();
-    expect(store.raw('ce.save.checkpoint.bak')).toBeUndefined();
+    expect(store.raw(RUN1)).toBeUndefined();
+    expect(store.raw(RUN1 + '.bak')).toBeUndefined();
     expect(sm.loadCheckpoint().data).toBeNull();
   });
 
@@ -197,37 +201,41 @@ describe('helpers', () => {
     const { store, sm } = fresh();
     sm.saveCheckpoint(CP);
     sm.saveProfile(DEFAULT_PROFILE);
-    const size = (store.raw('ce.save.checkpoint')!.length + store.raw('ce.save.profile')!.length) * 2;
+    const size = (store.raw(RUN1)!.length + store.raw('ce.save.profile')!.length) * 2;
     expect(size).toBeLessThan(5000);
   });
 });
 
-describe('save slots', () => {
-  it('a save from before slots exists becomes slot 1', () => {
-    const { store, sm } = fresh();
-    sm.saveCheckpoint(CP); // written with the original key
-    expect(store.getItem('ce.save.checkpoint')).not.toBeNull();
-    const again = new SaveManager(store, LIM);
-    expect(again.activeSlot).toBe(1);
-    expect(again.loadCheckpoint().data?.level).toBe(7);
-  });
+describe('save slots (per player and per creature)', () => {
   it('each slot keeps its own run, with its own backup', () => {
     const { sm } = fresh();
     sm.saveCheckpoint(CP);
     sm.setSlot(2);
     expect(sm.loadCheckpoint().data).toBeNull();
-    sm.saveCheckpoint({ ...CP, level: 22, species: 'blue_tang' });
-    sm.saveCheckpoint({ ...CP, level: 23, species: 'blue_tang' });
+    sm.saveCheckpoint({ ...CP, level: 22 });
+    sm.saveCheckpoint({ ...CP, level: 23 });
     expect(sm.loadCheckpoint().data?.level).toBe(23);
     expect(sm.loadCheckpoint(1).data?.level).toBe(7);
-    expect(sm.loadCheckpoint(3).data).toBeNull();
+    expect(sm.loadCheckpoint(5).data).toBeNull();
+  });
+  it('every creature has its own five slots', () => {
+    const { store, sm } = fresh();
+    sm.saveCheckpoint(CP);
+    sm.setHero('mosa');
+    expect(sm.loadCheckpoint().data).toBeNull();
+    sm.saveCheckpoint({ ...CP, species: 'mosa', level: 12 });
+    expect(store.getItem('ce.save.run.p1.mosa.1')).not.toBeNull();
+    expect(sm.loadCheckpoint(1, 'crocodile').data?.level).toBe(7);
+    expect(sm.loadCheckpoint().data?.level).toBe(12);
+    sm.setHero('blue_tang'); // not a hero: ignored
+    expect(sm.activeHero).toBe('mosa');
   });
   it('a damaged slot falls back to its own backup, never to another slot', () => {
     const { store, sm } = fresh();
     sm.setSlot(2);
     sm.saveCheckpoint({ ...CP, level: 10 });
     sm.saveCheckpoint({ ...CP, level: 11 });
-    store.setItem('ce.save.checkpoint.2', '{broken');
+    store.setItem('ce.save.run.p1.crocodile.2', '{broken');
     const got = sm.loadCheckpoint();
     expect(got.source).toBe('backup');
     expect(got.data?.level).toBe(10);
@@ -244,27 +252,105 @@ describe('save slots', () => {
   it('slot numbers stay in range', () => {
     const { sm } = fresh();
     sm.setSlot(9);
-    expect(sm.activeSlot).toBe(3);
+    expect(sm.activeSlot).toBe(5);
     sm.setSlot(-2);
     expect(sm.activeSlot).toBe(1);
   });
-  it('slot names: renameable, cleaned, defaults for missing or empty names', () => {
-    expect(DEFAULT_PROFILE.slots.names).toEqual(['Game 1', 'Game 2', 'Game 3']);
-    const p = sanitizeProfile({ slots: { active: 2, names: ['  Mike\u0007s reef  ', '', 42, 'x'.repeat(60)] } });
-    expect(p.slots.active).toBe(2);
-    expect(p.slots.names).toEqual(['Mikes reef', 'Game 2', 'Game 3']);
-    expect(sanitizeProfile({ slots: { names: ['<b>Dad</b>'] } }).slots.names[0]).toBe('bDad/b');
-    expect(sanitizeProfile({ slots: { active: 7 } }).slots.active).toBe(3);
-    expect(sanitizeProfile({}).slots).toEqual({ active: 1, names: ['Game 1', 'Game 2', 'Game 3'] });
+  it('slot names: per creature, renameable, cleaned, defaults for missing or empty names', () => {
+    expect(DEFAULT_PROFILE.slots).toEqual({});
+    const p = sanitizeProfile({ slots: { mosa: { active: 2, names: ['  Mike\u0007s reef  ', '', 42, 'x'.repeat(60)] } } });
+    expect(p.slots.mosa.active).toBe(2);
+    expect(p.slots.mosa.names).toEqual(['Mikes reef', 'Game 2', 'Game 3', 'x'.repeat(24), 'Game 5']);
+    expect(sanitizeProfile({ slots: { fang: { names: ['<b>Dad</b>'] } } }).slots.fang.names[0]).toBe('bDad/b');
+    expect(sanitizeProfile({ slots: { fang: { active: 7 } } }).slots.fang.active).toBe(5);
+    expect(sanitizeProfile({ slots: { 'bad key!': { active: 2 } } }).slots).toEqual({});
   });
-  it('reset removes every slot', () => {
+  it('reset removes every slot of every player', () => {
     const { store, sm } = fresh();
-    for (const n of [1, 2, 3]) {
-      sm.setSlot(n);
-      sm.saveCheckpoint({ ...CP, level: n * 5 });
-    }
+    sm.loadPlayers();
+    const p2 = sm.addPlayer('Mike')!;
+    for (const pl of [1, p2])
+      for (const n of [1, 2, 5]) {
+        sm.setPlayer(pl);
+        sm.setSlot(n);
+        sm.saveCheckpoint({ ...CP, level: n * 5 });
+      }
     sm.resetAll();
-    for (const n of [1, 2, 3]) expect(store.getItem(SaveManager.slotKey(n))).toBeNull();
+    for (const pl of [1, p2]) for (const n of [1, 2, 5]) expect(store.getItem(SaveManager.slotKey(n, 'crocodile', pl))).toBeNull();
+    expect(store.getItem('ce.save.players')).toBeNull();
+  });
+});
+
+describe('players', () => {
+  it('a new device has one player, Player 1', () => {
+    const { sm } = fresh();
+    expect(sm.loadPlayers()).toEqual({ active: 1, players: [{ id: 1, name: 'Player 1' }] });
+  });
+  it('each player has their own profile and runs', () => {
+    const { store, sm } = fresh();
+    sm.loadPlayers();
+    const prof = structuredClone(DEFAULT_PROFILE);
+    prof.settings.music = false;
+    prof.best.level = 30;
+    sm.saveProfile(prof);
+    sm.saveCheckpoint(CP);
+    const mike = sm.addPlayer('  Mike  ', prof)!;
+    expect(mike).toBe(2);
+    sm.setPlayer(mike);
+    const p2 = sm.loadProfile().data;
+    expect(p2.best.level).toBe(0); // their own record
+    expect(p2.settings.music).toBe(false); // sound settings copied from the player who added them
+    expect(sm.loadCheckpoint().data).toBeNull();
+    sm.saveCheckpoint({ ...CP, level: 3 });
+    expect(store.getItem('ce.save.run.p2.crocodile.1')).not.toBeNull();
+    sm.setPlayer(1);
+    expect(sm.loadCheckpoint().data?.level).toBe(7);
+    expect(sm.loadPlayers().players.map((p) => p.name)).toEqual(['Player 1', 'Mike']);
+  });
+  it('up to four players; rename; delete removes their games; the last one stays', () => {
+    const { store, sm } = fresh();
+    sm.loadPlayers();
+    expect(sm.addPlayer('B')).toBe(2);
+    expect(sm.addPlayer('C')).toBe(3);
+    expect(sm.addPlayer('D')).toBe(4);
+    expect(sm.addPlayer('E')).toBeNull();
+    sm.renamePlayer(3, '<Carla>');
+    expect(sm.loadPlayers().players.find((p) => p.id === 3)!.name).toBe('Carla');
+    sm.setPlayer(3);
+    sm.saveCheckpoint(CP);
+    expect(sm.deletePlayer(3)).toBe(true);
+    expect(store.getItem('ce.save.run.p3.crocodile.1')).toBeNull();
+    expect(store.getItem('ce.save.profile.p3')).toBeNull();
+    for (const id of [1, 2, 4]) sm.deletePlayer(id);
+    expect(sm.loadPlayers().players.length).toBe(1);
+  });
+  it('saves from before players move to player 1, each into a slot of its own creature', () => {
+    // An old device: one profile with 3 shared slots (slot 2 in use) and runs as croc, mosa and croc.
+    const store = new MemoryStore();
+    const env = (kind: string, data: unknown) => JSON.stringify({ v: 1, kind, savedAt: 5, app: '0.46.0', device: 'd', sum: checksum(JSON.stringify(data)), data });
+    const old = { ...DEFAULT_PROFILE, slots: { active: 2, names: ["Dad's croc", "Mike's mosa", 'Game 3'] } };
+    store.setItem('ce.save.profile', env('profile', old));
+    store.setItem('ce.save.checkpoint', env('checkpoint', { ...CP, level: 9 }));
+    store.setItem('ce.save.checkpoint.2', env('checkpoint', { ...CP, species: 'mosa', level: 14 }));
+    store.setItem('ce.save.checkpoint.3', env('checkpoint', { ...CP, level: 21 }));
+    const sm = new SaveManager(store, LIM);
+    expect(sm.loadPlayers().players).toEqual([{ id: 1, name: 'Player 1' }]);
+    const prof = sm.loadProfile().data;
+    expect(prof.slots.crocodile.names.slice(0, 2)).toEqual(["Dad's croc", 'Game 2']);
+    expect(prof.slots.mosa).toEqual({ active: 1, names: ["Mike's mosa", 'Game 2', 'Game 3', 'Game 4', 'Game 5'] });
+    expect(prof.settings.hero).toBe('mosa'); // the game in use stays picked
+    expect(sm.loadCheckpoint(1, 'crocodile').data?.level).toBe(9);
+    expect(sm.loadCheckpoint(2, 'crocodile').data?.level).toBe(21);
+    expect(sm.loadCheckpoint(1, 'mosa').data?.level).toBe(14);
+    expect(store.getItem('ce.save.checkpoint')).toBeNull();
+    expect(store.getItem('ce.save.checkpoint.2')).toBeNull();
+    // It happens once: a second load changes nothing.
+    expect(new SaveManager(store, LIM).loadPlayers().players.length).toBe(1);
+    expect(sm.loadCheckpoint(1, 'mosa').data?.level).toBe(14);
+  });
+  it('a player list that makes no sense is repaired', () => {
+    expect(sanitizePlayers({ active: 9, players: [{ id: 2, name: '' }, { id: 2, name: 'dup' }, { id: 77 }] })).toEqual({ active: 2, players: [{ id: 2, name: 'Player 2' }] });
+    expect(sanitizePlayers(null)).toEqual({ active: 1, players: [{ id: 1, name: 'Player 1' }] });
   });
 });
 

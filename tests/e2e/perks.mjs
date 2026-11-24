@@ -26,7 +26,7 @@ ok(await panelOpen(), 'Escape does not dismiss the choice');
 const picked = await G(()=>{const b=document.querySelector('[data-perk="swift"]')||document.querySelector('[data-perk]'); const id=b.dataset.perk; b.click(); return id;});
 await p.waitForTimeout(300);
 ok(!(await panelOpen()) && !(await G(()=>window.game.scene.isPaused('Game'))), 'choosing resumes the game');
-const st = await G(()=>{const s=window.game.scene.getScene('Game'); return {perks:s.perks, speed:s.player.cruiseSpeed, mods:s.player.mods, cp:JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.perks};});
+const st = await G(()=>{const s=window.game.scene.getScene('Game'); return {perks:s.perks, speed:s.player.cruiseSpeed, mods:s.player.mods, cp:JSON.parse(localStorage.getItem('ce.save.run.p1.crocodile.1')).data.perks};});
 console.log('picked', picked, JSON.stringify(st.mods));
 ok(st.perks.length===1 && st.perks[0]===picked, 'perk recorded');
 ok(JSON.stringify(st.cp)===JSON.stringify([picked]), 'perk saved with the run');

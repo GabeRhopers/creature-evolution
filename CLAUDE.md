@@ -202,12 +202,18 @@ take `damageTaken` x damage, fully up to level `fullUntil` (5), fading evenly to
 into the player's mods with the perks (`applyPerks`, refreshed whenever the level changes; `PerkMods` gained `turn`
 and `stamina`). The pause menu shows the current head start. AI fish are unchanged.
 
-## Save slots
-`SaveManager` keeps `SLOT_COUNT` (3) checkpoint slots; the game writes to `saves.activeSlot`. Slot 1 uses the
-original key (`ce.save.checkpoint`), so older saves are slot 1; slots 2+ are `ce.save.checkpoint.N`, each with
-its own `.bak`. Slot names and the active slot live in the profile (`profile.slots`). Home screen: Saved games
-panel (Continue, New game, Rename, Delete with a confirm step); NEW RUN offers an empty slot first.
-Switch slots only from the home screen, never mid-run.
+## Players and save slots (`SaveManager`, home screen "Playing as" chip and Saved games)
+Up to `MAX_PLAYERS` (4) players share a device (`ce.save.players`: list + active one). Each player has their own profile
+(settings incl. picked hero, records, lifetime; player 1 keeps `ce.save.profile`, others `ce.save.profile.pN`) and, for
+every hero, `SLOT_COUNT` (5) save slots with names (`profile.slots[hero] = { active, names }`). A run is saved under
+`ce.save.run.p{player}.{hero}.{slot}` (with its own `.bak`). Picking a hero on the home screen switches to its slots and
+CONTINUE (`pickHero`); Saved games shows "<player>'s <hero> games" with creature tabs. Who's playing? (the chip): add (copies
+sound and controller settings), rename, delete (with its games; never the last player), switch (writes the active player and
+reloads the page, since the menu holds the profile in closures). Saves from before players (3 slots shared by every hero,
+`ce.save.checkpoint[.N]`) move once to player 1, each into the next free slot of the hero it was played with, keeping
+custom names (`migrateToPlayers`, run by the first `loadPlayers`). Switch players and slots only from the home screen,
+never mid-run. Text inputs stop Enter's default (it would also press the button that gets focus next).
+E2E: `slots.mjs`; unit: `tests/save.test.ts`.
 
 ## Higher-level enemies
 Species with `unlockLevel` only join the reef once the player reaches that level (`spawnAmbientFish`

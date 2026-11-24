@@ -50,7 +50,7 @@ const bitten = await holdUntil(['ArrowRight', 'Space'], ()=>window.game.scene.ge
 ok(bitten, 'after the crab, five bites break the Root Tangle');
 ok(await waitFor(()=>window.__ban.some(t=>t.includes('ROOT TANGLE BREAKS')), 5000), 'with a banner');
 ok((await gate('root_tangle')).images === 0, 'and the wall is gone');
-ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.gatesOpen?.includes('root_tangle')), 'the broken gate is saved right away');
+ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.run.p1.crocodile.1')).data.gatesOpen?.includes('root_tangle')), 'the broken gate is saved right away');
 await placeAt(23800);
 const through = await holdUntil(['ArrowRight'], ()=>window.game.scene.getScene('Game').player.x > 24300, 30000);
 ok(through, 'you can swim into the Mangrove Swamp');

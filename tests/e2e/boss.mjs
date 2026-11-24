@@ -64,7 +64,7 @@ await place(35600, 1300);
 await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; c.fish.hp = 1; g.kill(c, g.playerCreature);});
 ok(await waitFor(()=>window.__ban.some(t=>t.includes('DEFEATED')), 5000), 'beating it shows a banner');
 ok(await G(()=>window.game.scene.getScene('Game').bossesBeaten.includes('electric_eel')), 'it counts as beaten');
-ok(await waitFor(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.bossesBeaten?.includes('electric_eel'), 5000), 'and is saved with the run');
+ok(await waitFor(()=>JSON.parse(localStorage.getItem('ce.save.run.p1.crocodile.1')).data.bossesBeaten?.includes('electric_eel'), 5000), 'and is saved with the run');
 await p.waitForTimeout(2000);
 ok(!(await boss()), 'it does not come back');
 

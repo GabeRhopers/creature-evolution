@@ -69,6 +69,19 @@
       .seg button { font: 600 14px/1 var(--font-body); color: var(--muted); background: none; border: 0; border-radius: 9px; padding: 10px 16px; min-height: 40px; cursor: pointer; }
       .seg button[aria-pressed="true"] { background: var(--kelp); color: #062012; }
       .seg button:focus-visible { outline: 2px solid var(--sun); }
+      /* Buttons with their own display (CONTINUE is a grid) must still hide when hidden. */
+      [hidden] { display: none !important; }
+      .player-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 14px; background: var(--panel); border: 2px solid var(--line); color: #fff; font: 700 15px/1.1 var(--font-body); cursor: pointer; }
+      .player-chip .pl-label { color: var(--muted); font-weight: 500; font-size: 13px; }
+      .player-chip .pl-change { color: var(--kelp); font-size: 13px; }
+      .player-chip:focus-visible { outline: 2px solid var(--sun); }
+      .players { display: grid; gap: 8px; margin: 10px 0; }
+      .player-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 2px solid var(--line); background: var(--panel); }
+      .player-row.on { border-color: var(--kelp); }
+      .player-row .pname { flex: 1 1 120px; font: 700 16px/1.2 var(--font-body); }
+      .player-row input { flex: 1 1 140px; font: 600 15px/1.2 var(--font-body); padding: 6px 8px; }
+      .hero-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+      .hero-tabs button[aria-pressed="true"] { border-color: var(--kelp); color: #fff; }
       .heroes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
       .hero-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 128px; padding: 6px 10px 8px; background: var(--panel); border: 2px solid var(--line); border-radius: 12px; color: var(--muted); font: 700 15px/1.1 var(--font-body); cursor: pointer; }
       .hero-btn canvas { width: 112px; height: 44px; image-rendering: pixelated; }
@@ -194,7 +207,7 @@
       /* Controller focus: a clear ring on whatever the D-pad selected. */
       .pad-focus { outline: 3px solid var(--sun) !important; outline-offset: 2px; }
       /* Pixel art interface: square corners and hard pixel shadows (round toasts and rings stay round). */
-      .btn, .btn-play, .seg, .seg button, .hero-btn, .card, .panel, .toggle, .toggle select { border-radius: 4px; }
+      .btn, .btn-play, .seg, .seg button, .hero-btn, .player-chip, .player-row, .card, .panel, .toggle, .toggle select { border-radius: 4px; }
       .btn-play { box-shadow: 0 6px 0 #a87a00, 0 0 0 3px #181425; }
       .btn-play:active { box-shadow: 0 3px 0 #a87a00, 0 0 0 3px #181425; }
       .btn-play.alt { box-shadow: 4px 4px 0 rgba(24, 20, 37, 0.85); }
@@ -215,6 +228,7 @@
         </div>
 
         <div class="play-block">
+          <button id="btnPlayer" class="player-chip" aria-label="Who's playing? Change player"><span class="pl-label">Playing as</span> <b id="playerName">Player 1</b> <span class="pl-change">Change</span></button>
           <button id="btnContinue" class="btn btn-play btn-continue" hidden><span>CONTINUE</span><span class="sub" id="continueSub"></span></button>
           <div class="heroes" id="heroPick" role="group" aria-label="Play as"></div>
           <button id="btnPlay" class="btn btn-play">PLAY</button>
@@ -229,7 +243,7 @@
         <div class="cards">
           <button class="card" id="cardHow"><span class="t">How to play</span><span class="d">Controls, eating, hiding, digesting</span></button>
           <a class="card studio" id="cardStudio" href="studio/index.html"><span class="t">Sprite Studio</span><span class="d">Draw your own creature poses</span></a>
-          <button class="card" id="cardSaves"><span class="t">Saved games</span><span class="d">Up to 3 games, rename or delete</span></button>
+          <button class="card" id="cardSaves"><span class="t">Saved games</span><span class="d">5 games per creature, rename or delete</span></button>
           <button class="card" id="cardOptions"><span class="t">Options</span><span class="d">Sound, music, records</span></button>
           <button class="card" id="cardCredits"><span class="t">Credits</span><span class="d">Who made what</span></button>
         </div>
