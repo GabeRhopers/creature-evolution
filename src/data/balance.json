@@ -1486,7 +1486,12 @@
     "yellowfin_tuna": 5,
     "sailfish": 2,
     "green_turtle": 3,
-    "man_o_war": 10
+    "man_o_war": 10,
+    "garibaldi": 8,
+    "sheephead": 4,
+    "sea_urchin": 8,
+    "sea_otter": 2,
+    "sea_lion": 3
   },
   "biomes": {
     "_comment": "How much each species likes each region (0 = never there). A species' fish are shared out by weight x region width; they wander mostly where they like it. Missing = 1 everywhere.",
@@ -1759,6 +1764,51 @@
       "trench": 0,
       "kelp": 0,
       "ice": 0
+    },
+    "garibaldi": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 0,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 1,
+      "ice": 0
+    },
+    "sheephead": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 0,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 1,
+      "ice": 0
+    },
+    "sea_urchin": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 0,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 1,
+      "ice": 0
+    },
+    "sea_otter": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 0,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 1,
+      "ice": 0
+    },
+    "sea_lion": {
+      "coral": 0,
+      "swamp": 0,
+      "sargasso": 0,
+      "volcano": 0,
+      "trench": 0,
+      "kelp": 1,
+      "ice": 0
     }
   },
   "spawnDefaults": {
@@ -1995,6 +2045,27 @@
     },
     "green_turtle": {
       "respawnDelay": 30
+    },
+    "garibaldi": {
+      "groupMin": 1,
+      "groupMax": 2
+    },
+    "sheephead": {
+      "groupMin": 1,
+      "groupMax": 2
+    },
+    "sea_urchin": {
+      "groupMin": 2,
+      "groupMax": 4
+    },
+    "sea_otter": {
+      "respawnDelay": 30
+    },
+    "sea_lion": {
+      "groupMin": 2,
+      "groupMax": 3,
+      "maxHunters": 2,
+      "respawnDelay": 25
     }
   },
   "ai": {
@@ -2732,8 +2803,10 @@
         },
         "rewardLevels": 1,
         "trophy": "Insulated",
-        "trophyShockMul": 0.7
+        "trophyShockMul": 0.7,
+        "rewardPerks": 1
       }
-    ]
+    ],
+    "perkDelaySeconds": 2.5
   }
 }

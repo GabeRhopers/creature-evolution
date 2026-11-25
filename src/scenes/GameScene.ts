@@ -10,7 +10,7 @@ import { SpatialGrid } from '../systems/spatialGrid';
 import { countInTide, factorsFor, groupSizes, outShare, rollLevel, type PeriodId, type SpawnFactors } from '../systems/spawnFactors';
 import { openedFromSave, type GatesConfig } from '../systems/gates';
 import { GateSystem } from './GateSystem';
-import { beatenFromSave, shockMul, type BossDef } from '../systems/bosses';
+import { beatenFromSave, bossPerks, shockMul, type BossDef } from '../systems/bosses';
 import { BossSystem } from './BossSystem';
 import { keptShare, outgrownMul, regionDensities, regionFactors, trimCrowd, type CrowdConfig } from '../systems/crowd';
 import { Regions, migrateX, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
@@ -995,8 +995,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.spawnChunks(c.fish.x, c.fish.y, p, p.xpNeeded * def.rewardLevels, 8);
     this.cameras.main.flash(450, 255, 240, 160);
     this.sfx.levelUp();
-    this.hud.bigBanner(`${def.name.toUpperCase()} DEFEATED!`, `Trophy: ${def.trophy}. Shocks hurt you ${Math.round((1 - def.trophyShockMul) * 100)}% less`);
+    const free = Math.max(0, Math.round(def.rewardPerks ?? 0));
+    this.hud.bigBanner(
+      `${def.name.toUpperCase()} DEFEATED!`,
+      `Trophy: ${def.trophy}. Shocks hurt you ${Math.round((1 - def.trophyShockMul) * 100)}% less${free ? `. Plus a free perk!` : ''}`,
+    );
     if (!this.testMode && !BOT_MODE) this.checkpoint(true);
+    // The free perk choice opens after the banner has had a moment.
+    if (free) this.time.delayedCall(BALANCE.bosses.perkDelaySeconds * 1000, () => this.checkPerks());
     window.dispatchEvent(new CustomEvent('ce:boss', { detail: { defeated: id } }));
   }
 
@@ -1109,7 +1115,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** Offer a perk choice if one is earned (not in test swims; the bot picks at random). */
   checkPerks(): void {
     if (this.menuMode || this.dead || this.testMode || this.perkPending) return;
-    if (perksOwed(this.player.level, this.perks.length) <= 0) return;
+    if (perksOwed(this.player.level, this.perks.length, bossPerks(this.bossesBeaten, BALANCE.bosses.list as unknown as BossDef[])) <= 0) return;
     const options = offerPerks();
     if (BOT_MODE) return this.choosePerk(options[0].id);
     this.perkPending = true;

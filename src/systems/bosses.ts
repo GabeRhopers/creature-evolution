@@ -28,6 +28,8 @@ export interface BossDef {
   breath: { every: number; gulp: number; riseLimit: number; damageMul: number };
   leap: { belowHealth: number; radius: number; hpFraction: number };
   rewardLevels: number;
+  /** Free perk picks for beating it (on top of the ones earned by levels). */
+  rewardPerks?: number;
   trophy: string;
   trophyShockMul: number;
 }
@@ -52,4 +54,9 @@ export function beatenFromSave(saved: string[] | undefined, all: BossDef[]): str
 /** Damage multiplier on shocks from the trophies you hold (each beaten boss gives its trophy). */
 export function shockMul(beaten: string[], all: BossDef[]): number {
   return all.filter((b) => beaten.includes(b.id)).reduce((m, b) => m * b.trophyShockMul, 1);
+}
+
+/** Free perk picks earned by the bosses beaten in this run. */
+export function bossPerks(beaten: string[], defs: BossDef[]): number {
+  return defs.filter((d) => beaten.includes(d.id)).reduce((n, d) => n + Math.max(0, Math.round(d.rewardPerks ?? 0)), 0);
 }

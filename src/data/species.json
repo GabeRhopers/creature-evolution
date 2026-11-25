@@ -1319,5 +1319,179 @@
     "alpha": 0.85,
     "unlockLevel": 20,
     "intro": "The man o' war drifts at the surface trailing long stinging tentacles. Don't bite it"
+  },
+  "garibaldi": {
+    "displayName": "Garibaldi",
+    "sprite": "fish_orange",
+    "tier": 1,
+    "baseSize": 13,
+    "baseHP": 18,
+    "baseBite": 3,
+    "accel": 420,
+    "maxSpeed": 190,
+    "sprintMultiplier": 1.6,
+    "drag": 0.95,
+    "turnSpeed": 5.5,
+    "devourRatio": 0.4,
+    "xpValue": 40,
+    "diet": [
+      "food"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.0,
+      "visionRange": 260,
+      "fleeRatio": 1.3
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.15,
+      "depthMax": 0.7,
+      "weight": 0
+    },
+    "look": "fish-garibaldi",
+    "unlockLevel": 50,
+    "intro": "Garibaldi are bright orange damselfish that guard their own patch of the kelp forest"
+  },
+  "sheephead": {
+    "displayName": "California Sheephead",
+    "sprite": "fish_grey",
+    "tier": 2,
+    "baseSize": 24,
+    "baseHP": 120,
+    "baseBite": 14,
+    "accel": 420,
+    "maxSpeed": 200,
+    "sprintMultiplier": 1.6,
+    "drag": 0.96,
+    "turnSpeed": 4.0,
+    "devourRatio": 0.5,
+    "xpValue": 160,
+    "diet": [
+      "tier1",
+      "sea_urchin"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.4,
+      "visionRange": 340,
+      "fleeRatio": 1.6
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.35,
+      "depthMax": 0.95,
+      "weight": 0
+    },
+    "look": "fish-sheephead",
+    "rankMul": 3.0,
+    "unlockLevel": 51,
+    "intro": "Sheephead crunch sea urchins with their big front teeth. Every sheephead starts life as a female and later turns male"
+  },
+  "sea_urchin": {
+    "displayName": "Purple Sea Urchin",
+    "sprite": "fish_grey",
+    "tier": 1,
+    "baseSize": 12,
+    "baseHP": 30,
+    "baseBite": 2,
+    "accel": 60,
+    "maxSpeed": 25,
+    "sprintMultiplier": 1.0,
+    "drag": 0.9,
+    "turnSpeed": 1.2,
+    "devourRatio": 0.3,
+    "xpValue": 30,
+    "diet": [
+      "food"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.0,
+      "visionRange": 80,
+      "fleeRatio": 99
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.8,
+      "depthMax": 1.0,
+      "weight": 0
+    },
+    "look": "beast-sea_urchin",
+    "venom": 0.07,
+    "upright": true,
+    "unlockLevel": 50,
+    "intro": "Sea urchins creep over the rocks eating kelp. Their spines sting, so leave them to the otters and sheephead"
+  },
+  "sea_otter": {
+    "displayName": "Sea Otter",
+    "sprite": "fish_grey",
+    "tier": 2,
+    "baseSize": 26,
+    "baseHP": 260,
+    "baseBite": 6,
+    "accel": 380,
+    "maxSpeed": 170,
+    "sprintMultiplier": 1.5,
+    "drag": 0.96,
+    "turnSpeed": 4.0,
+    "devourRatio": 0.5,
+    "xpValue": 0,
+    "diet": [
+      "sea_urchin"
+    ],
+    "behavior": {
+      "schooling": false,
+      "aggression": 0.0,
+      "visionRange": 360,
+      "fleeRatio": 1.0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.5,
+      "weight": 0
+    },
+    "look": "beast-sea_otter",
+    "armor": 0.4,
+    "friendly": true,
+    "unlockLevel": 52,
+    "intro": "A friend! Sea otters dive for sea urchins, which keeps the kelp forest from being eaten away"
+  },
+  "sea_lion": {
+    "displayName": "California Sea Lion",
+    "sprite": "fish_grey",
+    "tier": 3,
+    "baseSize": 44,
+    "baseHP": 380,
+    "baseBite": 32,
+    "accel": 640,
+    "maxSpeed": 300,
+    "sprintMultiplier": 2.0,
+    "drag": 0.97,
+    "turnSpeed": 4.6,
+    "devourRatio": 0.5,
+    "xpValue": 700,
+    "diet": [
+      "tier1",
+      "tier2",
+      "tier3"
+    ],
+    "behavior": {
+      "schooling": true,
+      "aggression": 0.85,
+      "visionRange": 520,
+      "fleeRatio": 2.0
+    },
+    "ability": null,
+    "spawn": {
+      "depthMin": 0.0,
+      "depthMax": 0.55,
+      "weight": 0
+    },
+    "look": "beast-sea_lion",
+    "rankMul": 5.0,
+    "unlockLevel": 55,
+    "intro": "Sea lions hunt in small, playful groups. They twist and turn faster than almost anything in the sea"
   }
 }

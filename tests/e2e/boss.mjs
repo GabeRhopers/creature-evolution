@@ -16,7 +16,7 @@ await waitFor(()=>document.getElementById('home')?.classList.contains('open'), 3
 await G(()=>window.addEventListener('ce:perk',()=>setTimeout(()=>document.querySelector('[data-perk]')?.click(),30)));
 await p.click('#btnPlay');
 await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMode && !!g.player && !!g.bosses;}, 30000);
-await G(()=>{const g=window.game.scene.getScene('Game'); g.gates.openAll(); window.__ban=[]; const h=window.game.scene.getScene('Hud'); const f=h.bigBanner.bind(h); h.bigBanner=(t,l)=>{window.__ban.push(t); f(t,l);};});
+await G(()=>{const g=window.game.scene.getScene('Game'); g.gates.openAll(); window.__ban=[]; const h=window.game.scene.getScene('Hud'); const f=h.bigBanner.bind(h); h.bigBanner=(t,l)=>{window.__ban.push(t+' | '+(l??'')); f(t,l);};});
 
 // Before level 15 the cave is empty.
 await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(12); g.player.invulnTimer=1e9;});
@@ -61,10 +61,13 @@ ok(await waitFor(()=>{const c=window.game.scene.getScene('Game').bosses.current;
 
 // Defeat it: banner, trophy, saved, and it does not come back.
 await place(35600, 1300);
+const perksBefore = await G(()=>{const g=window.game.scene.getScene('Game'); window.__perkOffers=0; window.addEventListener('ce:perk',()=>window.__perkOffers++); return g.perks.length;});
 await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; c.fish.hp = 1; g.kill(c, g.playerCreature);});
 ok(await waitFor(()=>window.__ban.some(t=>t.includes('DEFEATED')), 5000), 'beating it shows a banner');
 ok(await G(()=>window.game.scene.getScene('Game').bossesBeaten.includes('electric_eel')), 'it counts as beaten');
 ok(await waitFor(()=>JSON.parse(localStorage.getItem('ce.save.run.p1.crocodile.1')).data.bossesBeaten?.includes('electric_eel'), 5000), 'and is saved with the run');
+ok(await waitFor(()=>window.__ban.some(t=>t.includes('free perk')), 3000), 'the banner promises a free perk');
+ok(await waitFor((n)=>window.__perkOffers>=1 && window.game.scene.getScene('Game').perks.length===n+1, 15000, perksBefore), 'a free perk choice opens and is taken (one extra perk)');
 await p.waitForTimeout(2000);
 ok(!(await boss()), 'it does not come back');
 

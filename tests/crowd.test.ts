@@ -13,7 +13,7 @@ describe('crowd control (Nov 23)', () => {
     for (const r of regions) expect(dens[r.id] * f[r.id], r.id).toBeLessThanOrEqual(cfg.regionMaxDensity + 1e-9);
     // the busy ones really get thinned, the quiet ones are left alone
     expect(f.swamp).toBeLessThan(1);
-    expect(f.kelp).toBe(1);
+    expect(f.volcano).toBe(1);
   });
   it('a species keeps the share of its home regions that survives thinning', () => {
     const dens = regionDensities(counts, biomeWeight, regions);

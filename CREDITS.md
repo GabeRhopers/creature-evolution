@@ -15,6 +15,7 @@
 | Lanternfish, Viperfish, Gulper Eel, Vampire Squid | Original pixel-art designs generated in code | Original | `tools/fish/draw_trench.py` | Twilight Trench creatures |
 | Electric Eel (boss) | Original pixel-art design generated in code | Original | `tools/fish/draw_boss.py` | First boss, Spring Cave |
 | Flying Fish, Sargassum Fish, Mahi-mahi, Yellowfin Tuna, Sailfish, Green Sea Turtle, Man o' War | Original pixel-art designs generated in code | Original | `tools/fish/draw_sargasso.py` | Sargasso Drift creatures |
+| Garibaldi, California Sheephead, Purple Sea Urchin, Sea Otter, California Sea Lion | Original pixel-art designs generated in code | Original | `tools/fish/draw_kelp.py` | Kelp Forest creatures |
 | Volcanic Rift (black sand, volcano islands, lava cracks, tube worms) | Original pixel art generated in code | Original | `src/systems/terrainArt.ts` | Fourth region |
 | Sound effects | generated in code (`src/audio/Sfx.ts`) | n/a | | All SFX |
 
