@@ -49,14 +49,16 @@ for (let i=0;i<10;i++){ await G((i)=>{const g=window.game.scene.getScene('Game')
 ok(await G((hp0)=>window.game.scene.getScene('Game').player.hp < hp0, hp0), 'biting a sea urchin stings');
 
 // The otter eats an urchin (kept in front of the hungry, calm otter; slow machines think slowly).
-await G((oi)=>{const g=window.game.scene.getScene('Game'); const o=g.creatures[oi]; const u=g.creatures.find(c=>c.fish.species.id==='sea_urchin' && c.fish.active && !(c.respawnT>0)); u.away=false; u.crowded=false; window.__u=u; window.__uX=u.fish.x; o.brain.isThreat=()=>false;
+await G((oi)=>{const g=window.game.scene.getScene('Game'); const o=g.creatures[oi]; const u=g.creatures.filter(c=>c.fish.species.id==='sea_urchin' && c.fish.active && !(c.respawnT>0)).sort((a,b)=>a.fish.size-b.fish.size)[0]; u.away=false; u.crowded=false;
+  // A small urchin, so the otter can swallow it whatever levels were rolled.
+  u.fish.setLevel(1); window.__u=u; window.__uX=u.fish.x; o.brain.isThreat=()=>false;
   const hid=g.isHidden.bind(g); g.isHidden=(tg,ob)=>tg===u.fish ? false : hid(tg,ob);}, otter);
 ok(await waitFor((oi)=>{const g=window.game.scene.getScene('Game'); const u=window.__u, o=g.creatures[oi];
   if ((u.respawnT>0) || !u.fish.active || Math.abs(u.fish.x-window.__uX) > 1500) return true;
   o.away=false; o.crowded=false; o.brain.hunger=0; if (o.brain.state==='flee' || o.brain.state==='rest') { o.brain.threat=null; o.brain.state='wander'; }
   g.player.arcadeBody.reset(o.fish.x-1100, o.fish.y-400); u.away=false; u.crowded=false;
   u.fish.setPosition(o.fish.x + Math.cos(o.fish.rotation)*o.fish.size*0.9, o.fish.y + Math.sin(o.fish.rotation)*o.fish.size*0.9); window.__uX=u.fish.x;
-  return false;}, 30000, otter), 'the sea otter eats a sea urchin');
+  return false;}, 45000, otter), 'the sea otter eats a sea urchin ' + JSON.stringify(await G((oi)=>{const g=window.game.scene.getScene('Game'); const o=g.creatures[oi], u=window.__u; return {st:o.brain.state, swal:o.fish.canSwallow(u.fish.size), os:o.fish.size, us:u.fish.size, hungry:o.brain.hungry};}, otter)));
 
 ok(errs.length===0, 'no page errors '+errs.slice(0,3).join(' | '));
 await b.close();
