@@ -13,6 +13,8 @@ import { APP_VERSION, MAX_PLAYERS, SLOT_COUNT, cleanSlotName, defaultSlotNames, 
 import { perkIconUrl } from './perkIcons';
 import { ENEMY_FIELDS, ENEMY_GROUPS, enemiesChanged, enemyIds, resetEnemies, saveEnemy, shippedValue } from '../data/adminSettings';
 import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
+import { backupFileName, backupKey, buildBackup, parseBackup } from '../save/backup';
+import { applyUpdate } from '../offline';
 import { decodeFrame, getStageLook, heroLookSkin, heroSkins, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, setHeroLooks, skinStageId, validateProject, type StudioProject } from '../skins';
 import { earlyHelpMods, earlyHelpStrength, perkById, type PerkDef } from '../systems/perks';
 import { installSafetyNet, lastErrorLine, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
@@ -613,6 +615,7 @@ export function initMenu(game: Phaser.Game): void {
       <div class="toggle"><span>Your crocodile<br><span style="color:var(--muted);font-size:13px">Drawings from Sprite Studio</span></span><select id="oSkin" aria-label="Your crocodile"><option value="">Grows with each stage</option></select></div>
       <div class="toggle"><span>Controller buttons<br><span style="color:var(--muted);font-size:13px">Choose which button does what</span></span><button class="btn" id="oPad">Set up</button></div>
       <div class="toggle"><span>Enemy settings<br><span style="color:var(--muted);font-size:13px">${enemiesChanged() ? 'Changed on this device' : 'When enemies appear, how strong they are'}</span></span><button class="btn" id="oEnemies">Edit</button></div>
+      <div class="toggle"><span>Backup<br><span style="color:var(--muted);font-size:13px">Every player, saved game and Sprite Studio drawing in one file</span></span><span class="row" style="margin:0"><button class="btn" id="oBackup">Save file</button><button class="btn" id="oRestore">Load file</button></span></div>
       <div class="toggle"><span>Problem log<br><span style="color:var(--muted);font-size:13px">${readErrorLog().length ? `${readErrorLog().length} problem(s) noted on this device` : 'No problems noted'}</span></span><button class="btn" id="oErrors">Show</button></div>
       <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${profile.best.level ? `Level ${profile.best.level} · ${lt.runs} runs played` : 'None yet'}</span></span><button class="btn" id="oReset" data-label="Reset">Reset</button></div>
       <div class="toggle"><span>Reset everything<br><span style="color:var(--muted);font-size:13px">Settings, records and the saved run</span></span><button class="btn" id="oResetAll" data-label="Reset all">Reset all</button></div>
@@ -629,6 +632,8 @@ export function initMenu(game: Phaser.Game): void {
         $('oPad').onclick = openPadMap;
         $('oEnemies').onclick = openEnemies;
         $('oErrors').onclick = openErrors;
+        $('oBackup').onclick = saveBackup;
+        $('oRestore').onclick = () => $('backupFile').click();
         confirmButton('oReset', 'Tap again to reset', () => {
           profile.best = { level: 0, kills: 0, fish: 0 };
           saveProfile();
@@ -643,6 +648,67 @@ export function initMenu(game: Phaser.Game): void {
     );
   }
   $('cardOptions').addEventListener('click', openOptions);
+
+  // ---------------------------------------------------------------- backup file (offline, the device is the only copy)
+  function storageEntries(): Array<[string, string]> {
+    const out: Array<[string, string]> = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)!;
+        if (backupKey(k)) out.push([k, localStorage.getItem(k) ?? '']);
+      }
+    } catch {
+      /* storage blocked */
+    }
+    return out;
+  }
+  function saveBackup(): void {
+    const data = JSON.stringify(buildBackup(storageEntries(), APP_VERSION));
+    const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = backupFileName();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    badge('Backup saved: keep the file somewhere safe');
+  }
+  const backupFile = $('backupFile') as HTMLInputElement;
+  backupFile.addEventListener('change', async () => {
+    const file = backupFile.files?.[0];
+    backupFile.value = '';
+    if (!file) return;
+    const got = parseBackup(await file.text());
+    if ('problem' in got) {
+      notice(got.problem);
+      return;
+    }
+    const when = got.exportedAt ? new Date(got.exportedAt).toLocaleString() : 'an earlier day';
+    openPanel(
+      `<h3>Load this backup?</h3>
+      <p>It is from ${esc(when)}. It replaces the players, saved games and Sprite Studio drawings on this device with the ones in the file.</p>
+      <div class="row"><button class="btn btn-danger" id="bYes">Load the backup</button><button class="btn" id="bNo">Cancel</button></div>`,
+      () => {
+        $('bNo').onclick = closePanel;
+        $('bYes').onclick = () => {
+          try {
+            for (const [k] of storageEntries()) localStorage.removeItem(k);
+            for (const [k, v] of Object.entries(got.keys)) localStorage.setItem(k, v);
+          } catch {
+            notice('The backup could not be loaded: this device is out of storage space.');
+            return;
+          }
+          window.location.reload();
+        };
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------- offline and updates (src/offline.ts)
+  window.addEventListener('ce:offline-ready', () => badge('Ready to play offline'));
+  window.addEventListener('ce:update-ready', () => ($('btnUpdate').hidden = false));
+  $('btnUpdate').addEventListener('click', applyUpdate);
 
   /** The problems this device noted (newest first), so they can be screenshotted and sent. */
   function openErrors(): void {

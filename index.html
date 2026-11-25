@@ -6,9 +6,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <link rel="icon" href="data:," />
     <title>Creature Evolution</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="fonts/fonts.css" rel="stylesheet" />
+    <link rel="icon" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Creature Evo" />
+    <meta name="theme-color" content="#124e89" />
     <style>
       :root {
         /* Layout: live ocean behind; centered title column; play block; option cards; food-chain strip. */
@@ -222,6 +226,7 @@
   </head>
   <body>
     <div id="game"></div>
+    <input type="file" id="backupFile" accept=".json,application/json" hidden />
     <div id="tuning"></div>
 
     <!-- Home screen: sits over the live ocean (the game runs behind it in attract mode). -->
@@ -245,6 +250,7 @@
             <button data-diff="hard" aria-pressed="false">Hard</button>
           </div>
           <div class="best" id="bestLine">No record yet. Go set one!</div>
+          <button id="btnUpdate" class="btn" hidden>New version ready: tap to update</button>
         </div>
 
         <div class="cards">

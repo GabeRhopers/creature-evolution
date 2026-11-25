@@ -239,6 +239,19 @@ take `damageTaken` x damage, fully up to level `fullUntil` (5), fading evenly to
 into the player's mods with the perks (`applyPerks`, refreshed whenever the level changes; `PerkMods` gained `turn`
 and `stamina`). The pause menu shows the current head start. AI fish are unchanged.
 
+## Offline, install and backup (`vite.config.ts` VitePWA, `src/offline.ts`, `src/save/backup.ts`)
+The game needs no internet after the first visit. `vite-plugin-pwa` (generateSW) precaches the whole build: code, atlas,
+music, the bundled fonts (`public/fonts`, Pixelify Sans and Work Sans under the OFL; no Google Fonts), Sprite Studio,
+`skinmaker.js` and every starter design. `ignoreURLParametersMatching: [/.*/]` makes links with `?project=`, `?newskin=`,
+`?try=` work offline; `navigateFallbackDenylist` keeps studio links from falling back to the game page. `registerType: 'prompt'`:
+a new version waits for the home screen's "New version ready: tap to update" (`ce:update-ready` -> `#btnUpdate` ->
+`applyUpdate`), so a run is never reloaded mid-swim; `ce:offline-ready` shows a badge. `startOffline()` also asks for
+persistent storage. The manifest (fullscreen, any orientation) and icons (`tools/icons/make_icons.py`: Mike's croc on a sea
+tile, a maskable one for Android) make it installable (iPad "Add to Home Screen", Android "Install app").
+Never load anything from another site at runtime (the offline test checks it). Options > **Backup**: Save file downloads every
+`ce.*` and `spritestudio*` key (saves keep their checksums; not the problem log) as `creature-evolution-backup-<date>.json`;
+Load file checks it (`parseBackup`), asks, replaces those keys and reloads. E2E: `offline.mjs`; unit: `tests/backup.test.ts`.
+
 ## Players and save slots (`SaveManager`, home screen "Playing as" chip and Saved games)
 Up to `MAX_PLAYERS` (4) players share a device (`ce.save.players`: list + active one). Each player has their own profile
 (settings incl. picked hero, records, lifetime; player 1 keeps `ce.save.profile`, others `ce.save.profile.pN`) and, for
