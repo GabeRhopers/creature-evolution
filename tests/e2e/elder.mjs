@@ -16,8 +16,8 @@ const grow=async(level)=>{ await G((lv)=>{const g=window.game.scene.getScene('Ga
 await p.goto('http://localhost:4173/'); await G(()=>localStorage.clear()); await p.reload(); await p.waitForTimeout(3500);
 await G(()=>window.addEventListener('ce:perk',()=>setTimeout(()=>document.querySelector('[data-perk]')?.click(),30)));
 const heroes = await G(()=>[...document.querySelectorAll('[data-hero]')].map(b=>b.dataset.hero));
-ok(heroes.at(-1)==='elder_croc', 'home offers the Elder Croc: '+heroes.join());
-ok(await G(()=>{const r=[...document.querySelectorAll('[data-hero]')].map(b=>b.getBoundingClientRect()); return r.every(x=>x.right<=window.innerWidth && x.left>=0);}), 'all five hero buttons fit on an iPad screen');
+ok(heroes.includes('elder_croc'), 'home offers the Elder Croc: '+heroes.join());
+ok(await G(()=>{const r=[...document.querySelectorAll('[data-hero]')].map(b=>b.getBoundingClientRect()); return r.every(x=>x.right<=window.innerWidth && x.left>=0);}), 'all the hero buttons fit on an iPad screen');
 await p.click('[data-hero="elder_croc"]'); await p.waitForTimeout(800);
 ok(await G(()=>document.getElementById('heroCroc').getAttribute('aria-label')==='The Elder Croc'), 'the home logo shows the Elder Croc');
 await p.screenshot({path:'/tmp/elder_home.png'});

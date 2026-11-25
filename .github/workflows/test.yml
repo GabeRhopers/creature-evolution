@@ -40,7 +40,7 @@ jobs:
       matrix:
         include:
           - shard: saves and heroes
-            suites: stages framework roundtrip save_e2e perks slots mosa shark studio_save sargasso fang elder skins
+            suites: stages framework roundtrip save_e2e perks slots mosa shark studio_save sargasso fang elder skins spino
           - shard: creatures and fights
             suites: crab enemies creatures tides stomach areas enemy_settings hud spawn_factors trench crowd kelp
           - shard: world and controls

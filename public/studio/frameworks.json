@@ -173,5 +173,20 @@
     ],
     "pixelScale": 2,
     "notes": "The fifth playable hero: a pixel-art crocodile from a sheet of poses (idle, walk, bite, hurt), converted by tools/elder/convert_elder.py. Long poses for swimming and biting, standing poses for the level-up roar and the hurt flash, so the canvas is tall enough for both. The snout stays in the same place in the swim and bite frames."
+  },
+  "spino": {
+    "extends": "default",
+    "name": "Spino",
+    "canvas": [
+      112,
+      52
+    ],
+    "bodyRadius": 14,
+    "mouth": [
+      103,
+      19
+    ],
+    "pixelScale": 2,
+    "notes": "The sixth playable hero: a blue spinosaurus with a tall sail, from a sheet of two swim and two bite poses (all facing left, with water splashes), converted by tools/spino/convert_spino.py with the Sprite Studio skin engine (skinmaker.js). Long and low with room for the sail; the snout stays put in the swim and bite frames."
   }
 }
