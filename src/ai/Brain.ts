@@ -442,8 +442,8 @@ export class Brain {
         dy = dy * 0.35 + (hy / n) * 0.35 + (ty / tl) * 0.2 + sy * 0.6;
       }
     }
-    // Slide around seamounts and islands instead of pressing into them.
-    const t = this.world.terrain?.avoid(me.x, me.y, 120 + me.size * 2);
+    // Slide around seamounts and islands instead of pressing into them (a boss in its arena has no seabed to avoid).
+    const t = this.self.boss ? null : this.world.terrain?.avoid(me.x, me.y, 120 + me.size * 2);
     if (t) {
       dx += t[0];
       dy += t[1];
@@ -462,12 +462,13 @@ export class Brain {
       this.wanderY = Phaser.Math.Between(b.top, b.bottom);
       // Aim at the nearest copy of that spot (the sea loops), not across the whole world.
       if (this.world.wrapNear) this.wanderX = this.world.wrapNear(this.wanderX, this.fish.x);
-      if (!this.world.terrain?.isSolid(this.wanderX, this.wanderY, this.fish.size)) break;
+      if (this.self.boss || !this.world.terrain?.isSolid(this.wanderX, this.wanderY, this.fish.size)) break;
     }
     this.wanderTimer = Phaser.Math.FloatBetween(3, 8);
   }
 
   private avoidEdges(x: number, y: number): [number, number] {
+    if (this.self.boss) return [0, 0]; // its arena keeps it in
     const a = this.world.swimArea;
     const m = 250;
     let ax = 0;
