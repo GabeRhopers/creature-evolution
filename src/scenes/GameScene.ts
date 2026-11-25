@@ -33,7 +33,7 @@ import { Stomach } from '../systems/Stomach';
 import { Sfx } from '../audio/Sfx';
 import { PlayerBot } from '../dev/PlayerBot';
 import { saves, type Checkpoint, type DeathCause } from '../save';
-import { buildSkinTexture, getActiveSkin, getStageLook, validateProject, type SkinArt, type SkinFrames, type StudioProject } from '../skins';
+import { buildSkinTexture, getActiveSkin, getStageLook, heroLookSkin, validateProject, type SkinArt, type SkinFrames, type StudioProject } from '../skins';
 import { stageIndex } from '../systems/growth';
 import { playerTwist, twistFor, type RegionTwist } from '../systems/regionTwists';
 import { earlyHelpMods, offerPerks, perkById, perkMods, perksOwed } from '../systems/perks';
@@ -684,11 +684,13 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         return;
       }
       const st = p.stage;
-      const look = st ? getStageLook(st.skin) : null;
+      // The hero's picked skin (studio "New skin") when it has one, else its own design.
+      const skinId = st ? heroLookSkin(p.species.id, st.id) : null;
+      const look = st ? (skinId ? getStageLook(skinId) : null) ?? getStageLook(st.skin) : null;
       if (st && look) {
         // The crocodile keeps its old texture names (stage_adult); other heroes add their id.
         const hero = p.species.id;
-        const key = hero === DEFAULT_HERO ? 'stage_' + st.id : `stage_${hero}_${st.id}`;
+        const key = skinId ? 'skin_' + skinId : hero === DEFAULT_HERO ? 'stage_' + st.id : `stage_${hero}_${st.id}`;
         const built = buildSkinTexture(this, key, look);
         p.applySkin(key, built);
         p.setArt(built.art ?? st.art);

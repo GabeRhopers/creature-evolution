@@ -103,6 +103,25 @@ with a direct link. `tests/e2e/studio_game.mjs` covers the whole chain. The stud
 designs and their `-vN` copies) restores one pose or the whole drawing from `studio/seeds` (with undo; a whole
 restore keeps the shipped stamp, so later shipped versions still apply).
 
+**New skin** (`public/studio/skinmaker.js`, a plain ES module the studio page loads as `window.SkinMaker`; pure, unit tested
+in `tests/skinmaker.test.ts`): a new look for a hero, from a picture or as a color version, all three stages. The browser
+version of what `convert_elder.py` and `egg_hatchling.py` do: background = transparent, or the most common border color, but
+only the part connected to the picture's edge (a dark body that matches a navy sheet stays in the sprite) with a tolerance set by
+the background's noise; sprites = 8-connected shapes of at least 20% of the biggest; short wide shapes are text labels and
+start a new pose group (no labels: one group per row); one shared scale fits the biggest sprite on the hero's canvas (size
+slider 50-100%); colors map to Endesga 32 plus up to 3 signature colors (k-means on the far ones); facing = the column profile
+compared with the hero's own juvenile (`facesRight`); pose guess per group (a much taller group = Roar, then Swim, Bite, Hurt;
+4+ groups = Swim, Swim, Bite, Hurt); placed like the converters (snout fixed for swim and bite); missing poses are made (one
+swim frame -> tail sway, no bite -> the jaw opens); hatchling by the egg port (`eggHatchling`, shell and hide per hero in
+`SKIN_HEROES`); color versions `recolor` (dark, albino, golden; the outline stays). The wizard (topbar **New skin**, or
+`studio/index.html?newskin=<hero>`) shows each sprite with a pose menu and a turn-around button, live previews, a name and
+"also make" colors. A skin is saved as `sk-<time>[-<d|a|g>]-<stage>` projects tagged `skinOf: { hero, name, set, stage }`
+(serialize keeps it, so editing a skin design keeps it in the skin), and the adult opens for adjusting.
+Game: the home screen's **Look** row under the heroes (`renderLookPick`: Original, each complete skin of the picked hero from
+`heroSkins(listStudioProjects())`, "+ New skin") saves `settings.looks[hero] = set` (`sanitizeLooks`); `setHeroLooks` +
+`loadLooks` load the picked sets; `GameScene.applyLook` uses `heroLookSkin(hero, stage)` (texture `skin_<id>`) and falls back
+to the hero's own design. The hero buttons and the home logo show the picked skin. E2E: `skins.mjs` (Rhopers' Fang sheet).
+
 ## Terrain (`src/systems/terrain.ts`, art in `src/systems/terrainArt.ts`, `balance.json` "terrain")
 The seabed is a ground line (`groundAt(x)`): dunes everywhere, rocky ridges, and seamounts whose plateau tops
 reach into the Reef (so juveniles, who can't swim deeper, still see scenery) with coral gardens on top. Islands

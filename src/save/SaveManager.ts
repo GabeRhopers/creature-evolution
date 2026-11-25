@@ -46,6 +46,8 @@ export interface Settings {
   hero: string | null;
   /** Controller buttons per action (null = the default layout). */
   padMap: PadMap | null;
+  /** The skin picked for each hero (hero id -> Sprite Studio skin set id, like "sk-mf3k2"); missing = the original look. */
+  looks?: Record<string, string>;
 }
 export interface Best {
   level: number;
@@ -243,6 +245,7 @@ export function sanitizeProfile(raw: unknown): Profile {
       skin: typeof s.skin === 'string' && /^[\w-]{1,40}$/.test(s.skin) ? s.skin : null,
       hero: typeof s.hero === 'string' && /^[\w-]{1,40}$/.test(s.hero) ? s.hero : null,
       padMap: sanitizePadMap(s.padMap),
+      ...sanitizeLooks(s.looks),
     },
     best: { level: int(b.level, 0, 999, 0), kills: int(b.kills, 0, 1e7, 0), fish: int(b.fish, 0, 1e7, 0) },
     lifetime: {
@@ -251,6 +254,15 @@ export function sanitizeProfile(raw: unknown): Profile {
     },
     slots,
   };
+}
+
+/** Hero -> skin set ids: only plain ids are kept; an empty list is left out. */
+function sanitizeLooks(v: unknown): { looks?: Record<string, string> } {
+  if (!v || typeof v !== 'object') return {};
+  const out: Record<string, string> = {};
+  for (const [hero, set] of Object.entries(v as Record<string, unknown>))
+    if (/^[\w-]{1,40}$/.test(hero) && typeof set === 'string' && /^sk-[\w-]{1,30}$/.test(set)) out[hero] = set;
+  return Object.keys(out).length ? { looks: out } : {};
 }
 
 /** Check and clamp a checkpoint. Returns null when it cannot be trusted at all. */
