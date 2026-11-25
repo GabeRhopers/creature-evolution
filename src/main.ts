@@ -7,6 +7,8 @@ import { initMenu } from './ui/menu';
 import { applyEnemySettings } from './data/adminSettings';
 import { reportError } from './ui/safety';
 import { startOffline } from './offline';
+import { perfSessionSeconds, readPerfLog, startPerfMeter } from './ui/perfMeter';
+import { APP_VERSION } from './save';
 
 // Enemy settings changed on this device (Options > Enemy settings) apply before anything spawns.
 applyEnemySettings();
@@ -51,3 +53,6 @@ initMenu(game);
 (window as unknown as { game: Phaser.Game }).game = game;
 
 startOffline();
+// How smoothly it runs: a session log on the device, and the meter panel when asked for (?perf=1 or Options).
+startPerfMeter(game as unknown as Parameters<typeof startPerfMeter>[0], APP_VERSION);
+(window as unknown as { cePerf: unknown }).cePerf = { seconds: perfSessionSeconds, log: readPerfLog };

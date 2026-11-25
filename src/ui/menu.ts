@@ -15,6 +15,7 @@ import { ENEMY_FIELDS, ENEMY_GROUPS, enemiesChanged, enemyIds, resetEnemies, sav
 import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
 import { backupFileName, backupKey, buildBackup, parseBackup } from '../save/backup';
 import { applyUpdate } from '../offline';
+import { perfMeterShown, readPerfLog, showPerfMeter } from './perfMeter';
 import { decodeFrame, getStageLook, heroLookSkin, heroSkins, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, setHeroLooks, skinStageId, validateProject, type StudioProject } from '../skins';
 import { earlyHelpMods, earlyHelpStrength, perkById, type PerkDef } from '../systems/perks';
 import { installSafetyNet, lastErrorLine, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
@@ -616,6 +617,7 @@ export function initMenu(game: Phaser.Game): void {
       <div class="toggle"><span>Controller buttons<br><span style="color:var(--muted);font-size:13px">Choose which button does what</span></span><button class="btn" id="oPad">Set up</button></div>
       <div class="toggle"><span>Enemy settings<br><span style="color:var(--muted);font-size:13px">${enemiesChanged() ? 'Changed on this device' : 'When enemies appear, how strong they are'}</span></span><button class="btn" id="oEnemies">Edit</button></div>
       <div class="toggle"><span>Backup<br><span style="color:var(--muted);font-size:13px">Every player, saved game and Sprite Studio drawing in one file</span></span><span class="row" style="margin:0"><button class="btn" id="oBackup">Save file</button><button class="btn" id="oRestore">Load file</button></span></div>
+      <div class="toggle"><span>Performance meter<br><span style="color:var(--muted);font-size:13px">${perfLine()}</span></span><button class="btn" id="oPerf" aria-pressed="${perfMeterShown()}">${perfMeterShown() ? 'Hide' : 'Show'}</button></div>
       <div class="toggle"><span>Problem log<br><span style="color:var(--muted);font-size:13px">${readErrorLog().length ? `${readErrorLog().length} problem(s) noted on this device` : 'No problems noted'}</span></span><button class="btn" id="oErrors">Show</button></div>
       <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${profile.best.level ? `Level ${profile.best.level} · ${lt.runs} runs played` : 'None yet'}</span></span><button class="btn" id="oReset" data-label="Reset">Reset</button></div>
       <div class="toggle"><span>Reset everything<br><span style="color:var(--muted);font-size:13px">Settings, records and the saved run</span></span><button class="btn" id="oResetAll" data-label="Reset all">Reset all</button></div>
@@ -632,6 +634,12 @@ export function initMenu(game: Phaser.Game): void {
         $('oPad').onclick = openPadMap;
         $('oEnemies').onclick = openEnemies;
         $('oErrors').onclick = openErrors;
+        $('oPerf').onclick = () => {
+          const on = !perfMeterShown();
+          showPerfMeter(on);
+          $('oPerf').textContent = on ? 'Hide' : 'Show';
+          $('oPerf').setAttribute('aria-pressed', String(on));
+        };
         $('oBackup').onclick = saveBackup;
         $('oRestore').onclick = () => $('backupFile').click();
         confirmButton('oReset', 'Tap again to reset', () => {
@@ -648,6 +656,13 @@ export function initMenu(game: Phaser.Game): void {
     );
   }
   $('cardOptions').addEventListener('click', openOptions);
+  /** The last play session's smoothness on this device, for the Options line. */
+  function perfLine(): string {
+    const last = readPerfLog().at(-1);
+    if (!last) return 'How smoothly the game runs on this device';
+    const word = { smooth: 'smooth', ok: 'mostly smooth', choppy: 'choppy' }[last.grade] ?? last.grade;
+    return `Last session: ${word} (${last.fps} fps, slowest ${last.low} fps, ${Math.round(last.seconds / 60)} min)`;
+  }
 
   // ---------------------------------------------------------------- backup file (offline, the device is the only copy)
   function storageEntries(): Array<[string, string]> {
