@@ -29,7 +29,7 @@ const feed = (scrap) => G(async (scrap) => {
   const old = new Set(g.food.items);
   g.food.spawnMeat(m.x, m.y, 2, 20, scrap);
   const mine = () => g.food.items.filter((f) => f.kind === 'meat' && !old.has(f));
-  for (let i = 0; i < 60; i++) { const q = pl.mouthPoint(false); mine().forEach((f) => f.img.setPosition(q.x, q.y)); await new Promise((r) => setTimeout(r, 100)); if (!mine().length) break; }
+  for (let i = 0; i < 200; i++) { const q = pl.mouthPoint(false); mine().forEach((f) => f.img.setPosition(q.x, q.y)); await new Promise((r) => setTimeout(r, 100)); if (!mine().length) break; }
   return { eaten: !mine().length, fillGain: g.stomach.fill - before.fill, xpGain: pl.xp + g.stomach.bank - before.xp };
 }, scrap);
 

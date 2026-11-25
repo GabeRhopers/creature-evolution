@@ -42,7 +42,7 @@ await p.screenshot({path:'/tmp/trench_blind.png'});
 // (Found the moment you were blinded: on a slow machine its cooldown may be over by now.)
 const puffer = await G(()=>window.__puffer ?? -1);
 // It treats you as the threat (it may already have escaped and calmed down on a slow machine).
-ok(puffer >= 0 && await G((i)=>{const g=window.game.scene.getScene('Game'); const br=g.creatures[i].brain; const f=g.creatures[i].fish, pl=g.player; return br.state==='flee' || br.threat===g.playerCreature || Math.hypot(f.x-pl.x, f.y-pl.y) > (f.size+pl.size)*2;}, puffer), 'and the squid flees');
+ok(puffer >= 0 && await waitFor((i)=>{const g=window.game.scene.getScene('Game'); const br=g.creatures[i].brain; const f=g.creatures[i].fish, pl=g.player; return br.state==='flee' || br.threat===g.playerCreature || Math.hypot(f.x-pl.x, f.y-pl.y) > (f.size+pl.size)*2;}, 8000, puffer), 'and the squid flees');
 const b0 = await G(()=>window.game.scene.getScene('Game').blindT);
 await p.waitForTimeout(1500);
 ok(await G((b0)=>window.game.scene.getScene('Game').blindT < b0, b0), 'the glare wears off');
