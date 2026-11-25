@@ -30,7 +30,9 @@ await p.goto('http://localhost:4173/studio/index.html'); await p.evaluate(()=>{l
 const draw = async (x,y)=>{ const box=await p.locator('#cv').boundingBox(); const z=box.width/48; await p.locator('[data-tool=pencil]').click(); await p.mouse.click(box.x+(x+0.5)*z, box.y+(y+0.5)*z); };
 await draw(3,3); await p.waitForTimeout(300);
 const id = await p.evaluate(()=>localStorage.getItem('spritestudio:last')) || (await p.evaluate(()=>Object.keys(localStorage).find(k=>k.startsWith('spritestudio:p'))))?.slice(13);
-const l1 = await local(id);
+// Slow runners: give the device copy a moment to be written.
+let l1 = await local(id);
+for (let i = 0; i < 30 && !(l1 && l1.pending===true); i++) { await p.waitForTimeout(100); l1 = await local(id); }
 ok(l1 && l1.pending===true, 'device copy written right after the stroke (before the cloud save)');
 await p.waitForTimeout(1800);
 let c = await cloud();

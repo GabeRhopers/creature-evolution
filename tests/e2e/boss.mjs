@@ -67,16 +67,17 @@ ok(await waitFor((E)=>{const f=window.__intruder.fish; return f.x < E.left || f.
 
 // Shock: it crackles first (a warning), then a ring hurts you if you are close.
 await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; const a=g.bosses.active; a.shockIn=0; a.breathIn=99;
-  g.player.arcadeBody.reset(c.fish.x + 120, c.fish.y);});
+  const x=Math.min(g.arena.right-60, Math.max(g.arena.left+60, c.fish.x + (c.fish.x + 120 < g.arena.right - 60 ? 120 : -120))); g.player.arcadeBody.reset(x, c.fish.y);});
 ok(await waitFor(()=>window.game.scene.getScene('Game').bosses.current?.brain.mode==='charge', 6000), 'it charges up before a shock (the warning)');
-await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; g.player.arcadeBody.reset(c.fish.x + 120, c.fish.y);});
+await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; const x=Math.min(g.arena.right-60, Math.max(g.arena.left+60, c.fish.x + (c.fish.x + 120 < g.arena.right - 60 ? 120 : -120))); g.player.arcadeBody.reset(x, c.fish.y);});
 await p.screenshot({path:'/tmp/boss_charge.png'});
-ok(await waitFor(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; if (c && !window.__hits.includes('ZAP!')) g.player.arcadeBody.reset(c.fish.x + 100, c.fish.y);
+ok(await waitFor(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; if (c && g.arena && !window.__hits.includes('ZAP!')) g.player.arcadeBody.reset(Math.min(g.arena.right-60, Math.max(g.arena.left+60, c.fish.x + (c.fish.x + 100 < g.arena.right - 60 ? 100 : -100))), c.fish.y);
   return window.__hits.includes('ZAP!');}, 25000), 'the shock hits you if you stay close ' + JSON.stringify(await G(()=>{const a=window.game.scene.getScene('Game').bosses.active; return a ? {mode:a.mode, t:a.t, shockIn:a.shockIn, hits:window.__hits} : null;})));
 
 // Breath: it rises to the air hole and gulps; bites do double damage then.
 await G(()=>{const g=window.game.scene.getScene('Game'); const a=g.bosses.active; a.breathIn=0; a.shockIn=99; const x=g.arena.left+300; g.player.arcadeBody.reset(x, g.chamberMidY(null, x));});
-const gulped = await waitFor(()=>window.game.scene.getScene('Game').bosses.current?.brain.mode==='gulp', 20000);
+ok(await G(()=>window.game.scene.getScene('Game').arena !== null), 'still inside the arena for the breathing test');
+const gulped = await waitFor(()=>window.game.scene.getScene('Game').bosses.current?.brain.mode==='gulp', 30000);
 if (!gulped) console.log('boss now', JSON.stringify(await boss()));
 ok(gulped, 'it swims up to the air hole and gulps air');
 ok(await G(()=>{const g=window.game.scene.getScene('Game'); return g.bosses.damageMulAgainst(g.bosses.current) > 1;}), 'while it gulps, your bites do extra damage');

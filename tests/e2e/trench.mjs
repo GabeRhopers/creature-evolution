@@ -34,11 +34,13 @@ await p.screenshot({path:'/tmp/trench_life.png'});
 // Scare a vampire squid: it puffs a glowing cloud, you are blinded, it flees.
 const squid = await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.fish.species.id==='vampire_squid' && !c.asleep && !c.away) || g.creatures.find(c=>c.fish.species.id==='vampire_squid');
   c.away=false; c.respawnT=0; c.cloudT=0; c.fish.setPosition(g.player.x+g.player.size+c.fish.size, g.player.y); return g.creatures.indexOf(c);});
-ok(await waitFor(()=>window.game.scene.getScene('Game').blindT > 0, 8000), 'a scared vampire squid blinds you with its glowing cloud');
+ok(await waitFor(()=>{const g=window.game.scene.getScene('Game'); if (!(g.blindT > 0)) return false;
+  window.__puffer = g.creatures.findIndex(c=>c.fish.species.id==='vampire_squid' && c.cloudT > 0); return true;}, 8000), 'a scared vampire squid blinds you with its glowing cloud');
 ok(await waitFor(()=>window.game.scene.getScene('Light').glare.alpha > 0.2, 3000), 'the screen glows blue');
 await p.screenshot({path:'/tmp/trench_blind.png'});
 // The squid that puffed (its partner may have been closer) is the one waiting to puff again.
-const puffer = await G(()=>{const g=window.game.scene.getScene('Game'); return g.creatures.findIndex(c=>c.fish.species.id==='vampire_squid' && c.cloudT > 0);});
+// (Found the moment you were blinded: on a slow machine its cooldown may be over by now.)
+const puffer = await G(()=>window.__puffer ?? -1);
 // It treats you as the threat (it may already have escaped and calmed down on a slow machine).
 ok(puffer >= 0 && await G((i)=>{const g=window.game.scene.getScene('Game'); const br=g.creatures[i].brain; const f=g.creatures[i].fish, pl=g.player; return br.state==='flee' || br.threat===g.playerCreature || Math.hypot(f.x-pl.x, f.y-pl.y) > (f.size+pl.size)*2;}, puffer), 'and the squid flees');
 const b0 = await G(()=>window.game.scene.getScene('Game').blindT);
