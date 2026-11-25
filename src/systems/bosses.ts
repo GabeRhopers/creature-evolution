@@ -10,14 +10,8 @@ export interface BossDef {
   cave: string;
   /** Appears once the player reaches this level. */
   level: number;
-  /** The cave chamber's x range. */
-  left: number;
-  right: number;
-  /** x of the hole in the cave roof where it breathes. */
-  airX: number;
-  /** (Older open-world caves; the arena replaced them.) */
-  wakeRange?: number;
-  leash?: number;
+  /** Where its cave entrance sits on the seabed (world x). */
+  entranceX: number;
   hitsToDefeat: number;
   sizeRatio: number;
   biteHpFraction: number;
@@ -38,34 +32,71 @@ export function bossPhase(healthRatio: number, d: BossDef): 1 | 2 {
   return healthRatio <= d.leap.belowHealth ? 2 : 1;
 }
 
-/** Boss arenas (balance.json bosses.arena). */
+/** Boss arenas (balance.json bosses.arena): a separate screen, a closed cave below the world. */
 export interface ArenaConfig {
-  /** How far into a mouth you swim before the "Enter the cave?" prompt. */
-  mouthZone: number;
-  /** Where you are put outside a mouth (px beyond the chamber's side). */
-  outsideGap: number;
-  /** Losing inside: you wake outside with this share of your health, safe for a few seconds. */
+  width: number;
+  height: number;
+  /** How far below the bottom of the world the arena sits. */
+  gapBelowWorld: number;
+  /** Rock wall thickness around the open water (world px). */
+  wall: number;
+  /** Where the air pocket in the ceiling is (share of the width from the left). */
+  airPocketAt: number;
+  /** The EXIT tunnel on the left wall. */
+  exitWidth: number;
+  exitHeight: number;
+  /** Swim this close to the entrance and the game asks; after "Not now" it asks again once you were this far away. */
+  enterRadius: number;
+  askAgainRadius: number;
+  /** Losing inside: you wake at the entrance with this share of your health, safe for a few seconds. */
   lossHpFraction: number;
   lossInvulnSeconds: number;
-  /** How often other fish are moved out of the chamber (seconds). */
-  keepOutEvery: number;
-  /** After "Not now", the prompt comes back once you were this far from the cave. */
-  askAgainDistance: number;
 }
 
-/** Is (x, y) inside a boss's chamber: between its sides and in the water (below the surface)? */
-export function inChamber(x: number, y: number, d: BossDef, surfaceY: number): boolean {
-  return x > d.left && x < d.right && y > surfaceY;
+export interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+export interface ArenaLayout {
+  /** The whole arena, walls included (what the camera shows). */
+  outer: Box;
+  /** The open water inside the walls (swimmers are kept in it). */
+  inner: Box;
+  /** The air pocket the boss swims up to. */
+  air: { x: number; y: number };
+  /** The EXIT tunnel on the left. */
+  exit: Box;
+  /** Where you appear when you come in. */
+  start: { x: number; y: number };
+  /** Where the boss waits. */
+  boss: { x: number; y: number };
 }
 
-/** The side of the chamber nearer to x (where you leave, or are put back out). */
-export function nearerSide(x: number, d: BossDef): 'left' | 'right' {
-  return x < (d.left + d.right) / 2 ? 'left' : 'right';
+/** Where a boss's arena is: below the world, under its cave entrance. */
+export function arenaLayout(d: BossDef, cfg: ArenaConfig, worldHeight: number): ArenaLayout {
+  const outer = { x: d.entranceX - cfg.width / 2, y: worldHeight + cfg.gapBelowWorld, w: cfg.width, h: cfg.height };
+  const inner = { x: outer.x + cfg.wall, y: outer.y + cfg.wall, w: outer.w - cfg.wall * 2, h: outer.h - cfg.wall * 2 };
+  const exit = { x: inner.x, y: inner.y + inner.h / 2 - cfg.exitHeight / 2, w: cfg.exitWidth, h: cfg.exitHeight };
+  return {
+    outer,
+    inner,
+    air: { x: outer.x + outer.w * cfg.airPocketAt, y: inner.y + 30 },
+    exit,
+    start: { x: exit.x + exit.w + 220, y: inner.y + inner.h / 2 },
+    boss: { x: inner.x + inner.w * 0.7, y: inner.y + inner.h / 2 },
+  };
 }
 
-/** Is x well outside the chamber (beyond `gap` px), so the prompt may come back? */
-export function farFromCave(x: number, d: BossDef, gap: number): boolean {
-  return x < d.left - gap || x > d.right + gap;
+/** Is (x, y) inside a box? */
+export function inBox(x: number, y: number, b: Box): boolean {
+  return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+}
+
+/** Keep a circle of radius r inside a box (returns the corrected position). */
+export function clampToBox(x: number, y: number, r: number, b: Box): { x: number; y: number } {
+  return { x: Math.min(b.x + b.w - r, Math.max(b.x + r, x)), y: Math.min(b.y + b.h - r, Math.max(b.y + r, y)) };
 }
 
 /** Bosses beaten in a saved run (unknown ids dropped; older saves have none). */

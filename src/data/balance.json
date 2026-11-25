@@ -180,6 +180,11 @@
         "x": 96500,
         "width": 560,
         "height": 190
+      },
+      {
+        "x": 11900,
+        "width": 400,
+        "height": 150
       }
     ],
     "seamounts": [
@@ -310,8 +315,8 @@
       },
       {
         "x": 10900,
-        "width": 3200,
-        "top": 0.62
+        "width": 1200,
+        "top": 0.55
       }
     ],
     "islands": [
@@ -551,18 +556,6 @@
         "depth": 150
       },
       {
-        "x": 10300,
-        "width": 1700,
-        "depth": 950,
-        "style": "cave"
-      },
-      {
-        "x": 11850,
-        "width": 1100,
-        "depth": 950,
-        "style": "cave"
-      },
-      {
         "x": 73500,
         "width": 2600,
         "depth": 850,
@@ -591,6 +584,16 @@
         "width": 2400,
         "depth": 850,
         "style": "cave"
+      },
+      {
+        "x": 9700,
+        "width": 620,
+        "depth": 150
+      },
+      {
+        "x": 11300,
+        "width": 520,
+        "depth": 140
       }
     ],
     "rootsDepth": 120,
@@ -978,11 +981,11 @@
       },
       {
         "kind": "chest",
-        "x": 11500
+        "x": 36700
       },
       {
         "kind": "helmet",
-        "x": 10600
+        "x": 35800
       },
       {
         "kind": "vent",
@@ -1155,6 +1158,10 @@
       {
         "kind": "anchor",
         "x": 89900
+      },
+      {
+        "kind": "wreck",
+        "x": 10950
       }
     ],
     "hide": [
@@ -1295,6 +1302,10 @@
       {
         "kind": "bottle",
         "x": 46100
+      },
+      {
+        "kind": "bottle",
+        "x": 10200
       }
     ]
   },
@@ -2769,7 +2780,7 @@
     "maxHuntersTotal": 3
   },
   "bosses": {
-    "_comment": "Bosses (src/scenes/BossSystem.ts). Each lives in its own arena: a cave chamber (left/right = its x range under the cave rocks). Swim into a cave mouth (the chamber's open sides) and a prompt asks before you enter; from `level` the boss waits inside. Inside, the camera stays in the chamber, other fish are kept out, and swimming back out of a mouth (or up the air hole) leaves; the boss then heals `regenPerSecond` of its health per second. Losing inside does not end the run: you wake outside the cave mouth with `arena.lossHpFraction` of your health. Beaten bosses are saved with the run (Checkpoint.bossesBeaten) and do not come back. Health = `hitsToDefeat` of the player's bites; sizeRatio x the player's size. Bites take biteHpFraction of the player's health. Moves: shock (a ring, warned by `shock.telegraph` seconds of crackling), breath (rises to the air hole at airX every `breath.every` s and gulps for `breath.gulp` s: no shocks, `breath.damageMul` x damage), leap (below `leap.belowHealth`: while breathing it shocks anyone within `leap.radius` of the air hole). Reward: `rewardLevels` levels of XP and `rewardPerks` free perk picks. caveDark: how dark the cave is.",
+    "_comment": "Bosses (src/scenes/BossSystem.ts). Each lives in its own arena, a separate screen: a small cave entrance sits on the seabed at `entranceX` (in the background); swimming onto it always asks 'Enter the cave?' (before `level` it turns you back). Inside is a closed cave below the world (`arena`: width, height, gap below the world, wall thickness); the camera shows only the arena. Swimming into the EXIT tunnel asks 'Leave the cave?'; leaving puts you back above the entrance (the boss heals `regenPerSecond` of its health per second). Losing inside does not end the run: you wake up at the entrance with `arena.lossHpFraction` of your health. Beaten bosses are saved (Checkpoint.bossesBeaten) and do not come back. Health = `hitsToDefeat` of the player's bites; sizeRatio x the player's size. Bites take biteHpFraction of the player's health. Moves: shock (a ring, warned by `shock.telegraph` seconds of crackling), breath (rises to the air pocket at the top every `breath.every` s and gulps for `breath.gulp` s: no shocks, `breath.damageMul` x damage), leap (below `leap.belowHealth`: while breathing it shocks anyone within `leap.radius` of the air pocket). Reward: `rewardLevels` levels of XP and `rewardPerks` free perk picks. caveDark: how dark the cave is.",
     "caveDark": 0.45,
     "list": [
       {
@@ -2778,11 +2789,6 @@
         "species": "electric_eel",
         "cave": "Coral Cave",
         "level": 15,
-        "left": 9700,
-        "right": 12200,
-        "airX": 11230,
-        "wakeRange": 600,
-        "leash": 900,
         "hitsToDefeat": 12,
         "sizeRatio": 1.25,
         "biteHpFraction": 0.06,
@@ -2809,17 +2815,23 @@
         "rewardLevels": 1,
         "trophy": "Insulated",
         "trophyShockMul": 0.7,
-        "rewardPerks": 1
+        "rewardPerks": 1,
+        "entranceX": 2400
       }
     ],
     "perkDelaySeconds": 2.5,
     "arena": {
-      "mouthZone": 160,
-      "outsideGap": 320,
+      "width": 2600,
+      "height": 1300,
+      "gapBelowWorld": 900,
+      "wall": 140,
+      "airPocketAt": 0.62,
+      "exitWidth": 220,
+      "exitHeight": 360,
+      "enterRadius": 120,
+      "askAgainRadius": 320,
       "lossHpFraction": 0.3,
-      "lossInvulnSeconds": 3,
-      "keepOutEvery": 0.5,
-      "askAgainDistance": 500
+      "lossInvulnSeconds": 3
     }
   }
 }

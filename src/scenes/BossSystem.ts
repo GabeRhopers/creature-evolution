@@ -2,11 +2,12 @@ import Phaser from 'phaser';
 import { Brain, type AIWorld, type Creature } from '../ai/Brain';
 import { BALANCE, getSpecies } from '../data';
 import { Fish, NO_INTENT, type SwimIntent } from '../entities/Fish';
-import { bossPhase, type BossDef, type BossMode } from '../systems/bosses';
+import { bossPhase, type ArenaLayout, type BossDef, type BossMode } from '../systems/bosses';
 
 /**
- * Bosses (balance.json "bosses"). The first is the Electric Eel in the Coral Cave (Coral Sea, level 15): a guardian
- * in its own arena (GameScene asks before you enter; it appears when you do) that fights with telegraphed moves. Pure rules live in
+ * Bosses (balance.json "bosses"). The first is the Electric Eel in the Coral Cave (entrance in the Coral Sea, level 15):
+ * a guardian in its own arena, a separate screen below the world (GameScene asks before you enter and before you leave;
+ * it appears when you come in) that fights with telegraphed moves. Pure rules live in
  * src/systems/bosses.ts; GameScene owns creatures, damage and saving, and calls in through `BossHost`.
  *
  *   hunt  -> charge (crackles, can't move)       -> shock ring around it
@@ -21,9 +22,8 @@ export interface BossHost {
   creatures: Creature[];
   dead: boolean;
   surfaceY: number;
-  /** Ceiling (cave roof) and ground at x. */
-  ceilAt(x: number): number;
-  groundAt(x: number): number;
+  /** Where a boss's arena is (open water, air pocket, its starting spot). */
+  layout(d: BossDef): ArenaLayout;
   /** Build the boss fish (look, art) and add it to the world. */
   addCreature(fish: Fish, c: Creature): void;
   /** Damage the player (share of max health, stun seconds), from `by`. */
@@ -79,11 +79,6 @@ export class BossSystem {
   }
   damageMulAgainst(c: Creature): number {
     return this.active && this.active.c === c && this.weak ? this.active.def.breath.damageMul : 1;
-  }
-  /** The cave the player is in (for darkness), if any. */
-  caveAt(x: number, y: number): BossDef | null {
-    for (const d of this.defs) if (x > d.left && x < d.right && y > this.host.surfaceY && y < this.host.groundAt(x)) return d;
-    return null;
   }
 
   update(dt: number, level: number): void {
@@ -165,18 +160,16 @@ export class BossSystem {
   private spawn(d: BossDef): void {
     const h = this.host;
     const sp = getSpecies(d.species);
-    const cx = (d.left + d.right) / 2;
-    const roof = h.ceilAt(cx), floor = h.groundAt(cx);
-    const y = (roof + floor) / 2;
-    const f = new Fish(h.scene, cx, y, sp, 1);
+    const L = h.layout(d);
+    const f = new Fish(h.scene, L.boss.x, L.boss.y, sp, 1);
     let level = 1;
     while (level < 120 && f.size < h.player.size * d.sizeRatio) f.setLevel(++level);
     f.maxHp = Math.max(1, Math.round(h.player.biteDamage * (1 - (sp.armor ?? 0)) * d.hitsToDefeat));
     f.hp = f.maxHp;
-    const home = new Phaser.Geom.Rectangle(d.left + 200, roof + 80, d.right - d.left - 400, Math.max(120, floor - roof - 200));
-    const c: Creature = { fish: f, isPlayer: false, band: home, guardian: true, boss: d.id, guardRange: (d.right - d.left) / 2 };
+    const home = new Phaser.Geom.Rectangle(L.inner.x + 120, L.inner.y + 80, L.inner.w - 240, L.inner.h - 160);
+    const c: Creature = { fish: f, isPlayer: false, band: home, guardian: true, boss: d.id, guardRange: L.inner.w };
     const brain = new BossBrain(c, h.world);
-    brain.air = { x: d.airX, y: h.surfaceY + 30 };
+    brain.air = { ...L.air };
     c.brain = brain;
     h.addCreature(f, c);
     const ring = h.scene.add.graphics().setDepth(7);

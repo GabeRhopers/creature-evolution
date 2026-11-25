@@ -262,29 +262,33 @@ California Sheephead (51, eats tier 1 and `sea_urchin`, buck teeth), Purple Sea 
 `maxSpeed` 25, `venom`, `upright`), **Sea Otter** (52, `friendly` like the turtle, diet `sea_urchin`) and California Sea Lion
 (55, fast agile pack hunter, `rankMul` 5). E2E: `kelp.mjs`; unit: `tests/kelp.test.ts`.
 
-## Bosses (`src/scenes/BossSystem.ts`, rules in `src/systems/bosses.ts`, `balance.json` "bosses")
-Each boss has its own **arena** (Rhopers, Nov 25): a cave chamber (`left`..`right`). First boss: the **Electric Eel** (species
-`electric_eel`, look `beast-electric_eel` drawn by `tools/fish/draw_boss.py`, its `celebrate` pose = the crackling warning frames)
-in the **Coral Cave**, Coral Sea (x 9700-12200): two `cave`-style islands (flat roof, `makeCaveRock`) over a seamount floor a
-juvenile can reach, with an air hole between them (`airX`), and a sign at each mouth. (It used to be the Spring Cave in the
-Mangrove Swamp, in the open world; that cave is gone.) GameScene "boss arenas" section: swimming into a mouth
-(`inChamber`) puts you just outside and, from level 15, dispatches `ce:cave`; the menu pauses and asks "Enter the cave" / "Not
-now" (`answerCave`; before level 15 a popup turns you back; "Not now" asks again only after `askAgainDistance`). Inside
-(`GameScene.arena`): the camera is bounded to the chamber, other fish are put back outside every `keepOutEvery` s, the eel
-appears (BossSystem spawns only for `host.arena()`), and swimming out of either mouth leaves (`leaveArena`; it heals
-`regenPerSecond` while you are away). Losing inside never ends the run (`playerDied` -> `arenaLoss`): you wake outside with
-`lossHpFraction` health and `lossInvulnSeconds` of safety, the eel back to full (`healFull`). `init()` resets the arena state.
-Bot and test swims are never asked in. The fight: a guardian (`Creature.boss`, `guardRange`) with a `BossBrain` whose `mode`
-BossSystem drives: hunt -> charge (crackles for `shock.telegraph` s, a growing warning ring) -> shock ring; hunt -> rise (to the
-air hole) -> gulp (`breath.gulp` s, your bites x `breath.damageMul`, the boss bar turns yellow); below `leap.belowHealth` shocks
-come faster and it leap-shocks the air hole while gulping. Health = `hitsToDefeat` of your bites; its bite and shocks take
-shares of your health (`hurtPlayerBy`, capped by maxHitFraction). Beaten: XP (`rewardLevels`), full health, a free perk pick
-(`rewardPerks`; `bossPerks(bossesBeaten)` is added to `perksOwed`, so it needs no extra save field; the choice opens
-`bosses.perkDelaySeconds` after the banner), the trophy (Insulated: shocks x `trophyShockMul`, `shockMul`), banner, saved
-(`Checkpoint.bossesBeaten`, kept by SWIM AGAIN via `nextBossesBeaten`); it never comes back in that run (the cave stays
-open and quiet). HUD: `HudScene.bossBar`. Music: Crab Showdown nearby. Saves keep `worldW` and `bossesBeaten` (the sanitizer
-used to drop `worldW`; saves from v0.42 to v0.44 have none and count as 114000 px if written after `SEVEN_REGIONS_SINCE`).
-E2E: `boss.mjs`; unit: `tests/bosses.test.ts`.
+## Bosses (`src/scenes/BossSystem.ts`, rules in `src/systems/bosses.ts`, art in `src/systems/arenaArt.ts`, `balance.json` "bosses")
+Each boss has its own **arena, a separate screen** (Rhopers, Nov 25, end to end): (1) a SMALL cave entrance sits on the
+seabed in the open world, in the background (`makeCaveEntrance`, depth -11: in front of coral, behind every fish; a small
+"CORAL CAVE" label). The Electric Eel's is at `entranceX` 2400 on a Coral Sea seamount top a juvenile reaches. (2) Swimming onto
+it (`entranceSpot`, within `arena.enterRadius`) ALWAYS asks: `askCave` -> `ce:cave` (mode `enter`) -> the menu pauses and asks
+"Enter the cave" / "Not now" (`answerCave`); before `level` a popup turns you back; after an answer or coming out it asks again
+only once you were `askAgainRadius` away. (3) Enter: you appear in the arena, a closed cave BELOW the world (`arenaLayout`: `outer`
+= the whole picture, `inner` = open water, `exit`, `air` pocket, `start`, `boss`; at world height + `gapBelowWorld`, under the
+entrance's x; drawn by `makeArena`: rock walls, stalactites, sandy floor with coral, an air pocket in the ceiling, the EXIT
+tunnel lit from outside, an "EXIT" label). The camera is bounded to `outer` (only the arena shows); physics bounds reach down to
+it; `collideArena` keeps the player and the boss in `inner` (no seabed down there; brains of bosses skip terrain steering);
+`updateAreas` skips depth rules; it is dim (`caveDark`). (4) Swimming into the EXIT tunnel asks "Leave the cave?" (mode
+`leave`): Leave = back above the entrance (`leaveArena`, the boss heals `regenPerSecond`), Stay = nudged out of the tunnel, asked
+again only after swimming back in. (5) Losing inside never ends the run (`playerDied` -> `arenaLoss`): you wake at the entrance with
+`lossHpFraction` health, `lossInvulnSeconds` safe, the boss back to full (`healFull`). A checkpoint written inside saves you at the
+entrance. `init()` resets the arena state; bot and test swims are never asked in. (The earlier versions, an open-world cave in the
+swamp and then a cave chamber in the Coral Sea, are gone.)
+The fight: the boss spawns when you come in (BossSystem only for `host.arena()`), a guardian (`Creature.boss`) with a `BossBrain`
+whose `mode` BossSystem drives: hunt -> charge (crackles for `shock.telegraph` s, a growing warning ring) -> shock ring; hunt ->
+rise (to the air pocket) -> gulp (`breath.gulp` s, your bites x `breath.damageMul`, the boss bar turns yellow); below
+`leap.belowHealth` shocks come faster and it leap-shocks the air pocket while gulping. Health = `hitsToDefeat` of your bites; its
+bite and shocks take shares of your health (`hurtPlayerBy`, capped by maxHitFraction). Beaten: XP (`rewardLevels`), full health,
+a free perk pick (`rewardPerks`; `bossPerks(bossesBeaten)` is added to `perksOwed`; the choice opens `bosses.perkDelaySeconds`
+after the banner), the trophy (Insulated: shocks x `trophyShockMul`, `shockMul`), banner, saved (`Checkpoint.bossesBeaten`, kept
+by SWIM AGAIN via `nextBossesBeaten`); it never comes back in that run (the arena stays open and quiet). HUD:
+`HudScene.bossBar`. Music: Crab Showdown nearby. Saves keep `worldW` and `bossesBeaten`. E2E: `boss.mjs`; unit:
+`tests/bosses.test.ts`.
 
 ## Region fish (`balance.json` "biomes", `pickHomeX` in `src/systems/regions.ts`)
 Each species has a weight per region (0 = never there; missing = 1, read with `biomeWeight`). `spawnAmbientFish`
