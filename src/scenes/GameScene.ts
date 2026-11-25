@@ -144,6 +144,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   mouthState: MouthState = 'idle';
   /** True while at least one AI fish is hunting the player (HUD warning). */
   playerHunted = false;
+  /** The player's bites this run (the first-minutes coach watches it). */
+  playerBites = 0;
   playerHidden = false;
   /** Day and night: the cycle, seconds into it, and the light right now (read by brains, food, overlay, HUD). */
   readonly dayNight = new DayNight(BALANCE.dayNight as DayNightConfig);
@@ -238,6 +240,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.dead = false;
     this.aiMeals = 0;
     this.playerHunted = false;
+    this.playerBites = 0;
     this.playerHidden = false;
     this.mouthState = 'idle';
     this.swallowCooldown = 0;
@@ -1515,6 +1518,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const t = target.fish;
     a.biteCooldown = attacker.isPlayer ? cb.biteCooldown : cb.aiBiteCooldown;
     a.playBite();
+    if (attacker.isPlayer) this.playerBites++;
     if (target.isPlayer) {
       this.attackPlayer(attacker, damageMul);
       return;

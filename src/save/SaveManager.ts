@@ -48,6 +48,10 @@ export interface Settings {
   padMap: PadMap | null;
   /** The skin picked for each hero (hero id -> Sprite Studio skin set id, like "sk-mf3k2"); missing = the original look. */
   looks?: Record<string, string>;
+  /** The first-minutes coach is done for this player (missing = not yet). */
+  coachDone?: boolean;
+  /** One-time tips this player has seen (coach tips like 'stomach', 'hunted'). */
+  tipsSeen?: string[];
 }
 export interface Best {
   level: number;
@@ -246,6 +250,8 @@ export function sanitizeProfile(raw: unknown): Profile {
       hero: typeof s.hero === 'string' && /^[\w-]{1,40}$/.test(s.hero) ? s.hero : null,
       padMap: sanitizePadMap(s.padMap),
       ...sanitizeLooks(s.looks),
+      ...(typeof s.coachDone === 'boolean' ? { coachDone: s.coachDone } : {}),
+      ...(Array.isArray(s.tipsSeen) ? { tipsSeen: s.tipsSeen.filter((t): t is string => typeof t === 'string' && /^[\w-]{1,20}$/.test(t)).slice(0, 20) } : {}),
     },
     best: { level: int(b.level, 0, 999, 0), kills: int(b.kills, 0, 1e7, 0), fish: int(b.fish, 0, 1e7, 0) },
     lifetime: {
