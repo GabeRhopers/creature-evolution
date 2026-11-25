@@ -15,10 +15,9 @@ export interface BossDef {
   right: number;
   /** x of the hole in the cave roof where it breathes. */
   airX: number;
-  /** It wakes when you come this close to the cave. */
-  wakeRange: number;
-  /** Beyond this far outside the cave the fight pauses and it heals. */
-  leash: number;
+  /** (Older open-world caves; the arena replaced them.) */
+  wakeRange?: number;
+  leash?: number;
   hitsToDefeat: number;
   sizeRatio: number;
   biteHpFraction: number;
@@ -39,9 +38,34 @@ export function bossPhase(healthRatio: number, d: BossDef): 1 | 2 {
   return healthRatio <= d.leap.belowHealth ? 2 : 1;
 }
 
-/** Is a player at x close enough to the cave for the fight to be on? */
-export function inLeash(x: number, d: BossDef): boolean {
-  return x > d.left - d.leash && x < d.right + d.leash;
+/** Boss arenas (balance.json bosses.arena). */
+export interface ArenaConfig {
+  /** How far into a mouth you swim before the "Enter the cave?" prompt. */
+  mouthZone: number;
+  /** Where you are put outside a mouth (px beyond the chamber's side). */
+  outsideGap: number;
+  /** Losing inside: you wake outside with this share of your health, safe for a few seconds. */
+  lossHpFraction: number;
+  lossInvulnSeconds: number;
+  /** How often other fish are moved out of the chamber (seconds). */
+  keepOutEvery: number;
+  /** After "Not now", the prompt comes back once you were this far from the cave. */
+  askAgainDistance: number;
+}
+
+/** Is (x, y) inside a boss's chamber: between its sides and in the water (below the surface)? */
+export function inChamber(x: number, y: number, d: BossDef, surfaceY: number): boolean {
+  return x > d.left && x < d.right && y > surfaceY;
+}
+
+/** The side of the chamber nearer to x (where you leave, or are put back out). */
+export function nearerSide(x: number, d: BossDef): 'left' | 'right' {
+  return x < (d.left + d.right) / 2 ? 'left' : 'right';
+}
+
+/** Is x well outside the chamber (beyond `gap` px), so the prompt may come back? */
+export function farFromCave(x: number, d: BossDef, gap: number): boolean {
+  return x < d.left - gap || x > d.right + gap;
 }
 
 /** Bosses beaten in a saved run (unknown ids dropped; older saves have none). */

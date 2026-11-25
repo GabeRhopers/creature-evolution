@@ -37,11 +37,6 @@
         "height": 200
       },
       {
-        "x": 11900,
-        "width": 400,
-        "height": 150
-      },
-      {
         "x": 16700,
         "width": 560,
         "height": 200
@@ -204,11 +199,6 @@
         "top": 0.62
       },
       {
-        "x": 10900,
-        "width": 1200,
-        "top": 0.55
-      },
-      {
         "x": 13100,
         "width": 1200,
         "top": 0.55
@@ -319,8 +309,8 @@
         "top": 0.62
       },
       {
-        "x": 36100,
-        "width": 3600,
+        "x": 10900,
+        "width": 3200,
         "top": 0.62
       }
     ],
@@ -344,16 +334,6 @@
         "x": 7950,
         "width": 600,
         "depth": 150
-      },
-      {
-        "x": 9700,
-        "width": 620,
-        "depth": 150
-      },
-      {
-        "x": 11300,
-        "width": 520,
-        "depth": 140
       },
       {
         "x": 12700,
@@ -571,15 +551,15 @@
         "depth": 150
       },
       {
-        "x": 35500,
+        "x": 10300,
         "width": 1700,
-        "depth": 620,
+        "depth": 950,
         "style": "cave"
       },
       {
-        "x": 37050,
+        "x": 11850,
         "width": 1100,
-        "depth": 620,
+        "depth": 950,
         "style": "cave"
       },
       {
@@ -885,10 +865,6 @@
       },
       {
         "kind": "wreck",
-        "x": 10950
-      },
-      {
-        "kind": "wreck",
         "x": 13050
       },
       {
@@ -1002,11 +978,11 @@
       },
       {
         "kind": "chest",
-        "x": 36700
+        "x": 11500
       },
       {
         "kind": "helmet",
-        "x": 35800
+        "x": 10600
       },
       {
         "kind": "vent",
@@ -1211,10 +1187,6 @@
       {
         "kind": "bottle",
         "x": 8500
-      },
-      {
-        "kind": "bottle",
-        "x": 10200
       },
       {
         "kind": "bottle",
@@ -2764,18 +2736,18 @@
     "maxHuntersTotal": 3
   },
   "bosses": {
-    "_comment": "Bosses (src/scenes/BossSystem.ts). Each lives in a cave (left/right = the chamber's x range under the cave rocks) and appears once the player reaches `level` and comes within `wakeRange` px; beaten bosses are saved with the run (Checkpoint.bossesBeaten) and do not come back. Health = `hitsToDefeat` of the player's bites; sizeRatio x the player's size. Bites take biteHpFraction of the player's health. Moves: shock (a ring, warned by `shock.telegraph` seconds of crackling), breath (rises to the air hole at airX every `breath.every` s and gulps for `breath.gulp` s: no shocks, `breath.damageMul` x damage), leap (below `leap.belowHealth`: while breathing it shocks anyone within `leap.radius` of the air hole). Leaving the cave (beyond `leash` px) pauses the fight and it heals `regenPerSecond` of its health per second. Reward: `rewardLevels` levels of XP and a free perk pick. caveDark: how dark the cave is.",
+    "_comment": "Bosses (src/scenes/BossSystem.ts). Each lives in its own arena: a cave chamber (left/right = its x range under the cave rocks). Swim into a cave mouth (the chamber's open sides) and a prompt asks before you enter; from `level` the boss waits inside. Inside, the camera stays in the chamber, other fish are kept out, and swimming back out of a mouth (or up the air hole) leaves; the boss then heals `regenPerSecond` of its health per second. Losing inside does not end the run: you wake outside the cave mouth with `arena.lossHpFraction` of your health. Beaten bosses are saved with the run (Checkpoint.bossesBeaten) and do not come back. Health = `hitsToDefeat` of the player's bites; sizeRatio x the player's size. Bites take biteHpFraction of the player's health. Moves: shock (a ring, warned by `shock.telegraph` seconds of crackling), breath (rises to the air hole at airX every `breath.every` s and gulps for `breath.gulp` s: no shocks, `breath.damageMul` x damage), leap (below `leap.belowHealth`: while breathing it shocks anyone within `leap.radius` of the air hole). Reward: `rewardLevels` levels of XP and `rewardPerks` free perk picks. caveDark: how dark the cave is.",
     "caveDark": 0.45,
     "list": [
       {
         "id": "electric_eel",
         "name": "Electric Eel",
         "species": "electric_eel",
-        "cave": "Spring Cave",
+        "cave": "Coral Cave",
         "level": 15,
-        "left": 34900,
-        "right": 37400,
-        "airX": 36430,
+        "left": 9700,
+        "right": 12200,
+        "airX": 11230,
         "wakeRange": 600,
         "leash": 900,
         "hitsToDefeat": 12,
@@ -2807,6 +2779,14 @@
         "rewardPerks": 1
       }
     ],
-    "perkDelaySeconds": 2.5
+    "perkDelaySeconds": 2.5,
+    "arena": {
+      "mouthZone": 160,
+      "outsideGap": 320,
+      "lossHpFraction": 0.3,
+      "lossInvulnSeconds": 3,
+      "keepOutEvery": 0.5,
+      "askAgainDistance": 500
+    }
   }
 }

@@ -10,7 +10,7 @@ import { SpatialGrid } from '../systems/spatialGrid';
 import { countInTide, factorsFor, groupSizes, outShare, rollLevel, type PeriodId, type SpawnFactors } from '../systems/spawnFactors';
 import { openedFromSave, type GatesConfig } from '../systems/gates';
 import { GateSystem } from './GateSystem';
-import { beatenFromSave, bossPerks, shockMul, type BossDef } from '../systems/bosses';
+import { beatenFromSave, bossPerks, farFromCave, inChamber, nearerSide, shockMul, type ArenaConfig, type BossDef } from '../systems/bosses';
 import { BossSystem } from './BossSystem';
 import { keptShare, outgrownMul, regionDensities, regionFactors, trimCrowd, type CrowdConfig } from '../systems/crowd';
 import { Regions, migrateX, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
@@ -224,6 +224,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.kelpZones = [];
     this.landState = 'water';
     this.dryTime = 0;
+    // A restart (new run, swim again, home) is never inside a boss arena.
+    this.arena = null;
+    this.cavePrompt = null;
+    this.caveDeclined = null;
     this.rays = [];
     this.stars = [];
     this.dayTime = this.dayNight.startOf((BALANCE.dayNight.startAt as Period) ?? 'day');
@@ -442,6 +446,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     let huntersTotal = 0;
     this.updateSpawnFactors(dt);
     this.updateEnvironment(dt);
+    this.updateArena(dt);
     this.bosses.update(dt, this.player.level);
     for (let i = 0; i < this.creatures.length; i++) {
       const c = this.creatures[i];
@@ -958,8 +963,166 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       popup: (t, x, y, color) => this.hud.popup(t, x, y, true, color),
       sfx: (k) => (k === 'zap' ? this.sfx.zap() : k === 'warn' ? this.sfx.crackle() : k === 'gulp' ? this.sfx.splash() : this.sfx.crabHorn()),
       beaten: (id) => this.bossesBeaten.includes(id),
+      arena: () => this.arena?.id ?? null,
       defeated: (id, c) => this.bossDefeated(id, c),
     });
+    // A sign at each cave mouth, so the way in is easy to find.
+    for (const d of this.bosses.defs) {
+      for (const side of ['left', 'right'] as const) {
+        const x = side === 'left' ? d.left - 40 : d.right + 40;
+        const y = this.chamberMidY(d, side === 'left' ? d.left + 80 : d.right - 80);
+        this.add
+          .text(x, y - 70, `${d.cave.toUpperCase()}\nlevel ${d.level}+`, {
+            fontFamily: '"Pixelify Sans", "Courier New", monospace',
+            fontSize: '30px',
+            color: '#fee761',
+            align: 'center',
+            stroke: '#181425',
+            strokeThickness: 6,
+          })
+          .setOrigin(side === 'left' ? 1 : 0, 0.5)
+          .setDepth(-5)
+          .setAlpha(0.9);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- boss arenas
+
+  /** The boss arena the player is in (a cave chamber of its own), or null. */
+  arena: BossDef | null = null;
+  /** Waiting for the "Enter the cave?" answer (the game is paused meanwhile). */
+  cavePrompt: BossDef | null = null;
+  /** "Not now" (or too young): no prompt for this cave until the player has swum away from it. */
+  private caveDeclined: string | null = null;
+  private keepOutT = 0;
+
+  private get arenaCfg(): ArenaConfig {
+    return BALANCE.bosses.arena as ArenaConfig;
+  }
+
+  /**
+   * Boss arenas: swimming into a cave mouth asks first; inside, the camera stays in the chamber and other fish
+   * are kept out; swimming back out of a mouth leaves (the boss heals while you are gone).
+   */
+  private updateArena(dt: number): void {
+    const A = this.arenaCfg;
+    const p = this.player;
+    const sy = BALANCE.world.surfaceY;
+    // Other fish never wander into a boss's chamber.
+    this.keepOutT -= dt;
+    if (this.keepOutT <= 0) {
+      this.keepOutT = A.keepOutEvery;
+      for (const c of this.creatures) {
+        if (c.isPlayer || c.boss || !c.fish.active) continue;
+        for (const d of this.bosses.defs) if (inChamber(c.fish.x, c.fish.y, d, sy)) this.putOutside(c.fish, d, nearerSide(c.fish.x, d), 200);
+      }
+    }
+    if (this.dead || this.cavePrompt) return;
+    if (this.arena) {
+      const d = this.arena;
+      if (p.x < d.left || p.x > d.right) this.leaveArena(p.x < d.left ? 'left' : 'right', false);
+      return;
+    }
+    for (const d of this.bosses.defs) {
+      if (this.caveDeclined === d.id) {
+        if (farFromCave(p.x, d, A.askAgainDistance)) this.caveDeclined = null;
+        else if (inChamber(p.x, p.y, d, sy)) this.putOutside(p, d, nearerSide(p.x, d));
+        continue;
+      }
+      if (!inChamber(p.x, p.y, d, sy)) continue;
+      // Into a mouth: step back out, then ask (test swims and the playtest bot never go in).
+      const side = nearerSide(p.x, d);
+      this.putOutside(p, d, side);
+      if (BOT_MODE || this.testMode) {
+        this.caveDeclined = d.id;
+        continue;
+      }
+      if (p.level < d.level && !this.bossesBeaten.includes(d.id)) {
+        this.caveDeclined = d.id;
+        this.hud.popup(`${d.cave}: too dangerous before level ${d.level}`, p.x, p.y - p.size * 1.6, true, '#fee761');
+        continue;
+      }
+      this.cavePrompt = d;
+      window.dispatchEvent(
+        new CustomEvent('ce:cave', {
+          detail: { id: d.id, cave: d.cave, boss: d.name, beaten: this.bossesBeaten.includes(d.id), side },
+        }),
+      );
+      return;
+    }
+  }
+
+  /** The answer to "Enter the cave?" (from the menu's prompt). */
+  answerCave(enter: boolean): void {
+    const d = this.cavePrompt;
+    this.cavePrompt = null;
+    if (!d || this.dead) return;
+    if (!enter) {
+      this.caveDeclined = d.id;
+      return;
+    }
+    this.enterArena(d, nearerSide(this.player.x, d));
+  }
+
+  /** Into the arena: just inside the mouth you came from, the camera kept to the chamber. */
+  enterArena(d: BossDef, side: 'left' | 'right' = 'left'): void {
+    const p = this.player;
+    this.arena = d;
+    this.caveDeclined = null;
+    const x = side === 'left' ? d.left + this.arenaCfg.mouthZone + 140 : d.right - this.arenaCfg.mouthZone - 140;
+    p.arcadeBody.reset(x, this.chamberMidY(d, x));
+    p.arcadeBody.setVelocity(0, 0);
+    const top = BALANCE.world.surfaceY - 500;
+    const floor = Math.max(this.terrain.groundAt(d.left), this.terrain.groundAt(d.right), this.terrain.groundAt((d.left + d.right) / 2)) + 200;
+    this.cameras.main.setBounds(d.left, top, d.right - d.left, floor - top);
+    this.cameras.main.centerOn(p.x, p.y);
+    if (this.bossesBeaten.includes(d.id)) this.hud.areaBanner(d.cave.toUpperCase(), 'Quiet now. Swim out of a cave mouth to leave');
+    this.hud.popup('Swim out of a cave mouth to leave', p.x, p.y - p.size * 1.8, false, '#ffffff');
+  }
+
+  /** Out of the arena, just outside a mouth; the camera follows the whole sea again. */
+  leaveArena(side: 'left' | 'right', place = true): void {
+    const d = this.arena;
+    if (!d) return;
+    this.arena = null;
+    const O = BALANCE.world.loopOverlap;
+    this.cameras.main.setBounds(-O, 0, BALANCE.world.width + O * 2, BALANCE.world.height);
+    if (place) this.putOutside(this.player, d, side);
+    // Swimming straight back in asks again only after you have been away a little.
+    this.caveDeclined = d.id;
+  }
+
+  /** Lost to the boss: no death, you wake outside the cave with some health; the boss is back to full. */
+  private arenaLoss(by: Creature | null): void {
+    const d = this.arena!;
+    const A = this.arenaCfg;
+    const p = this.player;
+    this.leaveArena('left');
+    p.hp = Math.max(1, p.maxHp * A.lossHpFraction);
+    p.invulnTimer = A.lossInvulnSeconds;
+    this.bosses.healFull();
+    for (const o of this.creatures) if (o.brain && o !== by) o.brain.forget(this.playerCreature);
+    this.cameras.main.flash(400, 20, 20, 40);
+    this.hud.bigBanner(`${d.name.toUpperCase()} WINS THIS TIME`, 'You woke up outside the cave. Heal up and try again');
+    if (!this.testMode && !BOT_MODE) this.checkpoint(true);
+  }
+
+  /** A swimmer just outside a cave mouth, in open water. */
+  private putOutside(f: Fish, d: BossDef, side: 'left' | 'right', extra = 0): void {
+    const x = side === 'left' ? d.left - this.arenaCfg.outsideGap - extra : d.right + this.arenaCfg.outsideGap + extra;
+    const y = this.chamberMidY(d, x);
+    f.arcadeBody?.reset(x, y);
+    f.arcadeBody?.setVelocity(0, 0);
+  }
+
+  /** Mid-depth of the open water at x (between an island's underside or the surface, and the ground). */
+  private chamberMidY(_d: BossDef, x: number): number {
+    const sy = BALANCE.world.surfaceY;
+    const c = this.terrain.ceilAt(x);
+    const top = Number.isFinite(c) ? Math.max(sy, c) : sy;
+    const g = this.terrain.groundAt(x);
+    return Math.max(sy + 40, Math.min(g - 60, (top + g) / 2));
   }
 
   /** A boss's bite or shock: a share of the player's health (trophies soften shocks), a stun, knockback. */
@@ -1654,6 +1817,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   playerDied(by: Creature | null, how: DeathCause): void {
     if (this.dead) return;
+    // Losing inside a boss arena is not the end of the run.
+    if (this.arena) return this.arenaLoss(by);
     this.sfx.death();
     this.stats.maxLevel = Math.max(this.stats.maxLevel, this.player.level);
     this.reportRun(true, how);

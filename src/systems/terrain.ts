@@ -21,7 +21,7 @@ export interface RidgeDef {
 export interface IslandDef {
   x: number;
   width: number;
-  /** Look: sandy island with palms (default), a mangrove clump, an iceberg, a volcano, or a cave rock (flat underside: the Spring Cave's roof). */
+  /** Look: sandy island with palms (default), a mangrove clump, an iceberg, a volcano, or a cave rock (flat underside: the Coral Cave's roof). */
   style?: 'sand' | 'mangrove' | 'iceberg' | 'volcano' | 'cave';
   /** How far the island's sandbank reaches below the surface, in world px. */
   depth: number;
