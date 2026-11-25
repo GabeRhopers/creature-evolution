@@ -22,7 +22,7 @@ await p.locator('#poses button', {hasText:'attack'}).click(); await p.waitForTim
 await p.click('#btnTry'); await p.waitForURL(/try=/); await p.waitForTimeout(4000);
 const st = await G(()=>{const g=window.game.scene.getScene('Game'); return {menu:g.menuMode, test:g.testMode, tex:g.player.texture.key, frame:g.player.frame.name, w:g.player.frame.realWidth, bar:document.getElementById('testBar').classList.contains('open'), name:document.getElementById('testName').textContent};});
 console.log(JSON.stringify(st));
-const cpBefore = await G(()=>localStorage.getItem('ce.save.checkpoint'));
+const cpBefore = await G(()=>localStorage.getItem('ce.save.run.p1.crocodile.1'));
 ok(!st.menu && st.test, 'test swim started');
 ok(st.tex==='skin_croc' && st.w===144, 'player wears the studio drawing at the original frame size');
 ok(st.bar && st.name.length>0, 'test bar shows the drawing name');
@@ -33,7 +33,7 @@ await G(()=>{const g=window.game.scene.getScene('Game'); g.player.playBite();});
 const biteF = await G(()=>window.game.scene.getScene('Game').player.frame.name);
 ok(biteF.startsWith('skin_croc'), 'bite uses a studio frame: '+biteF);
 await G(()=>{const g=window.game.scene.getScene('Game'); g.checkpoint(true); g.player.setLevel(9); g.checkpoint(false);});
-ok(await G(()=>localStorage.getItem('ce.save.checkpoint'))===cpBefore, 'test swim never writes the real saved run');
+ok(await G(()=>localStorage.getItem('ce.save.run.p1.crocodile.1'))===cpBefore, 'test swim never writes the real saved run');
 // pause in test -> back to studio on the same pose
 await p.keyboard.press('Escape'); await p.waitForTimeout(300);
 ok((await p.textContent('.saved-line')).includes('nothing here is saved'), 'pause explains the test swim');

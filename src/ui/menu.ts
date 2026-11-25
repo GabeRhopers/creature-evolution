@@ -9,7 +9,7 @@ import { ALL_SPECIES_LOOKS, ALL_STAGE_SKINS, BALANCE, DEFAULT_HERO, HEROES, SPEC
 import { levelToSwallow } from '../systems/growth';
 import type { GameScene } from '../scenes/GameScene';
 import type { HudScene } from '../scenes/HudScene';
-import { APP_VERSION, SLOT_COUNT, cleanSlotName, mergeBest, saves, type Checkpoint, type DeathCause, type Profile } from '../save';
+import { APP_VERSION, MAX_PLAYERS, SLOT_COUNT, cleanSlotName, defaultSlotNames, mergeBest, saves, type Checkpoint, type DeathCause, type HeroSlots, type Profile } from '../save';
 import { perkIconUrl } from './perkIcons';
 import { ENEMY_FIELDS, ENEMY_GROUPS, enemiesChanged, enemyIds, resetEnemies, saveEnemy, shippedValue } from '../data/adminSettings';
 import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
@@ -40,16 +40,24 @@ function clock(sec: number): string {
 }
 
 export function initMenu(game: Phaser.Game): void {
+  // Who's playing: their profile, and the slots of the hero they picked.
+  const players = saves.loadPlayers();
+  saves.setPlayer(players.active);
+  const playerName = players.players.find((p) => p.id === players.active)?.name ?? 'Player 1';
   const loadedProfile = saves.loadProfile();
   const profile: Profile = loadedProfile.data;
   const opts = profile.settings;
+  if (!isHero(opts.hero)) opts.hero = DEFAULT_HERO;
+  /** The picked hero's save slots (created the first time a hero is picked). */
+  const heroSlots = (): HeroSlots => (profile.slots[opts.hero ?? DEFAULT_HERO] ??= { active: 1, names: defaultSlotNames() });
+  saves.setHero(opts.hero);
   // Controller buttons saved in Options.
   pads.map = opts.padMap ?? DEFAULT_PAD_MAP;
   const saveProfile = () => {
     if (!saves.saveProfile(profile)) badge('Could not save on this device', true);
   };
   // The save slot the game reads and writes (picked in Saved games).
-  saves.setSlot(profile.slots.active);
+  saves.setSlot(heroSlots().active);
   const scene = () => game.scene.getScene('Game') as GameScene | null;
   const hud = () => game.scene.getScene('Hud') as HudScene;
   const home = $('home');
@@ -124,8 +132,17 @@ export function initMenu(game: Phaser.Game): void {
   function renderDifficulty(): void {
     document.querySelectorAll<HTMLButtonElement>('[data-diff]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.diff === opts.difficulty)));
   }
-  // ---------------------------------------------------------------- hero picker (Croc or Mosa)
-  if (!isHero(opts.hero)) opts.hero = DEFAULT_HERO;
+  // ---------------------------------------------------------------- hero picker (each hero has its own saves)
+  /** Pick a hero: its own save slots (and CONTINUE) come with it. */
+  function pickHero(id: string): void {
+    if (!isHero(id)) return;
+    opts.hero = id;
+    saves.setHero(id);
+    saves.setSlot(heroSlots().active);
+    saveProfile();
+    renderHeroes();
+    renderContinue();
+  }
   const heroPick = $('heroPick');
   for (const h of HEROES) {
     const b = document.createElement('button');
@@ -134,11 +151,7 @@ export function initMenu(game: Phaser.Game): void {
     b.innerHTML = `<canvas width="224" height="88" aria-hidden="true"></canvas><span>${h.name}</span><span class="d">${h.blurb}</span>`;
     const adult = heroStages(h.id).at(-1)!;
     void drawLook(b.querySelector('canvas')!, `studio/seeds/${adult.skin}.json`);
-    b.addEventListener('click', () => {
-      opts.hero = h.id;
-      saveProfile();
-      renderHeroes();
-    });
+    b.addEventListener('click', () => pickHero(h.id));
     heroPick.appendChild(b);
   }
   function renderHeroes(): void {
@@ -215,11 +228,11 @@ export function initMenu(game: Phaser.Game): void {
     return Array.from({ length: SLOT_COUNT }, (_, i) => i + 1);
   }
   function slotName(n: number): string {
-    return profile.slots.names[n - 1] ?? `Game ${n}`;
+    return heroSlots().names[n - 1] ?? `Game ${n}`;
   }
   function selectSlot(n: number): void {
     saves.setSlot(n);
-    profile.slots.active = n;
+    heroSlots().active = n;
     saveProfile();
     renderContinue();
   }
@@ -245,10 +258,17 @@ export function initMenu(game: Phaser.Game): void {
       })
       .join('');
   }
+  function heroTabsHtml(): string {
+    return HEROES.map((h) => `<button class="btn" data-tab="${h.id}" aria-pressed="${h.id === opts.hero}">${esc(h.name)}</button>`).join('');
+  }
+  function savesTitle(): string {
+    return `${esc(playerName)}'s ${esc(HEROES.find((h) => h.id === opts.hero)?.name ?? 'creature')} games`;
+  }
   function openSaves(): void {
     openPanel(
-      `<h3>Saved games</h3>
-      <p>Each game keeps its own run. Your records count across all of them.</p>
+      `<h3 id="savesTitle">${savesTitle()}</h3>
+      <p>Every creature has ${SLOT_COUNT} games of its own. Your records count across all of them.</p>
+      <div class="hero-tabs" id="heroTabs" role="group" aria-label="Creature">${heroTabsHtml()}</div>
       <div class="slots" id="slotList">${savesHtml()}</div>
       <div class="row"><button class="btn" id="pClose">Done</button></div>`,
       bindSaves,
@@ -256,10 +276,18 @@ export function initMenu(game: Phaser.Game): void {
   }
   function refreshSaves(): void {
     $('slotList').innerHTML = savesHtml();
+    $('heroTabs').innerHTML = heroTabsHtml();
+    $('savesTitle').innerHTML = savesTitle();
     bindSaves();
   }
   function bindSaves(): void {
     $('pClose').onclick = closePanel;
+    panel.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => {
+      b.onclick = () => {
+        pickHero(b.dataset.tab!);
+        refreshSaves();
+      };
+    });
     panel.querySelectorAll<HTMLElement>('.slot').forEach((el) => {
       const n = Number(el.dataset.slot);
       const act = (a: string) => el.querySelector<HTMLButtonElement>(`[data-act="${a}"]`);
@@ -288,14 +316,17 @@ export function initMenu(game: Phaser.Game): void {
         input.focus();
         input.select();
         const save = () => {
-          profile.slots.names[n - 1] = cleanSlotName(input.value, n);
+          heroSlots().names[n - 1] = cleanSlotName(input.value, n);
           saveProfile();
           renderContinue();
           refreshSaves();
         };
         act('save')!.onclick = save;
         input.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') save();
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            save();
+          }
           if (e.key === 'Escape') refreshSaves();
         });
         act('no')!.onclick = refreshSaves;
@@ -313,6 +344,97 @@ export function initMenu(game: Phaser.Game): void {
     });
   }
   $('cardSaves').addEventListener('click', openSaves);
+
+  // ---------------------------------------------------------------- who's playing (players)
+  $('playerName').textContent = playerName;
+  /** Switch player: their profile, hero and saves load with the page. */
+  function switchPlayer(id: number): void {
+    const list = saves.loadPlayers();
+    if (!list.players.some((p) => p.id === id)) return;
+    list.active = id;
+    saves.savePlayers(list);
+    window.location.reload();
+  }
+  function playersHtml(): string {
+    const list = saves.loadPlayers();
+    return list.players
+      .map((p) => {
+        const on = p.id === list.active;
+        return `<div class="player-row${on ? ' on' : ''}" data-player="${p.id}">
+          <span class="pname">${esc(p.name)}</span>${on ? '<span class="tag">Playing</span>' : `<button class="btn" data-act="pick">Play as ${esc(p.name)}</button>`}
+          <button class="btn" data-act="rename">Rename</button>
+          ${list.players.length > 1 ? `<button class="btn btn-danger" data-act="delete">Delete</button>` : ''}
+        </div>`;
+      })
+      .join('');
+  }
+  function openPlayers(): void {
+    const full = saves.loadPlayers().players.length >= MAX_PLAYERS;
+    openPanel(
+      `<h3>Who's playing?</h3>
+      <p>Each player has their own creature, games and records. Up to ${MAX_PLAYERS} players on this device.</p>
+      <div class="players" id="playerList">${playersHtml()}</div>
+      ${full ? '' : `<div class="player-row" id="addRow"><input id="newPlayer" maxlength="16" placeholder="New player's name" aria-label="New player's name"><button class="btn" id="pAdd">Add player</button></div>`}
+      <div class="row"><button class="btn" id="pClose">Done</button></div>`,
+      bindPlayers,
+    );
+  }
+  function bindPlayers(): void {
+    $('pClose').onclick = closePanel;
+    const add = document.getElementById('pAdd');
+    if (add) {
+      const input = $('newPlayer') as HTMLInputElement;
+      const doAdd = () => {
+        const id = saves.addPlayer(input.value, profile);
+        if (id !== null) switchPlayer(id);
+      };
+      add.onclick = doAdd;
+      input.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        doAdd();
+      });
+    }
+    panel.querySelectorAll<HTMLElement>('.player-row[data-player]').forEach((el) => {
+      const id = Number(el.dataset.player);
+      const name = saves.loadPlayers().players.find((p) => p.id === id)?.name ?? '';
+      const act = (a: string) => el.querySelector<HTMLButtonElement>(`[data-act="${a}"]`);
+      act('pick')?.addEventListener('click', () => switchPlayer(id));
+      act('rename')?.addEventListener('click', () => {
+        el.innerHTML = `<input maxlength="16" aria-label="Player name" value="${esc(name)}"><button class="btn" data-act="save">Save</button><button class="btn" data-act="no">Cancel</button>`;
+        const input = el.querySelector('input') as HTMLInputElement;
+        input.focus();
+        input.select();
+        const save = () => {
+          saves.renamePlayer(id, input.value);
+          if (id === saves.activePlayer) $('playerName').textContent = saves.loadPlayers().players.find((p) => p.id === id)?.name ?? '';
+          openPlayers();
+        };
+        act('save')!.onclick = save;
+        input.addEventListener('keydown', (e) => {
+          // preventDefault: otherwise the same Enter also presses the button that gets focus next (Rename again).
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            save();
+          }
+          if (e.key === 'Escape') openPlayers();
+        });
+        act('no')!.onclick = openPlayers;
+      });
+      act('delete')?.addEventListener('click', () => {
+        el.innerHTML = `<span class="pname">Delete ${esc(name)} with all their games and records? This can't be undone.</span>
+          <button class="btn btn-danger" data-act="yes">Delete</button><button class="btn" data-act="no">Cancel</button>`;
+        act('yes')!.onclick = () => {
+          const wasActive = id === saves.activePlayer;
+          saves.deletePlayer(id);
+          if (wasActive) window.location.reload();
+          else openPlayers();
+        };
+        act('no')!.onclick = openPlayers;
+      });
+    });
+  }
+  $('btnPlayer').addEventListener('click', openPlayers);
   $('btnPlay').addEventListener('click', play);
   $('btnContinue').addEventListener('click', () => checkpoint && void startRun(checkpoint.data));
 

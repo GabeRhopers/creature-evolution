@@ -57,17 +57,20 @@ ok(!spun, 'Crushing Bite does not spin like the Death Roll');
 
 // save and continue keeps the hero
 await G(()=>window.game.scene.getScene('Game').checkpoint(true));
-ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.checkpoint')).data.species==='mosa'), 'the checkpoint is a Mosa run');
+ok(await G(()=>JSON.parse(localStorage.getItem('ce.save.run.p1.mosa.1')).data.species==='mosa'), 'the checkpoint is a Mosa run');
 await p.click('[data-hero="crocodile"]').catch(()=>{});            // hidden during play: no effect
 await p.reload(); await p.waitForTimeout(3500);
 ok((await p.textContent('#continueSub')).includes(': Mosa'), 'Continue shows the Mosa run: '+await p.textContent('#continueSub'));
-await p.click('[data-hero="crocodile"]');                           // pick the croc for NEW runs...
+await p.click('[data-hero="crocodile"]');                           // every creature has its own games:
+ok(await G(()=>document.getElementById('btnContinue').hidden), 'picking the croc shows the croc games (none yet)');
+await p.click('[data-hero="mosa"]');                                // ...and back to Mosa's
 await p.click('#btnContinue');
 ok(await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMode && g.player.level>=21;}, 5000), 'the saved run is back');
 s=await S(); ok(s.species==='mosa' && s.tex==='stage_mosa_adult', '...and it is still a Mosa: '+JSON.stringify(s));
 
 // a new run with the croc picked is a croc
 await G(()=>window.game.scene.getScene('Game').goHome()); await p.waitForTimeout(800);
+await p.click('[data-hero="crocodile"]');
 await G(()=>{document.querySelector('#btnPlay').click();}); await p.waitForTimeout(600);
 await G(()=>document.querySelector('#pNew')?.click());
 ok(await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMode && g.player.species.id==='crocodile';}, 5000), 'a new run with Croc picked is a crocodile');
