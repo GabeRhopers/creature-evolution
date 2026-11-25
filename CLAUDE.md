@@ -413,4 +413,14 @@ invulnerability. Armor per species (`armor` in species.json).
 - [x] Sprint 3: AI brains (wander+schooling, flee, hunt with stalking vs player, forage plankton, rest, hunger/desperation), kelp hides fish, player can be eaten (death screen, restart), Easy/Normal/Hard
 - [x] Sprint 4: bite (anything too big to swallow) with meat chunks, kills + skeletons, ram stun, rock impact stun, critical wounds, wounded state + distress, HP regen, AI biting/retaliation, death by bite, Dash (E/Q/DASH)
 - [x] Sprint 5: stomach (1/3 XP now, 2/3 banked; 95% full; rest above 75% to digest; metabolism; starvation), procedural SFX, CC0 music, heartbeat when hunted, start screen, sound toggle
-- [ ] Sprint 6: playtest, balance, itch.io release
+- [x] Since then (Nov 21 to 25): Tides, gates, 7 regions, ~40 creatures, 6 heroes, the eel boss arena, players and saves, Sprite Studio skins, offline play
+- [ ] **MVP finish line (reviewed Nov 25; content is frozen until release, see "MVP roadmap" in the plan doc):**
+  1. Performance check on the iPad and an Android phone (`?perf=1` overlay)
+  2. First 60 seconds: a short guided start with hints that appear only when needed
+  3. Playtest round 1 (5 to 10 players; a private play log on the device, exported with the backup file; no analytics servers)
+  4. Fix and balance from what players hit (first three Tides, hero fairness, eel difficulty)
+  5. Stability sweep (problem logs, flaky tests)
+  6. Release: web on itch.io + Android APK for the family (Capacitor 8, built in GitHub Actions, limited distribution)
+- [ ] Next: playtest round 2, Sprite Studio history and iPad comfort, shrimp companions, Game Settings rest
+- Parked until players ask: axolotl, island creatures, more bosses, ocean events, Tide themes, Creature Book, Google Play, cloud saves.
+  Rule until release: no new creatures, heroes or regions unless a playtest shows a gap.
