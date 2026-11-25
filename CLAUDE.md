@@ -239,6 +239,16 @@ take `damageTaken` x damage, fully up to level `fullUntil` (5), fading evenly to
 into the player's mods with the perks (`applyPerks`, refreshed whenever the level changes; `PerkMods` gained `turn`
 and `stamina`). The pause menu shows the current head start. AI fish are unchanged.
 
+## Performance meter (`src/ui/perfMeter.ts`)
+Options > Performance meter (remembered, `ce.perf.show`) or `?perf=1` shows a corner panel, updated twice a second: fps, the
+slowest 5% of frames as fps ("slowest"), the worst frame, creatures (all / awake / drawn), display objects, textures, renderer
+size and pixel ratio, JS memory where the browser reports it. Always on and cheap: a session log (`ce.perf`, last 20; written when
+the page hides or closes after 30+ s of play) with fps, slowest, hitch share, most creatures awake/drawn and a grade
+(`smooth` >= 55 fps and slowest >= 40, `ok` >= 40/25, else `choppy`); Options shows the last one, and it travels in the
+backup file. Stats helpers are pure (`summarizeFrames`, `grade`; `tests/perf.test.ts`). `window.cePerf` (seconds, log) is for
+tests. Nov 25 baseline in CI (software rendering): the game's own update is ~3-5 ms per frame with ~200 creatures awake; the
+rest is drawing, so measure on the real iPad before optimizing. E2E: `perf.mjs`.
+
 ## Offline, install and backup (`vite.config.ts` VitePWA, `src/offline.ts`, `src/save/backup.ts`)
 The game needs no internet after the first visit. `vite-plugin-pwa` (generateSW) precaches the whole build: code, atlas,
 music, the bundled fonts (`public/fonts`, Pixelify Sans and Work Sans under the OFL; no Google Fonts), Sprite Studio,
