@@ -3,7 +3,7 @@ import { chromium } from 'playwright-core';
 const b = await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--mute-audio']});
 const p = await b.newPage({viewport:{width:1280,height:800}});
 p.setDefaultNavigationTimeout(90000); p.setDefaultTimeout(60000); // slow CI runners
-const errs=[]; p.on('pageerror',e=>errs.push(e.message));
+const errs=[]; p.on('pageerror',e=>{errs.push(e.message); console.log('STACK', e.stack);}); // the stack shows where a rare error comes from
 const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m); if(!c) process.exitCode=1;};
 const G=(f,a)=>p.evaluate(f,a);
 const waitFor = async (fn, ms, arg) => { for (let t=0; t<ms; t+=100) { if (await G(fn, arg)) return true; await p.waitForTimeout(100); } return G(fn, arg); };
