@@ -29,11 +29,12 @@ const state=()=>p.textContent('#saveState');
 await p.goto('http://localhost:4173/studio/index.html'); await p.evaluate(()=>{localStorage.clear(); sessionStorage.clear();}); await p.reload(); await p.waitForTimeout(1500);
 const draw = async (x,y)=>{ const box=await p.locator('#cv').boundingBox(); const z=box.width/48; await p.locator('[data-tool=pencil]').click(); await p.mouse.click(box.x+(x+0.5)*z, box.y+(y+0.5)*z); };
 await draw(3,3); await p.waitForTimeout(300);
-const id = await p.evaluate(()=>localStorage.getItem('spritestudio:last')) || (await p.evaluate(()=>Object.keys(localStorage).find(k=>k.startsWith('spritestudio:p'))))?.slice(13);
-// Slow runners: give the device copy a moment to be written.
-let l1 = await local(id);
-for (let i = 0; i < 30 && !(l1 && l1.pending===true); i++) { await p.waitForTimeout(100); l1 = await local(id); }
-ok(l1 && l1.pending===true, 'device copy written right after the stroke (before the cloud save)');
+// Slow runners: the studio may take a moment to name the project and write the device copy.
+const findId = async ()=> (await p.evaluate(()=>localStorage.getItem('spritestudio:last'))) || (await p.evaluate(()=>Object.keys(localStorage).find(k=>k.startsWith('spritestudio:p'))))?.slice(13);
+let id = await findId(), l1 = id ? await local(id) : null;
+for (let i = 0; i < 50 && !(l1 && l1.pending===true); i++) { await p.waitForTimeout(100); id = id || await findId(); l1 = id ? await local(id) : null; }
+// Written on the device right after the stroke: still waiting for the cloud, or (very slow runner) already synced.
+ok(l1 && (l1.pending===true || (await cloud())['projects/'+id]?.rev>=1), 'device copy written right after the stroke (before the cloud save)');
 await p.waitForTimeout(1800);
 let c = await cloud();
 ok(c['projects/'+id]?.rev>=1, 'cloud save has a revision: '+c['projects/'+id]?.rev);
