@@ -75,7 +75,13 @@ helpers (eye-anchored placement, bite frames, blink, egg) live in `tools/heroes/
 Rhopers (`tools/fang/fang_sheet.jpg`). `tools/fang/convert_fang.py` samples each pose to art pixels, maps them to Endesga 32
 plus three neutral body greys (its signature colors), turns them to face right and writes `fang-*.json` (framework `fang`,
 100x44 canvas, same art for all three stages; the hatchling wears a beige eggshell cap). The hurt pose is the `damage` frame.
-Abilities: croc Shell Guard / Lunge / Death Roll; Mosa Dart / Tail Slam / Crushing Bite;
+**Elder Croc** is the fifth hero: a pixel-art crocodile from a sheet of poses (idle, walk, bite, hurt) supplied by Rhopers
+(`tools/elder/elder_sheet.jpg`). `tools/elder/convert_elder.py` finds each pose as a connected shape on the navy background
+(labels and stray bits skipped), samples it to art pixels, maps it to Endesga 32 plus three signature colors (lime body, pale
+belly, pink mouth), turns every pose to face right and writes `elder_croc-*.json` (framework `elder_croc`, 100x56 canvas, same
+art for all stages, eggshell cap on the hatchling). Walk = swim (`move`; its first frame is `idle` and `rest`), bite =
+`attack`, the standing poses = the level-up roar (`celebrate`), the first hurt pose = `damage`.
+Abilities: croc Shell Guard / Lunge / Death Roll; Elder Croc Lunge / Death Roll / Crushing Bite (armor 0.3, slower); Mosa Dart / Tail Slam / Crushing Bite;
 White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks); Fang Lunge / Crushing Bite /
 Feeding Frenzy (tougher skin than the White Shark).
 

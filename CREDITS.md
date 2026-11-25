@@ -8,6 +8,7 @@
 | Mosa | Original pixel-art design and five swim poses by the developer's son; sampled cell by cell, hatchling and bite frames derived from it | Family original | `tools/mosa/` (drawings: `reference-*.jpg`) | Second playable hero |
 | White Shark | Original pixel-art design in the style of the developer's son's Croc and Mosa, generated in code | Original | `tools/heroes/draw_shark.py` | Third playable hero |
 | Fang (pixel great white) | Pixel-art sheet with idle, swim, attack and hurt poses, supplied by the developer; sampled to art pixels and turned to face right | Supplied by the developer | `tools/fang/` (sheet: `fang_sheet.jpg`) | Fourth playable hero |
+| Elder Croc | Pixel-art sheet with idle, walk, bite and hurt poses, supplied by the developer; sampled to art pixels and turned to face right (stray bits of the sheet left out) | Supplied by the developer | `tools/elder/` (sheet: `elder_sheet.jpg`) | Fifth playable hero |
 | Checkpoint Crab | Original pixel-art starter design in the style of the heroes, generated in code (Mike can redraw it in Sprite Studio) | Original | `tools/heroes/draw_crab.py` | Checkpoint mini-boss |
 | Lionfish, Moray Eel, Barracuda | Original pixel-art designs generated in code, like the other reef fish | Original | `tools/fish/draw_fish.py` | Higher-level enemies |
 | Archerfish, Polar Cod, Bull Shark, Leopard Seal, Anglerfish, Great White Shark, Sperm Whale | Original pixel-art designs generated in code | Original | `tools/fish/draw_more.py` | Region creatures and new hunters |

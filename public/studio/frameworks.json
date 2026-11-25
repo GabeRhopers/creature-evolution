@@ -158,5 +158,20 @@
     ],
     "pixelScale": 2,
     "notes": "The fourth playable hero: a pixel-art great white from a sheet of four poses (idle, swim, attack, hurt), converted by tools/fang/convert_fang.py. Long and low, so the canvas is wide. The snout stays in the same place in every frame so the mouth does not jump."
+  },
+  "elder_croc": {
+    "extends": "default",
+    "name": "Elder Croc",
+    "canvas": [
+      100,
+      56
+    ],
+    "bodyRadius": 14,
+    "mouth": [
+      80,
+      32
+    ],
+    "pixelScale": 2,
+    "notes": "The fifth playable hero: a pixel-art crocodile from a sheet of poses (idle, walk, bite, hurt), converted by tools/elder/convert_elder.py. Long poses for swimming and biting, standing poses for the level-up roar and the hurt flash, so the canvas is tall enough for both. The snout stays in the same place in the swim and bite frames."
   }
 }
