@@ -6,6 +6,7 @@ import { LightScene } from './scenes/LightScene';
 import { initMenu } from './ui/menu';
 import { applyEnemySettings } from './data/adminSettings';
 import { reportError } from './ui/safety';
+import { startOffline } from './offline';
 
 // Enemy settings changed on this device (Options > Enemy settings) apply before anything spawns.
 applyEnemySettings();
@@ -48,3 +49,5 @@ initMenu(game);
 
 // Handy for debugging from the browser console.
 (window as unknown as { game: Phaser.Game }).game = game;
+
+startOffline();
