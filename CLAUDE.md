@@ -244,6 +244,11 @@ sprinters), Sailfish (25, sail and bill, `ambush`), Man o' War (drifts at the su
 **Green Sea Turtle** (`friendly`: the player can't eat or bite it and no fish hunts it; `armor`). A diet may name a species id
 as well as tiers (`Brain.dietAllows`): the turtle's diet is `man_o_war`, so it eats them. E2E: `sargasso.mjs`.
 
+Kelp Forest (`tools/fish/draw_kelp.py`, all live only in the Kelp Forest, Tide 6): Garibaldi (50, bright orange prey),
+California Sheephead (51, eats tier 1 and `sea_urchin`, buck teeth), Purple Sea Urchin (50, creeps near the seabed at
+`maxSpeed` 25, `venom`, `upright`), **Sea Otter** (52, `friendly` like the turtle, diet `sea_urchin`) and California Sea Lion
+(55, fast agile pack hunter, `rankMul` 5). E2E: `kelp.mjs`; unit: `tests/kelp.test.ts`.
+
 ## Bosses (`src/scenes/BossSystem.ts`, rules in `src/systems/bosses.ts`, `balance.json` "bosses")
 First boss: the **Electric Eel** (species `electric_eel`, look `beast-electric_eel` drawn by `tools/fish/draw_boss.py`,
 its `celebrate` pose = the crackling warning frames) in the **Spring Cave**, east Mangrove Swamp (x 34900-37400). The cave is
@@ -255,7 +260,8 @@ seamount floor a juvenile can reach, with an air hole between them (`airX`); ins
 bites x `breath.damageMul`, the boss bar turns yellow); below `leap.belowHealth` shocks come faster and it leap-shocks the air
 hole while gulping. Health = `hitsToDefeat` of your bites; its bite and shocks take shares of your health (`hurtPlayerBy`,
 capped by maxHitFraction). Leave the cave (`leash`) and the fight pauses while it heals. Beaten: XP (`rewardLevels`), full
-health, the trophy (Insulated: shocks x `trophyShockMul`, `shockMul`), banner, saved (`Checkpoint.bossesBeaten`, kept by
+health, a free perk pick (`rewardPerks`; `bossPerks(bossesBeaten)` is added to `perksOwed`, so it needs no extra save field;
+the choice opens `bosses.perkDelaySeconds` after the banner), the trophy (Insulated: shocks x `trophyShockMul`, `shockMul`), banner, saved (`Checkpoint.bossesBeaten`, kept by
 SWIM AGAIN via `nextBossesBeaten`); it never comes back in that run. HUD: `HudScene.bossBar`. Music: Crab Showdown nearby.
 Saves keep `worldW` and `bossesBeaten` (the sanitizer used to drop `worldW`; saves from v0.42 to v0.44 have none and count as
 114000 px if written after `SEVEN_REGIONS_SINCE`). E2E: `boss.mjs`; unit: `tests/bosses.test.ts`.

@@ -16,7 +16,7 @@ await p.click('#btnPlay');
 await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMode && !!g.player && !!g.gates;}, 30000);
 
 const cfg = await G(()=>window.game.scene.getScene('Game').constructor && JSON.parse(JSON.stringify(window.game.scene.getScene('Game').crowdFactors)));
-ok(cfg.swamp < 1 && cfg.kelp === 1, 'busy regions are thinned, quiet ones are not: ' + JSON.stringify(cfg));
+ok(cfg.swamp < 1 && cfg.volcano === 1, 'busy regions are thinned, quiet ones are not: ' + JSON.stringify(cfg));
 
 await G(()=>{const g=window.game.scene.getScene('Game'); g.gates.openAll(); g.player.setLevel(55); g.grantXp(g.player.xpNeeded+1); g.player.invulnTimer=1e9;});
 await p.waitForTimeout(3000);

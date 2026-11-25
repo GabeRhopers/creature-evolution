@@ -65,8 +65,9 @@ export function earlyHelpMods(level: number): PerkMods {
 }
 
 /** How many perk picks the player has earned but not made yet. */
-export function perksOwed(level: number, takenCount: number): number {
-  return Math.max(0, perksEarned(level) - takenCount);
+/** Picks still to make: earned by levels, plus `bonus` free picks (bosses), minus the ones taken. */
+export function perksOwed(level: number, takenCount: number, bonus = 0): number {
+  return Math.max(0, perksEarned(level) + bonus - takenCount);
 }
 
 /** Perk picks earned by a level: the fixed levels, then one every few Legend levels (33, 36, 39...). */
