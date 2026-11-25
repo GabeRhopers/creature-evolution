@@ -13,7 +13,7 @@ import { APP_VERSION, MAX_PLAYERS, SLOT_COUNT, cleanSlotName, defaultSlotNames, 
 import { perkIconUrl } from './perkIcons';
 import { ENEMY_FIELDS, ENEMY_GROUPS, enemiesChanged, enemyIds, resetEnemies, saveEnemy, shippedValue } from '../data/adminSettings';
 import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
-import { decodeFrame, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, validateProject, type StudioProject } from '../skins';
+import { decodeFrame, getStageLook, heroLookSkin, heroSkins, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, setHeroLooks, skinStageId, validateProject, type StudioProject } from '../skins';
 import { earlyHelpMods, earlyHelpStrength, perkById, type PerkDef } from '../systems/perks';
 import { installSafetyNet, lastErrorLine, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
 
@@ -69,11 +69,15 @@ export function initMenu(game: Phaser.Game): void {
   // ---------------------------------------------------------------- creature look (Sprite Studio)
   let skinReady: Promise<void> = Promise.resolve();
   // Every hero's stage designs and every reef creature design, studio edits included: loaded in the background.
-  const loadLooks = () => loadStageLooks([...ALL_STAGE_SKINS, ...ALL_SPECIES_LOOKS]).catch(() => undefined);
+  // Plus the skins picked for each hero (studio "New skin": three designs per skin).
+  setHeroLooks(opts.looks);
+  const pickedLookIds = () => Object.entries(opts.looks ?? {}).flatMap(([hero, set]) => heroStages(hero).map((st) => skinStageId(set, st.id)));
+  const loadLooks = () => loadStageLooks([...ALL_STAGE_SKINS, ...ALL_SPECIES_LOOKS, ...pickedLookIds()]).catch(() => undefined);
   let looksReady = loadLooks();
   // Designs edited in the studio (another tab, or after Back to game) are picked up on the next run.
   const refreshLooks = () => {
     looksReady = loadLooks();
+    void looksReady.then(() => renderHeroes());
   };
   window.addEventListener('focus', refreshLooks);
   document.addEventListener('visibilitychange', () => {
@@ -149,14 +153,73 @@ export function initMenu(game: Phaser.Game): void {
     b.className = 'hero-btn';
     b.dataset.hero = h.id;
     b.innerHTML = `<canvas width="224" height="88" aria-hidden="true"></canvas><span>${h.name}</span><span class="d">${h.blurb}</span>`;
-    const adult = heroStages(h.id).at(-1)!;
-    void drawLook(b.querySelector('canvas')!, `studio/seeds/${adult.skin}.json`);
     b.addEventListener('click', () => pickHero(h.id));
     heroPick.appendChild(b);
   }
+  /** The adult design a hero wears now: its picked skin (once loaded), else null (the shipped design). */
+  const pickedAdult = (hero: string): StudioProject | null => {
+    const id = heroLookSkin(hero, heroStages(hero).at(-1)!.id);
+    return id ? getStageLook(id) : null;
+  };
+  const shown = new Map<string, string>();
   function renderHeroes(): void {
-    heroPick.querySelectorAll<HTMLButtonElement>('[data-hero]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.hero === opts.hero)));
-    void showHeroLogo(opts.hero ?? DEFAULT_HERO);
+    heroPick.querySelectorAll<HTMLButtonElement>('[data-hero]').forEach((b) => {
+      const hero = b.dataset.hero!;
+      b.setAttribute('aria-pressed', String(hero === opts.hero));
+      // Each hero button shows the look it will swim with (redrawn only when that changes).
+      const skin = pickedAdult(hero);
+      const key = skin ? (opts.looks?.[hero] ?? '') + (skin.updatedAt ?? '') : '';
+      if (shown.get(hero) === key) return;
+      shown.set(hero, key);
+      const c = b.querySelector('canvas')!;
+      c.getContext('2d')!.clearRect(0, 0, c.width, c.height);
+      if (skin) drawProject(c, skin);
+      else void drawLook(c, `studio/seeds/${heroStages(hero).at(-1)!.skin}.json`);
+    });
+    const hero = opts.hero ?? DEFAULT_HERO;
+    void showHeroLogo(hero, pickedAdult(hero));
+    void renderLookPick();
+  }
+
+  // ---------------------------------------------------------------- the picked hero's skin (Sprite Studio "New skin")
+  const lookPick = $('lookPick');
+  let lookToken = 0;
+  async function renderLookPick(): Promise<void> {
+    const hero = opts.hero ?? DEFAULT_HERO;
+    const token = ++lookToken;
+    let list: Awaited<ReturnType<typeof listStudioProjects>> = [];
+    try {
+      list = await listStudioProjects();
+    } catch {
+      list = [];
+    }
+    if (token !== lookToken) return;
+    const skins = heroSkins(list, hero, heroStages(hero).map((st) => st.id));
+    const picked = opts.looks?.[hero];
+    const name = HEROES.find((h) => h.id === hero)?.name ?? 'hero';
+    const chip = (set: string, label: string) =>
+      `<button class="look-chip" data-look="${esc(set)}" aria-pressed="${String((picked ?? '') === set)}">${esc(label)}</button>`;
+    lookPick.innerHTML =
+      `<span class="look-label">Look</span>` +
+      chip('', 'Original') +
+      skins.map((sk) => chip(sk.set, sk.name)).join('') +
+      `<a class="look-chip new" href="${STUDIO_URL}?newskin=${encodeURIComponent(hero)}" aria-label="Make a new skin for the ${esc(name)} in Sprite Studio">+ New skin</a>`;
+    lookPick.querySelectorAll<HTMLButtonElement>('[data-look]').forEach((b) => (b.onclick = () => pickLook(hero, b.dataset.look || null)));
+  }
+  function pickLook(hero: string, set: string | null): void {
+    const looks = { ...(opts.looks ?? {}) };
+    if (set) looks[hero] = set;
+    else delete looks[hero];
+    if (Object.keys(looks).length) opts.looks = looks;
+    else delete opts.looks;
+    setHeroLooks(opts.looks);
+    saveProfile();
+    looksReady = loadLooks();
+    void looksReady.then(() => {
+      renderHeroes();
+      badge(set ? 'New look picked: it swims next run' : 'Back to the original look');
+    });
+    lookPick.querySelectorAll<HTMLButtonElement>('[data-look]').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.look || null) === set)));
   }
   renderHeroes();
 
@@ -809,6 +872,7 @@ export function initMenu(game: Phaser.Game): void {
     openPanel(
       `<h3>Sprite Studio</h3>
       <p>Pick a creature to change how it looks in the game. Your changes show up on your next swim.</p>
+      <div class="row"><a class="btn" href="${STUDIO_URL}?newskin=${encodeURIComponent(opts.hero ?? DEFAULT_HERO)}">+ New skin from a picture</a></div>
       ${heroes}
       <p class="studio-group">Reef creatures</p><div class="row">${reef}</div>
       <div class="row"><a class="btn" href="${STUDIO_URL}">Open Sprite Studio</a><button class="btn" id="pClose">Close</button></div>`,
@@ -1200,14 +1264,14 @@ async function drawArt(): Promise<void> {
 /** The home screen's big creature: the picked hero's adult design, animating its idle pose (with the blink). */
 let logoTimer: number | undefined;
 let logoToken = 0;
-async function showHeroLogo(heroId: string): Promise<void> {
+async function showHeroLogo(heroId: string, skin?: StudioProject | null): Promise<void> {
   const c = document.getElementById('heroCroc') as HTMLCanvasElement | null;
   if (!c) return;
   const token = ++logoToken;
   const adult = heroStages(heroId).at(-1)!;
   let p: StudioProject;
   try {
-    p = (await (await fetch(`studio/seeds/${adult.skin}.json`)).json()) as StudioProject;
+    p = skin ?? ((await (await fetch(`studio/seeds/${adult.skin}.json`)).json()) as StudioProject);
   } catch {
     return; // decoration only
   }
@@ -1249,7 +1313,13 @@ async function showHeroLogo(heroId: string): Promise<void> {
 /** Draw a Sprite Studio design (its first idle or move frame) crisply into a canvas, centered and fitted. */
 async function drawLook(c: HTMLCanvasElement, url: string): Promise<void> {
   try {
-    const p = (await (await fetch(url)).json()) as StudioProject;
+    drawProject(c, (await (await fetch(url)).json()) as StudioProject);
+  } catch {
+    /* decoration only */
+  }
+}
+function drawProject(c: HTMLCanvasElement, p: StudioProject): void {
+  try {
     const pose = p.poses.find((x) => x.name === 'idle' && x.frames.length) ?? p.poses.find((x) => x.name === 'move');
     if (!pose) return;
     const px = decodeFrame(pose.frames[0], p.w * p.h);

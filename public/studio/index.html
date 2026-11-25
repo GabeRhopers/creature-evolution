@@ -104,6 +104,16 @@ footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: gri
 .dialog { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; width: min(460px, 100%); max-height: 90%; overflow: auto; display: grid; gap: 12px; }
 .dialog h3 { margin: 0; font: 700 18px/1.2 var(--font-display); color: var(--accent); }
 .dialog .row button { flex: 0 1 auto; }
+.dialog.wide { width: min(860px, 100%); }
+.sktiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.sktile { border: 1px solid var(--line); border-radius: 10px; padding: 6px; display: grid; gap: 4px; background: #0003; }
+.sktile.skip { opacity: .45; }
+.sktile canvas { width: 100%; height: 72px; image-rendering: pixelated; background: #1e4678; border-radius: 6px; }
+.sktile .row { flex-wrap: nowrap; gap: 4px; }
+.sktile select { flex: 1; min-height: 40px; }
+.sktile button { min-width: 44px; min-height: 40px; }
+.skprev { display: flex; gap: 8px; flex-wrap: wrap; }
+.skprev canvas { width: 240px; max-width: 100%; height: auto; image-rendering: pixelated; background: #1e4678; border-radius: 8px; }
 .plist { display: grid; gap: 6px; }
 .plist .item { display: flex; gap: 6px; align-items: center; }
 .plist .item button:first-child { flex: 1; text-align: left; }
@@ -133,6 +143,7 @@ footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: gri
   <div class="grow"></div>
   <button id="btnUndo" title="Undo (Ctrl+Z)">Undo</button>
   <button id="btnRedo" title="Redo (Ctrl+Shift+Z)">Redo</button>
+  <button id="btnSkin" title="Make a new look for a hero from a picture, or a color version">New skin</button>
   <button id="btnImport" title="Import a picture into this frame">Import picture</button>
   <button id="btnExport" title="Export sprite sheet and data">Export</button>
   <button id="btnTry" class="try" title="Swim with this drawing in the game">Try in game ▶</button>
@@ -275,6 +286,8 @@ footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: gri
 
 <div class="modal" id="modal"><div class="dialog" id="dialog"></div></div>
 <input type="file" id="fileIn" accept="image/*" hidden>
+<input type="file" id="skFile" accept="image/*" hidden>
+<script type="module">import * as SM from './skinmaker.js'; window.SkinMaker = SM; window.dispatchEvent(new Event('skinmaker'));</script>
 <div id="toast" role="status"></div>
 
 <script>
@@ -363,6 +376,7 @@ function serialize(p) {
   const out = { name: p.name, w: p.w, h: p.h, palette: p.palette.slice(),
     poses: p.poses.map((po) => ({ name: po.name, fps: po.fps, frames: po.frames.map(encodeFrame) })) };
   for (const k of FW_FIELDS) if (p[k] !== undefined && p[k] !== null) out[k] = Array.isArray(p[k]) ? p[k].slice() : p[k];
+  if (p.skinOf) out.skinOf = { ...p.skinOf };
   return out;
 }
 function deserialize(d) {
@@ -376,6 +390,7 @@ function deserialize(d) {
   if (d.pixelScale > 0) p.pixelScale = +d.pixelScale;
   if (d.mouthRadius > 0) p.mouthRadius = +d.mouthRadius;
   if (d.seedVersion > 0) p.seedVersion = +d.seedVersion;
+  if (d.skinOf && typeof d.skinOf === 'object') p.skinOf = { hero: String(d.skinOf.hero), name: String(d.skinOf.name), set: String(d.skinOf.set), stage: String(d.skinOf.stage) };
   return p;
 }
 function newProject(name, w, h, fwName) {
@@ -1069,6 +1084,219 @@ $('fileIn').onchange = () => {
   };
   img.src = URL.createObjectURL(file); $('fileIn').value = '';
 };
+
+// ------------------------------------------------------------------ new skin (skinmaker.js)
+// A skin = a new look for one hero: three designs (hatchling, juvenile, adult) tagged with skinOf, so the game can
+// list them under the hero. Made from a picture (sprite sheet or one drawing), or as a color version of the current look.
+const SKIN_HEROES = [
+  { id: 'crocodile', name: 'Crocodile', seed: 'croc', shell: 'white', hide: 0.42 },
+  { id: 'mosa', name: 'Mosa', seed: 'mosa', shell: 'white', hide: 0.42 },
+  { id: 'white_shark', name: 'White Shark', seed: 'white_shark', shell: 'beige', hide: 0.4 },
+  { id: 'fang', name: 'Fang', seed: 'fang', shell: 'beige', hide: 0.4 },
+  { id: 'elder_croc', name: 'Elder Croc', seed: 'elder_croc', shell: 'beige', hide: 0.4 },
+];
+const SKIN_STAGES = [['hatchling', 'Hatchling'], ['juvenile', 'Juvenile'], ['adult', 'Adult']];
+const skinSm = () => window.SkinMaker;
+const SK = { hero: null, img: null, found: null, choices: [], thumbs: [], size: 1, result: null, base: null, timer: 0, anim: 0 };
+
+/** The hero's current design for a stage: the studio copy when there is one, else the one shipped with the game. */
+async function heroDesign(hero, stage, shippedOnly) {
+  const id = hero.seed + '-' + stage;
+  if (!shippedOnly) {
+    let d = readLocal(id);
+    if (db) { try { const c = await db.doc('projects/' + id).get(); if (c.exists && (!d || String(c.data().updatedAt) > String(d.updatedAt))) d = c.data(); } catch {} }
+    if (d && d.poses) return d;
+  }
+  return loadSeed(id);
+}
+/** Write a whole design (device copy right away, the cloud when it can). */
+async function putProject(id, data) {
+  const body = { ...data, updatedAt: new Date().toISOString(), rev: 1, device: DEVICE };
+  let pending = true;
+  if (db) { try { await db.doc('projects/' + id).set(body); pending = false; } catch {} }
+  try { localStorage.setItem(LOCAL + id, JSON.stringify({ ...body, pending })); } catch { if (pending) return false; }
+  return true;
+}
+function drawDesign(c, proj, poseName, frame, k) {
+  const pose = proj.poses.find((p) => p.name === poseName && p.frames.length) || proj.poses.find((p) => p.frames.length);
+  const f = pose.frames[frame % pose.frames.length];
+  c.width = proj.w * k; c.height = proj.h * k;
+  const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height);
+  for (let i = 0; i < f.length; i++) { const ch = f[i]; if (ch === '.') continue; g.fillStyle = proj.palette[ALPH.indexOf(ch)]; g.fillRect((i % proj.w) * k, ((i / proj.w) | 0) * k, k, k); }
+  return pose.frames.length;
+}
+function closeSkinMaker() { cancelAnimationFrame(SK.anim); $('dialog').classList.remove('wide'); closeModal(); }
+
+function openSkinMaker(heroId) {
+  if (!skinSm()) { toast('Still loading, try again in a moment'); window.addEventListener('skinmaker', () => openSkinMaker(heroId), { once: true }); return; }
+  commitFloat();
+  const opts = SKIN_HEROES.map((h) => `<option value="${h.id}" ${h.id === (heroId || SK.hero?.id) ? 'selected' : ''}>${h.name}</option>`).join('');
+  openModal(`<h3>New skin</h3>
+    <p class="label">A new look for one of the heroes: all three stages (the hatchling inside its egg too). You can then pick it under the hero on the game's home screen, and adjust any frame here.</p>
+    <div class="row"><label class="label" for="skHero">Hero</label><select id="skHero">${opts}</select></div>
+    <div class="row"><button id="skPic" class="on">From a picture…</button><button id="skColor">Color version of the current look</button><button id="skNo">Cancel</button></div>
+    <p class="label">Pictures work best as a sprite sheet: the poses on a plain background or a transparent PNG. Labels like WALK or BITE above each row help group the poses. One drawing works too.</p>`, () => {
+    $('dialog').classList.remove('wide');
+    const pick = () => SKIN_HEROES.find((h) => h.id === $('skHero').value);
+    $('skNo').onclick = closeSkinMaker;
+    $('skPic').onclick = () => { SK.hero = pick(); $('skFile').click(); };
+    $('skColor').onclick = () => { SK.hero = pick(); openColorVersion(); };
+  });
+}
+$('btnSkin').onclick = () => openSkinMaker();
+
+$('skFile').onchange = () => {
+  const file = $('skFile').files[0]; $('skFile').value = ''; if (!file) return;
+  const img = new Image();
+  img.onload = async () => {
+    // Very big photos are shrunk first (sprites only need a few hundred pixels each).
+    const k = Math.min(1, 1800 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = k < 1; g.drawImage(img, 0, 0, c.width, c.height);
+    SK.img = { w: c.width, h: c.height, data: g.getImageData(0, 0, c.width, c.height).data };
+    URL.revokeObjectURL(img.src);
+    SK.found = skinSm().findSprites(SK.img);
+    if (!SK.found.sprites.length) { toast('No creature found on that picture'); return; }
+    SK.base = await heroDesign(SK.hero, 'juvenile', true);
+    if (!SK.base) { toast('The hero design could not be loaded'); return; }
+    const M = skinSm();
+    const ref = M.decodeGrid((SK.base.poses.find((p) => p.name === 'move' && p.frames.length) || SK.base.poses[0]).frames[0], SK.base.w, SK.base.h);
+    const poses = M.guessPoses(SK.found.sprites);
+    const scale = M.fitScale(SK.found.sprites, SK.base.w, SK.base.h);
+    SK.size = 1;
+    SK.choices = SK.found.sprites.map((s, i) => ({ pose: poses[i], flip: !M.facesRight(M.mapColors(M.sampleSprite(SK.img, SK.found.labels, s, scale), M.ENDESGA32), ref) }));
+    // Thumbnails: each sprite at a small fixed size, in its own colors.
+    SK.thumbs = SK.found.sprites.map((s) => { const t = Math.min(96 / s.w, 60 / s.h, 1); return M.sampleSprite(SK.img, SK.found.labels, s, t); });
+    showSkinPicture();
+  };
+  img.onerror = () => toast('That picture could not be opened');
+  img.src = URL.createObjectURL(file);
+};
+
+function variantRow() {
+  const M = skinSm();
+  return `<div class="row"><span class="label">Also make:</span>${Object.entries(M.VARIANTS).map(([k, n]) => `<label><input type="checkbox" data-variant="${k}"> ${n}</label>`).join(' ')}</div>`;
+}
+function checkedVariants() { return [...document.querySelectorAll('[data-variant]')].filter((b) => b.checked).map((b) => b.dataset.variant); }
+
+function showSkinPicture() {
+  const M = skinSm(), h = SK.hero;
+  const tiles = SK.found.sprites.map((s, i) => `<div class="sktile" id="skt${i}"><canvas id="skc${i}" aria-label="Sprite ${i + 1}"></canvas>
+    <div class="row"><select data-pose="${i}" aria-label="Pose of sprite ${i + 1}">${M.POSES.map((p) => `<option value="${p}">${M.POSE_LABELS[p]}</option>`).join('')}</select>
+    <button data-flip="${i}" title="Turn it around (the head must point right)">⇆</button></div></div>`).join('');
+  openModal(`<h3>New skin for ${esc(h.name)}</h3>
+    <p class="label">Found ${SK.found.sprites.length} sprite${SK.found.sprites.length > 1 ? 's' : ''}. Tap a pose to change it, and ⇆ so every head points right. Swim needs at least one; missing poses are made for you (tail sway, an open jaw).</p>
+    <div class="sktiles">${tiles}</div>
+    <div class="row"><label class="label" for="skSize">Size</label><input type="range" id="skSize" min="50" max="100" value="${Math.round(SK.size * 100)}" style="flex:1"><button id="skFlipAll">Turn all ⇆</button></div>
+    <div class="skprev"><canvas id="skPrevJ" aria-label="Swim preview"></canvas><canvas id="skPrevB" aria-label="Bite preview"></canvas><canvas id="skPrevH" aria-label="Hatchling preview"></canvas></div>
+    <div class="row"><label class="label" for="skName">Skin name</label><input type="text" id="skName" maxlength="24" value="${esc(h.name)} skin"></div>
+    ${variantRow()}
+    <div class="row"><button id="skMake" class="on">Make the skin</button><button id="skBack">Back</button><button id="skNo">Cancel</button></div>`, () => {
+    $('dialog').classList.add('wide');
+    SK.found.sprites.forEach((s, i) => {
+      const t = SK.thumbs[i]; const c = $('skc' + i); c.width = t[0].length; c.height = t.length; const g = c.getContext('2d');
+      t.forEach((row, y) => row.forEach((col, x) => { if (col) { g.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; g.fillRect(x, y, 1, 1); } }));
+    });
+    const syncTiles = () => SK.choices.forEach((c, i) => {
+      document.querySelector(`[data-pose="${i}"]`).value = c.pose;
+      $('skc' + i).style.transform = c.flip ? 'scaleX(-1)' : '';
+      $('skt' + i).classList.toggle('skip', c.pose === 'skip');
+    });
+    syncTiles();
+    document.querySelectorAll('[data-pose]').forEach((sel) => sel.onchange = () => { SK.choices[+sel.dataset.pose].pose = sel.value; syncTiles(); rebuild(); });
+    document.querySelectorAll('[data-flip]').forEach((b) => b.onclick = () => { const c = SK.choices[+b.dataset.flip]; c.flip = !c.flip; syncTiles(); rebuild(); });
+    $('skFlipAll').onclick = () => { SK.choices.forEach((c) => (c.flip = !c.flip)); syncTiles(); rebuild(); };
+    $('skSize').oninput = () => { SK.size = +$('skSize').value / 100; rebuild(); };
+    $('skNo').onclick = closeSkinMaker;
+    $('skBack').onclick = () => openSkinMaker(SK.hero.id);
+    $('skMake').onclick = () => saveSkin($('skName').value, SK.result, checkedVariants());
+    rebuild(true);
+  });
+}
+function rebuild(now) {
+  clearTimeout(SK.timer);
+  const run = () => {
+    try { SK.result = skinSm().makeSkin(SK.img, SK.found, SK.choices, SK.base, { size: SK.size, shell: SK.hero.shell, hide: SK.hero.hide }); }
+    catch (err) { console.warn(err); SK.result = null; }
+    $('skMake').disabled = !SK.result;
+    animatePreview();
+  };
+  if (now) run(); else SK.timer = setTimeout(run, 120);
+}
+/** Swim, bite and the hatchling, playing in the dialog. */
+function animatePreview() {
+  cancelAnimationFrame(SK.anim);
+  const r = SK.result; if (!r) return;
+  let last = 0, n = 0;
+  const tick = (t) => {
+    if (!$('skPrevJ')) return;
+    if (t - last > 160) {
+      last = t; n++;
+      drawDesign($('skPrevJ'), r.juvenile, 'move', n, 2);
+      drawDesign($('skPrevB'), r.juvenile, 'attack', Math.floor(n / 2), 2);
+      drawDesign($('skPrevH'), r.hatchling, 'move', n, 2);
+    }
+    SK.anim = requestAnimationFrame(tick);
+  };
+  SK.anim = requestAnimationFrame(tick);
+}
+
+async function openColorVersion() {
+  const h = SK.hero;
+  const designs = {};
+  for (const [st] of SKIN_STAGES) designs[st] = await heroDesign(h, st);
+  if (!designs.adult) { toast('The hero design could not be loaded'); return; }
+  SK.result = designs;
+  openModal(`<h3>Color version of ${esc(h.name)}</h3>
+    <p class="label">The same drawing in new colors, for all three stages. Pick one or more.</p>
+    <div class="skprev"><canvas id="skPrevJ"></canvas><canvas id="skPrevB"></canvas><canvas id="skPrevH"></canvas></div>
+    ${variantRow()}
+    <div class="row"><label class="label" for="skName">Skin name</label><input type="text" id="skName" maxlength="24" value="${esc(h.name)}"></div>
+    <div class="row"><button id="skMake" class="on">Make the skins</button><button id="skBack">Back</button><button id="skNo">Cancel</button></div>`, () => {
+    $('dialog').classList.add('wide');
+    const M = skinSm();
+    const show = () => {
+      const keys = Object.keys(M.VARIANTS); const v = checkedVariants();
+      ['skPrevJ', 'skPrevB', 'skPrevH'].forEach((id, i) => drawDesign($(id), M.recolor(designs.adult, v.length ? v[i % v.length] : keys[i]), 'move', 0, 2));
+    };
+    document.querySelectorAll('[data-variant]').forEach((b) => b.onchange = show);
+    document.querySelector('[data-variant="golden"]').checked = true;
+    show();
+    $('skNo').onclick = closeSkinMaker;
+    $('skBack').onclick = () => openSkinMaker(h.id);
+    $('skMake').onclick = () => { const v = checkedVariants(); if (!v.length) { toast('Pick a color first'); return; } saveSkin($('skName').value, designs, v, true); };
+  });
+}
+
+/**
+ * Save the skin: one set of three designs, plus one set per color version. Ids look like sk-<time>-adult
+ * (a color version adds its first letter: sk-<time>-g-adult). Then the adult design opens for adjusting.
+ */
+async function saveSkin(rawName, designs, variants, onlyVariants) {
+  if (!designs) return;
+  const M = skinSm(), h = SK.hero;
+  const name = (rawName || '').trim().slice(0, 24) || h.name + ' skin';
+  const stamp = Date.now().toString(36);
+  const sets = (onlyVariants ? [] : [['', name, (d) => d]]).concat(variants.map((v) => ['-' + v[0], `${name} (${M.VARIANTS[v]})`, (d) => M.recolor(d, v)]));
+  $('skMake').disabled = true; $('skMake').textContent = 'Saving…';
+  let first = null, ok = true;
+  for (const [suffix, setName, color] of sets) {
+    const set = 'sk-' + stamp + suffix;
+    for (const [stage, label] of SKIN_STAGES) {
+      const d = color(JSON.parse(JSON.stringify(designs[stage])));
+      const { updatedAt, rev, device, pending, seedVersion, ...clean } = d;
+      const id = set + '-' + stage;
+      ok = (await putProject(id, { ...clean, name: `${setName}: ${label}`, skinOf: { hero: h.id, name: setName, set, stage } })) && ok;
+      if (stage === 'adult' && !first) first = id;
+    }
+  }
+  closeSkinMaker();
+  if (!ok) { toast('The skin could not be saved'); return; }
+  await loadProject(first);
+  toast(`Saved! Pick “${name}” under ${h.name} on the game's home screen.`);
+}
+// The game links here to make a skin for its hero: studio/index.html?newskin=fang
+{ const want = new URLSearchParams(location.search).get('newskin'); if (want) setTimeout(() => openSkinMaker(want), 600); }
 
 // ------------------------------------------------------------------ export
 function buildSheet(scale) {

@@ -88,6 +88,12 @@
       .hero-btn .d { font: 500 11px/1.2 var(--font-body); max-width: 150px; text-align: center; }
       .hero-btn[aria-pressed="true"] { border-color: var(--kelp); color: #fff; }
       .hero-btn:focus-visible { outline: 2px solid var(--sun); }
+      .looks { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+      .looks .look-label { color: var(--muted); font: 700 13px/1 var(--font-body); }
+      .look-chip { min-height: 40px; padding: 6px 12px; background: var(--panel); border: 2px solid var(--line); border-radius: 4px; color: var(--muted); font: 700 14px/1.1 var(--font-body); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+      .look-chip[aria-pressed="true"] { border-color: var(--kelp); color: #fff; }
+      .look-chip.new { border-style: dashed; }
+      .look-chip:focus-visible { outline: 2px solid var(--sun); }
       .best { font: 500 13px/1 var(--font-body); color: var(--muted); font-variant-numeric: tabular-nums; }
       .best b { color: var(--sun); font-weight: 600; }
 
@@ -231,6 +237,7 @@
           <button id="btnPlayer" class="player-chip" aria-label="Who's playing? Change player"><span class="pl-label">Playing as</span> <b id="playerName">Player 1</b> <span class="pl-change">Change</span></button>
           <button id="btnContinue" class="btn btn-play btn-continue" hidden><span>CONTINUE</span><span class="sub" id="continueSub"></span></button>
           <div class="heroes" id="heroPick" role="group" aria-label="Play as"></div>
+          <div class="looks" id="lookPick" role="group" aria-label="Look"></div>
           <button id="btnPlay" class="btn btn-play">PLAY</button>
           <div class="seg" role="group" aria-label="Difficulty">
             <button data-diff="easy" aria-pressed="false">Easy</button>

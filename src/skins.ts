@@ -35,6 +35,14 @@ export interface StudioProject {
   mouthRadius?: number;
   rev?: number;
   seedVersion?: number;
+  /** Part of a hero skin made in the studio (New skin): which hero, the skin's name, its set id and the stage. */
+  skinOf?: SkinOf;
+}
+export interface SkinOf {
+  hero: string;
+  name: string;
+  set: string;
+  stage: string;
 }
 
 /** Art geometry for the game, derived from a framework drawing. */
@@ -47,6 +55,7 @@ export interface StudioSummary {
   id: string;
   name: string;
   updatedAt: string;
+  skinOf?: SkinOf;
 }
 /** Which studio frames feed which game animation (indices into the pose's frames). */
 export interface PoseMap {
@@ -278,7 +287,7 @@ export async function listStudioProjects(): Promise<StudioSummary[]> {
       const key = window.localStorage.key(i)!;
       if (!key.startsWith(LOCAL) || key === LOCAL + 'last') continue;
       const v = readLocal(key.slice(LOCAL.length));
-      if (v) out.set(key.slice(LOCAL.length), { id: key.slice(LOCAL.length), name: v.name, updatedAt: v.updatedAt ?? '' });
+      if (v) out.set(key.slice(LOCAL.length), { id: key.slice(LOCAL.length), name: v.name, updatedAt: v.updatedAt ?? '', skinOf: cleanSkinOf(v.skinOf) });
     }
   } catch {
     /* storage blocked */
@@ -289,13 +298,58 @@ export async function listStudioProjects(): Promise<StudioSummary[]> {
       const snap = await db.collection('projects').get();
       for (const d of snap.docs) {
         const v = d.data() as StudioProject;
-        out.set(d.id, { id: d.id, name: v.name, updatedAt: v.updatedAt ?? '' });
+        out.set(d.id, { id: d.id, name: v.name, updatedAt: v.updatedAt ?? '', skinOf: cleanSkinOf(v.skinOf) });
       }
     } catch {
       /* offline */
     }
   }
   return [...out.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+function cleanSkinOf(v: unknown): SkinOf | undefined {
+  const o = v as SkinOf | null;
+  if (!o || typeof o !== 'object' || typeof o.hero !== 'string' || typeof o.set !== 'string' || !/^sk-[\w-]{1,30}$/.test(o.set)) return undefined;
+  return { hero: o.hero, name: String(o.name || 'Skin').slice(0, 40), set: o.set, stage: String(o.stage) };
+}
+
+// ------------------------------------------------------------------ hero skins (studio "New skin")
+// A skin is three studio designs with the same set id: `${set}-hatchling`, `-juvenile`, `-adult`.
+export interface HeroSkin {
+  set: string;
+  name: string;
+  updatedAt: string;
+}
+/** The skins made for each hero, from a project list. Pure. Only complete sets (all stages) count. */
+export function heroSkins(list: StudioSummary[], hero: string, stages: string[]): HeroSkin[] {
+  const sets = new Map<string, { name: string; updatedAt: string; stages: Set<string> }>();
+  for (const p of list) {
+    const s = p.skinOf;
+    if (!s || s.hero !== hero || p.id !== `${s.set}-${s.stage}`) continue;
+    const e = sets.get(s.set) ?? { name: s.name, updatedAt: p.updatedAt, stages: new Set<string>() };
+    e.stages.add(s.stage);
+    if (p.updatedAt < e.updatedAt) e.updatedAt = p.updatedAt;
+    sets.set(s.set, e);
+  }
+  return [...sets.entries()]
+    .filter(([, e]) => stages.every((st) => e.stages.has(st)))
+    .map(([set, e]) => ({ set, name: e.name, updatedAt: e.updatedAt }))
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+}
+/** The studio design id of a skin's stage. */
+export const skinStageId = (set: string, stage: string) => `${set}-${stage}`;
+
+/** The skin picked for each hero (from the profile). */
+let heroLooks: Record<string, string> = {};
+export function setHeroLooks(v: Record<string, string> | undefined): void {
+  heroLooks = { ...(v ?? {}) };
+}
+/** The design id the hero wears at this stage: its picked skin when that is loaded, else null (the original). */
+export function heroLookSkin(hero: string, stage: string): string | null {
+  const set = heroLooks[hero];
+  if (!set) return null;
+  const id = skinStageId(set, stage);
+  return stageLooks.has(id) ? id : null;
 }
 
 // ------------------------------------------------------------------ the active look
