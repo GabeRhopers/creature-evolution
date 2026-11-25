@@ -2502,6 +2502,39 @@
           }
         }
       }
+    },
+    "spino": {
+      "name": "Spino",
+      "blurb": "A sail-backed river giant. Fast and long. Lunge, Tail Slam, Feeding Frenzy.",
+      "stages": {
+        "hatchling": {
+          "skin": "spino-hatchling",
+          "ability": "lunge",
+          "art": {
+            "radius": 14,
+            "mouthReach": 3.4,
+            "mouthRadius": 0.7
+          }
+        },
+        "juvenile": {
+          "skin": "spino-juvenile",
+          "ability": "slam",
+          "art": {
+            "radius": 14,
+            "mouthReach": 3.4,
+            "mouthRadius": 0.7
+          }
+        },
+        "adult": {
+          "skin": "spino-adult",
+          "ability": "frenzy",
+          "art": {
+            "radius": 14,
+            "mouthReach": 3.4,
+            "mouthRadius": 0.7
+          }
+        }
+      }
     }
   },
   "checkpointCrab": {

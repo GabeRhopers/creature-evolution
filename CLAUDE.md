@@ -88,9 +88,14 @@ plus three neutral body greys (its signature colors), turns them to face right a
 belly, pink mouth), turns every pose to face right and writes `elder_croc-*.json` (framework `elder_croc`, 100x56 canvas, same
 art for all stages; hatchling by `egg_hatchling.py`). Walk = swim (`move`; its first frame is `idle` and `rest`), bite =
 `attack`, the standing poses = the level-up roar (`celebrate`), the first hurt pose = `damage`.
+**Spino** is the sixth hero: a blue spinosaurus with a tall sail from Rhopers' sheet (`tools/spino/spino_sheet.jpg`: two swim and
+two bite poses, all facing left, with water splashes). `tools/spino/convert_spino.py` decodes it and runs `build_spino.mjs`, which uses
+the Sprite Studio skin engine (`public/studio/skinmaker.js`) end to end: finds the four poses (splash dots skipped), turns them right,
+maps colors (Endesga 32 plus three signature blues), places them on the `spino` framework (112x52) and builds the egg hatchling (white
+shell). Swim = the top row, bite = the bottom row, the roar = the bites, the hurt flash = the first swim pose.
 Abilities: croc Shell Guard / Lunge / Death Roll; Elder Croc Lunge / Death Roll / Crushing Bite (armor 0.3, slower); Mosa Dart / Tail Slam / Crushing Bite;
 White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks); Fang Lunge / Crushing Bite /
-Feeding Frenzy (tougher skin than the White Shark).
+Feeding Frenzy (tougher skin than the White Shark); Spino Lunge / Tail Slam / Feeding Frenzy (fast, armor 0.15).
 
 ## Sprite Studio -> game (`src/skins.ts`, `public/studio/index.html`)
 Every creature look (hero stages and reef creatures) is a studio project id. The menu loads them all with

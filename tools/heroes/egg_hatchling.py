@@ -24,6 +24,7 @@ HEROES = {   # hero prefix: (title, shell, share of the body length hidden in th
     'white_shark': ('White Shark 1: Hatchling', 'beige', 0.40),
     'fang': ('Fang 1: Hatchling', 'beige', 0.40),
     'elder_croc': ('Elder Croc 1: Hatchling', 'beige', 0.40),
+    'spino': ('Spino 1: Hatchling', 'white', 0.40),
 }
 
 
