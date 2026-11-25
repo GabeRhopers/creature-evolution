@@ -2,11 +2,11 @@ import Phaser from 'phaser';
 import { Brain, type AIWorld, type Creature } from '../ai/Brain';
 import { BALANCE, getSpecies } from '../data';
 import { Fish, NO_INTENT, type SwimIntent } from '../entities/Fish';
-import { bossPhase, inLeash, type BossDef, type BossMode } from '../systems/bosses';
+import { bossPhase, type BossDef, type BossMode } from '../systems/bosses';
 
 /**
- * Bosses (balance.json "bosses"). The first is the Electric Eel in the Spring Cave (Mangrove Swamp, level 15):
- * a guardian that stays in its cave and fights the player with telegraphed moves. Pure rules live in
+ * Bosses (balance.json "bosses"). The first is the Electric Eel in the Coral Cave (Coral Sea, level 15): a guardian
+ * in its own arena (GameScene asks before you enter; it appears when you do) that fights with telegraphed moves. Pure rules live in
  * src/systems/bosses.ts; GameScene owns creatures, damage and saving, and calls in through `BossHost`.
  *
  *   hunt  -> charge (crackles, can't move)       -> shock ring around it
@@ -34,6 +34,8 @@ export interface BossHost {
   sfx(kind: 'zap' | 'warn' | 'gulp' | 'roar'): void;
   /** Already beaten in this run. */
   beaten(id: string): boolean;
+  /** The boss arena the player is in (its boss id), or null. */
+  arena(): string | null;
   defeated(id: string, c: Creature): void;
 }
 
@@ -88,11 +90,10 @@ export class BossSystem {
     const h = this.host;
     if (!this.active) {
       if (h.dead) return;
-      const p = h.player;
-      for (const d of this.defs) {
-        if (level < d.level || h.beaten(d.id)) continue;
-        if (p.x > d.left - d.wakeRange && p.x < d.right + d.wakeRange) this.spawn(d);
-      }
+      // It waits in its arena: it appears when the player enters.
+      const id = h.arena();
+      const d = this.defs.find((b) => b.id === id);
+      if (d && level >= d.level && !h.beaten(d.id)) this.spawn(d);
       return;
     }
     const a = this.active;
@@ -102,7 +103,7 @@ export class BossSystem {
       return;
     }
     const p = h.player;
-    const engaged = !h.dead && inLeash(p.x, a.def);
+    const engaged = !h.dead && h.arena() === a.def.id;
     if (engaged && !a.introduced) {
       a.introduced = true;
       h.banner(a.def.name.toUpperCase(), getSpecies(a.def.species).intro ?? '');
@@ -210,6 +211,17 @@ export class BossSystem {
     h.sfx('zap');
     const p = h.player;
     if (!h.dead && Phaser.Math.Distance.Between(x, y, p.x, p.y) < radius + p.size * 0.5) h.hurtPlayer(a.c, hpFraction, stun, label);
+  }
+
+  /** The player lost to it: it is back at full health and calm, for the next try. */
+  healFull(): void {
+    const a = this.active;
+    if (!a) return;
+    a.c.fish.hp = a.c.fish.maxHp;
+    this.setMode(a, 'hunt');
+    a.shockIn = a.def.shock.every;
+    a.breathIn = a.def.breath.every;
+    a.ring.clear();
   }
 
   /** The boss died (GameScene.kill): reward and save happen in the host. */

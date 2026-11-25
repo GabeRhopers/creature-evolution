@@ -1,5 +1,6 @@
-// First boss: the Electric Eel in the Spring Cave (Mangrove Swamp). It appears at level 15 when you come near, warns
-// before each shock, rises to the air hole to breathe (double damage window), is saved as beaten and never comes back.
+// First boss: the Electric Eel in the Coral Cave, its own arena in the Coral Sea. Swimming into a cave mouth asks first
+// (from level 15); inside, the camera stays in the cave and other fish are kept out. It warns before each shock, rises to
+// the air hole to breathe (double damage window); swim out to leave (it heals); losing wakes you outside; beaten = saved.
 import { chromium } from 'playwright-core';
 const b = await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--mute-audio']});
 const p = await b.newPage({viewport:{width:1280,height:800}});
@@ -18,23 +19,51 @@ await p.click('#btnPlay');
 await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMode && !!g.player && !!g.bosses;}, 30000);
 await G(()=>{const g=window.game.scene.getScene('Game'); g.gates.openAll(); window.__ban=[]; const h=window.game.scene.getScene('Hud'); const f=h.bigBanner.bind(h); h.bigBanner=(t,l)=>{window.__ban.push(t+' | '+(l??'')); f(t,l);};});
 
-// Before level 15 the cave is empty.
-await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(12); g.player.invulnTimer=1e9;});
-await place(35600, 1300); await p.waitForTimeout(2500);
-ok(!(await boss()), 'no eel in the cave before level 15');
-ok(await waitFor(()=>window.game.scene.getScene('Game').regionDark > 0.3, 15000), 'the cave is dim inside');
-await p.screenshot({path:'/tmp/boss_cave.png'});
+const E = await G(()=>{const d=window.game.scene.getScene('Game').bosses.defs[0]; return {left:d.left, right:d.right, airX:d.airX};});
+const midY = (x)=>G((x)=>{const g=window.game.scene.getScene('Game'); return g.chamberMidY(null, x);}, x);
+const prompt = ()=>G(()=>!!document.getElementById('cEnter')?.offsetParent);
+/** Swim into the left mouth (from just outside it). */
+const intoMouth = async ()=>{ const y = await midY(E.left + 60); await place(E.left - 900, y); await p.waitForTimeout(400); await place(E.left + 60, y); };
 
-// Level 15: it wakes, a banner names it, the boss bar shows.
+// Before level 15: no prompt; you are turned back at the mouth.
+await G(()=>{const g=window.game.scene.getScene('Game'); g.player.setLevel(12); g.player.invulnTimer=1e9;});
+await intoMouth();
+await p.waitForTimeout(1500);
+ok(!(await prompt()) && await G((l)=>window.game.scene.getScene('Game').player.x < l, E.left), 'before level 15 the cave turns you back (no prompt)');
+ok(!(await boss()), 'and there is no eel yet');
+
+// Level 15: swim into a mouth and a prompt asks first; the game waits.
 // Stay invulnerable for the rest of the test (a slow machine must not lose the fight mid-test); every boss hit is
 // still recorded, and the Checkpoint Crab is out of the way (its level 10 already beaten).
 await G(()=>{const g=window.game.scene.getScene('Game'); g.crabLevel=10; g.player.setLevel(15); g.player.invulnTimer=1e9; g.player.hp=g.player.maxHp;
   window.__hits=[]; const f=g.hurtPlayerBy.bind(g); g.hurtPlayerBy=(by,fr,st,label)=>{window.__hits.push(label); return f(by,fr,st,label);};});
-ok(await waitFor(async()=>!!window.game.scene.getScene('Game').bosses.current, 8000), 'at level 15 the Electric Eel appears');
+await place(E.left - 1500, await midY(E.left - 1500)); await p.waitForTimeout(800);
+await intoMouth();
+ok(await waitFor(()=>!!document.getElementById('cEnter')?.offsetParent, 8000), 'at level 15, swimming into the cave mouth asks "Enter the cave?"');
+ok((await p.textContent('#panel h3'))==='Coral Cave' && await G(()=>window.game.scene.isPaused('Game')), 'the prompt names the Coral Cave and the game waits');
+await p.screenshot({path:'/tmp/boss_prompt.png'});
+await p.click('#cNo'); await p.waitForTimeout(600);
+ok(!(await prompt()) && !(await G(()=>window.game.scene.isPaused('Game'))) && await G((l)=>window.game.scene.getScene('Game').player.x < l, E.left), '"Not now" keeps you outside and the game goes on');
+ok(!(await boss()), 'no eel without going in');
+
+// Away and back: asked again; Enter: inside the arena, the eel appears.
+await place(E.left - 1500, await midY(E.left - 1500)); await p.waitForTimeout(800);
+await intoMouth();
+ok(await waitFor(()=>!!document.getElementById('cEnter')?.offsetParent, 8000), 'swim away and back, and it asks again');
+await p.click('#cEnter'); await p.waitForTimeout(600);
+ok(await G(()=>{const g=window.game.scene.getScene('Game'); return g.arena?.id==='electric_eel' && g.player.x > g.arena.left;}), 'Enter takes you inside the cave');
+ok(await G((E)=>{const c=window.game.scene.getScene('Game').cameras.main; return c.useBounds && Math.round(c._bounds.x)===E.left && Math.round(c._bounds.width)===E.right-E.left;}, E), 'the camera stays in the cave: it is its own arena');
+ok(await waitFor(async()=>!!window.game.scene.getScene('Game').bosses.current, 8000), 'the Electric Eel appears');
 ok(await waitFor(()=>window.__ban.some(t=>t.includes('ELECTRIC EEL')), 8000), 'with a banner');
 ok(await G(()=>window.game.scene.getScene('Hud').bossName?.visible), 'and a boss health bar');
+ok(await waitFor(()=>window.game.scene.getScene('Game').regionDark > 0.3, 15000), 'the cave is dim inside');
 const b0 = await boss();
 ok(b0.max > 0 && b0.hp === b0.max, `it has full health (${Math.round(b0.max)})`);
+await p.screenshot({path:'/tmp/boss_cave.png'});
+
+// Other fish are kept out of the arena.
+await G((E)=>{const g=window.game.scene.getScene('Game'); const c=g.creatures.find(c=>c.brain && !c.boss && c.fish.active && !c.asleep); c.away=false; c.crowded=false; window.__intruder=c; c.fish.arcadeBody.reset((E.left+E.right)/2, g.chamberMidY(null, (E.left+E.right)/2));}, E);
+ok(await waitFor((E)=>{const f=window.__intruder.fish; return f.x < E.left || f.x > E.right;}, 6000, E), 'a fish that wanders in is put back outside');
 
 // Shock: it crackles first (a warning), then a ring hurts you if you are close.
 await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; const a=g.bosses.active; a.shockIn=0; a.breathIn=99;
@@ -46,21 +75,36 @@ ok(await waitFor(()=>{const g=window.game.scene.getScene('Game'); const c=g.boss
   return window.__hits.includes('ZAP!');}, 25000), 'the shock hits you if you stay close ' + JSON.stringify(await G(()=>{const a=window.game.scene.getScene('Game').bosses.active; return a ? {mode:a.mode, t:a.t, shockIn:a.shockIn, hits:window.__hits} : null;})));
 
 // Breath: it rises to the air hole and gulps; bites do double damage then.
-await G(()=>{const g=window.game.scene.getScene('Game'); const a=g.bosses.active; a.breathIn=0; a.shockIn=99; g.player.arcadeBody.reset(35000, 1300);});
+await G(()=>{const g=window.game.scene.getScene('Game'); const a=g.bosses.active; a.breathIn=0; a.shockIn=99; const x=g.arena.left+300; g.player.arcadeBody.reset(x, g.chamberMidY(null, x));});
 const gulped = await waitFor(()=>window.game.scene.getScene('Game').bosses.current?.brain.mode==='gulp', 20000);
 if (!gulped) console.log('boss now', JSON.stringify(await boss()));
 ok(gulped, 'it swims up to the air hole and gulps air');
 ok(await G(()=>{const g=window.game.scene.getScene('Game'); return g.bosses.damageMulAgainst(g.bosses.current) > 1;}), 'while it gulps, your bites do extra damage');
 await p.screenshot({path:'/tmp/boss_gulp.png'});
 
-// Leaving the cave pauses the fight; it heals.
+// Swim out of a mouth: you leave the arena; the fight pauses and it heals.
 await G(()=>{const g=window.game.scene.getScene('Game'); g.bosses.current.fish.hp = g.bosses.current.fish.maxHp * 0.5;});
-await place(30000, 900);
-ok(await waitFor(()=>!window.game.scene.getScene('Hud').bossName?.visible, 5000), 'swim away and the boss bar hides');
+await place(E.left - 40, await midY(E.left - 40));
+ok(await waitFor(()=>window.game.scene.getScene('Game').arena===null, 5000), 'swimming out of a cave mouth leaves the arena');
+ok(await G(()=>{const c=window.game.scene.getScene('Game').cameras.main; return c._bounds.width > 50000;}), 'and the camera follows the whole sea again');
+ok(await waitFor(()=>!window.game.scene.getScene('Hud').bossName?.visible, 5000), 'the boss bar hides');
 ok(await waitFor(()=>{const c=window.game.scene.getScene('Game').bosses.current; return c && c.fish.hp > c.fish.maxHp * 0.55;}, 10000), 'and it slowly heals while you are gone');
 
+// Losing inside: no game over; you wake up outside with some health, and the eel is back to full.
+const enter = async ()=>{ await place(E.left - 1500, await midY(E.left - 1500)); await p.waitForTimeout(800); await intoMouth();
+  await waitFor(()=>!!document.getElementById('cEnter')?.offsetParent, 8000); await p.click('#cEnter'); await p.waitForTimeout(500); };
+await enter();
+ok(await G(()=>window.game.scene.getScene('Game').arena!==null), 'back inside');
+await G(()=>{const g=window.game.scene.getScene('Game'); g.player.hp=1; g.playerDied(g.bosses.current, 'bitten');});
+await p.waitForTimeout(500);
+const lost = await G(()=>{const g=window.game.scene.getScene('Game'), pl=g.player, c=g.bosses.current; return {dead:g.dead, arena:g.arena, x:pl.x, hp:pl.hp/pl.maxHp, boss:c?c.fish.hp/c.fish.maxHp:null};});
+ok(!lost.dead && lost.arena===null && lost.x < E.left, 'losing to the eel does not end the run: you wake up outside the cave '+JSON.stringify(lost));
+ok(lost.hp > 0.2 && lost.hp < 0.5 && lost.boss===1, 'with some of your health, and the eel back to full');
+ok(await waitFor(()=>window.__ban.some(t=>t.includes('WINS THIS TIME')), 3000), 'a banner says it won this time');
+await G(()=>{const g=window.game.scene.getScene('Game'); g.player.invulnTimer=1e9; g.player.hp=g.player.maxHp;});
+
 // Defeat it: banner, trophy, saved, and it does not come back.
-await place(35600, 1300);
+await enter();
 const perksBefore = await G(()=>{const g=window.game.scene.getScene('Game'); window.__perkOffers=0; window.addEventListener('ce:perk',()=>window.__perkOffers++); return g.perks.length;});
 await G(()=>{const g=window.game.scene.getScene('Game'); const c=g.bosses.current; c.fish.hp = 1; g.kill(c, g.playerCreature);});
 ok(await waitFor(()=>window.__ban.some(t=>t.includes('DEFEATED')), 5000), 'beating it shows a banner');

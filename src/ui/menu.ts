@@ -1025,6 +1025,37 @@ export function initMenu(game: Phaser.Game): void {
     );
   });
 
+  // A boss cave: ask before going in (the game waits paused).
+  window.addEventListener('ce:cave', (e) => {
+    const d = (e as CustomEvent<{ id: string; cave: string; boss: string; beaten: boolean }>).detail;
+    const g = scene();
+    if (!g) return;
+    if (!playing() || paused) return void g.answerCave(false);
+    choosingPerk = true; // like a perk choice: Escape and B don't skip it, the buttons answer
+    paused = true;
+    game.scene.pause('Game');
+    const answer = (enter: boolean) => {
+      choosingPerk = false;
+      paused = false;
+      wrap.classList.remove('open');
+      game.scene.resume('Game');
+      scene()?.answerCave(enter);
+    };
+    openPanel(
+      `<h3>${esc(d.cave)}</h3>
+      <p>${
+        d.beaten
+          ? `You beat the ${esc(d.boss)} here. The cave is quiet now.`
+          : `The ${esc(d.boss)} lives in this cave. Inside, it's just you and it. You can swim back out any time, and if it wins you wake up outside.`
+      }</p>
+      <div class="row"><button class="btn btn-play" id="cEnter">Enter the cave</button><button class="btn" id="cNo">Not now</button></div>`,
+      () => {
+        $('cEnter').onclick = () => answer(true);
+        $('cNo').onclick = () => answer(false);
+      },
+    );
+  });
+
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || choosingPerk) return;
     if (wrap.classList.contains('open')) closePanel();

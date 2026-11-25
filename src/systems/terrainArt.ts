@@ -285,7 +285,7 @@ export function caveRockRows(u: number, aboveRows: number): number {
 }
 
 /**
- * A cave rock (the Spring Cave's roof): a low mossy hump with a few ferns above the water, and below it a thick
+ * A cave rock (the Coral Cave's roof, the Trench's roof): a low mossy hump with a few ferns above the water, and below it a thick
  * slab of dark stone with a flat underside, wet streaks and stalactites dripping from the roof.
  */
 export function makeCaveRock(scene: Phaser.Scene, key: string, t: Terrain, cx: number, width: number, depth: number, above: number, P: number, seed: number): void {
