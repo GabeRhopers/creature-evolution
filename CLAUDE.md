@@ -69,17 +69,24 @@ the home screen (`settings.hero`); a saved run keeps the hero it was played with
 **White Shark** is the third hero, drawn in the same style as Mike's two (`tools/heroes/draw_shark.py`:
 polygon shapes, grey back, white belly, tooth row, yellow eye; framework `white_shark`). Shared hero drawing
 helpers (eye-anchored placement, bite frames, blink, egg) live in `tools/heroes/heroart.py`.
-**Every hero's hatchling hatches from an egg**: it sits in a broken shell and wears a shell cap
-(`heroart.egg`; the shark's shell is beige so it stands out from its white belly).
+**Every hero's hatchling is still inside its egg** (Rhopers' concept, Nov 25, `tools/heroes/hatchling_egg_concept.jpg`):
+the egg lies on its side over the middle of the body; the head pokes out of the front through a jagged hole, the tail out
+of the back, two little claws out of holes underneath (they paddle), and the shell has zigzag cracks. White shell for the
+crocs' and Mosa's, beige for heroes with a white belly (sharks, Fang) and the Elder Croc. One script draws them all from each
+hero's JUVENILE design (same poses and canvas): `python3 tools/heroes/egg_hatchling.py [hero]` writes
+`<hero>-hatchling.json` (seedVersion 5; the egg's size and place are measured once on the first swim frame so it never
+jumps; `bodyRadius` = the egg's half-height, so the egg is the hit circle). Run it after any script that redraws a juvenile
+(the older per-hero scripts still write their old eggshell-cap hatchlings). **A new hero gets its hatchling this way too:**
+add it to `HEROES` in `egg_hatchling.py`.
 **Fang** is the fourth hero: a pixel-art great white from a sheet of four poses (idle, swim, attack, hurt) supplied by
 Rhopers (`tools/fang/fang_sheet.jpg`). `tools/fang/convert_fang.py` samples each pose to art pixels, maps them to Endesga 32
 plus three neutral body greys (its signature colors), turns them to face right and writes `fang-*.json` (framework `fang`,
-100x44 canvas, same art for all three stages; the hatchling wears a beige eggshell cap). The hurt pose is the `damage` frame.
+100x44 canvas, same art for all three stages; the hatchling is made by `egg_hatchling.py`). The hurt pose is the `damage` frame.
 **Elder Croc** is the fifth hero: a pixel-art crocodile from a sheet of poses (idle, walk, bite, hurt) supplied by Rhopers
 (`tools/elder/elder_sheet.jpg`). `tools/elder/convert_elder.py` finds each pose as a connected shape on the navy background
 (labels and stray bits skipped), samples it to art pixels, maps it to Endesga 32 plus three signature colors (lime body, pale
 belly, pink mouth), turns every pose to face right and writes `elder_croc-*.json` (framework `elder_croc`, 100x56 canvas, same
-art for all stages, eggshell cap on the hatchling). Walk = swim (`move`; its first frame is `idle` and `rest`), bite =
+art for all stages; hatchling by `egg_hatchling.py`). Walk = swim (`move`; its first frame is `idle` and `rest`), bite =
 `attack`, the standing poses = the level-up roar (`celebrate`), the first hurt pose = `damage`.
 Abilities: croc Shell Guard / Lunge / Death Roll; Elder Croc Lunge / Death Roll / Crushing Bite (armor 0.3, slower); Mosa Dart / Tail Slam / Crushing Bite;
 White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks); Fang Lunge / Crushing Bite /
