@@ -2458,6 +2458,39 @@
           }
         }
       }
+    },
+    "elder_croc": {
+      "name": "Elder Croc",
+      "blurb": "Old, slow and very tough. Lunge, Death Roll, Crushing Bite.",
+      "stages": {
+        "hatchling": {
+          "skin": "elder_croc-hatchling",
+          "ability": "lunge",
+          "art": {
+            "radius": 14,
+            "mouthReach": 2.4,
+            "mouthRadius": 0.7
+          }
+        },
+        "juvenile": {
+          "skin": "elder_croc-juvenile",
+          "ability": "roll",
+          "art": {
+            "radius": 14,
+            "mouthReach": 2.4,
+            "mouthRadius": 0.7
+          }
+        },
+        "adult": {
+          "skin": "elder_croc-adult",
+          "ability": "crush",
+          "art": {
+            "radius": 14,
+            "mouthReach": 2.4,
+            "mouthRadius": 0.7
+          }
+        }
+      }
     }
   },
   "checkpointCrab": {
