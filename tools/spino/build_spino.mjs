@@ -1,6 +1,7 @@
 // Spino, the sixth hero. Since Nov 26 each stage has its own sheet from Rhopers and Mike (brown, sail-backed, facing left):
-// spino_hatchling_sheet.jpg (still inside its egg), spino_juvenile_sheet.jpg and spino_adult_sheet.jpg (yellow stripes),
-// each with four labeled poses top to bottom: IDLE, SWIM, SWIM ATTACK, HURT. Built with the Sprite Studio skin engine
+// spino_hatchling_sheet.jpg (still inside its egg), spino_juvenile_sheet.jpg and spino_adult_sheet.jpg (pale belly and pale
+// crackle marks on the back; replaced the first adult sheet, with yellow stripes, the same day), each with four labeled poses
+// top to bottom: IDLE, SWIM, SWIM ATTACK, HURT. All face left except the adult's HURT, which faces right (FACING). Built with the Sprite Studio skin engine
 // (public/studio/skinmaker.js): find the poses (labels, splash and blood dots skipped), turn them to face right, map the
 // colors (Endesga 32 plus up to three signature colors per stage) and place them on the `spino` framework (112x52) with
 // the snout fixed. Swim = idle + swim, bite = swim + swim attack (the jaw snaps), hurt = hurt, roar = the bite.
@@ -15,7 +16,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SEEDS = path.join(HERE, '../../public/studio/seeds');
 const hero = { w: 112, h: 52, framework: 'spino', bodyRadius: 14, pixelScale: 2, mouthRadius: 0.7 };
 const STAMP = '2026-11-21T12:00:00.000Z';
-const VERSION = 6; // newer than the blue Spino (hatchling 5, juvenile and adult 3)
+// Newer than the blue Spino (hatchling 5, juvenile and adult 3); the adult is 7 since its sheet was replaced after 6 shipped.
+const VERSION = { hatchling: 6, juvenile: 6, adult: 7 };
+// Which poses face left on each sheet (idle, swim, swim attack, hurt); those are turned to face right.
+const FACING = { hatchling: 'LLLL', juvenile: 'LLLL', adult: 'LLLR' };
 const titles = { hatchling: 'Spino 1: Hatchling', juvenile: 'Spino 2: Juvenile', adult: 'Spino 3: Adult' };
 // Hit circle: the hatchling's egg-wrapped body is a little rounder.
 const radius = { hatchling: 16, juvenile: 14, adult: 14 };
@@ -62,7 +66,7 @@ for (let k = 0; k < args.length; k += 4) {
   const scale = SM.fitScale(sprites, hero.w, hero.h, 1);
   const rgb = sprites.map((s) => SM.sampleSprite(img, found.labels, s, scale));
   const palette = SM.ENDESGA32.concat(SIGNATURE);
-  const [idle, swim, bite, hurt] = rgb.map((g) => SM.flipGrid(SM.mapColors(g, palette)));
+  const [idle, swim, bite, hurt] = rgb.map((g, i) => { const m = SM.mapColors(g, palette); return FACING[stage][i] === 'L' ? SM.flipGrid(m) : m; });
   const p = SM.assemble(
     [{ grid: idle, pose: 'move' }, { grid: swim, pose: 'move' }, { grid: swim, pose: 'attack' }, { grid: bite, pose: 'attack' }, { grid: hurt, pose: 'damage' }, { grid: bite, pose: 'celebrate' }, { grid: idle, pose: 'celebrate' }],
     palette,
@@ -70,7 +74,7 @@ for (let k = 0; k < args.length; k += 4) {
   );
   const pose = (n) => p.poses.find((x) => x.name === n);
   pose('celebrate').fps = 4;
-  out[stage] = { name: titles[stage], ...p, bodyRadius: radius[stage], updatedAt: STAMP, seedVersion: VERSION };
+  out[stage] = { name: titles[stage], ...p, bodyRadius: radius[stage], updatedAt: STAMP, seedVersion: VERSION[stage] };
 }
 for (const [stage, p] of Object.entries(out)) {
   fs.writeFileSync(path.join(SEEDS, `spino-${stage}.json`), JSON.stringify(p));
