@@ -15,6 +15,7 @@ SEEDS = os.path.join(HERE, '../../public/studio/seeds')
 ALPH = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 STAMP = '2026-11-21T12:00:00.000Z'
 VERSION = 5          # newer than every earlier hatchling, so untouched old starters are replaced
+VERSIONS = {'fang': 6}   # redrawn later (Elder Shark's new swim, Nov 26)
 OUTLINE = '#181425'
 # Shell colors: white, or beige for heroes with a white belly (so the egg stands out from the body).
 SHELLS = {'white': ('#ffffff', '#c0cbdc'), 'beige': ('#ead4aa', '#c28569')}
@@ -22,7 +23,7 @@ HEROES = {   # hero prefix: (title, shell, share of the body length hidden in th
     'croc': ('Crocodile 1: Hatchling', 'white', 0.42),
     'mosa': ('Mosa 1: Hatchling', 'white', 0.42),
     'white_shark': ('White Shark 1: Hatchling', 'beige', 0.40),
-    'fang': ('Fang 1: Hatchling', 'beige', 0.40),
+    'fang': ('Elder Shark 1: Hatchling', 'beige', 0.40),
     'elder_croc': ('Elder Croc 1: Hatchling', 'beige', 0.40),
     'spino': ('Spino 1: Hatchling', 'white', 0.40),
 }
@@ -157,7 +158,7 @@ def build(hero):
         'name': title, 'w': w, 'h': h, 'palette': pal, 'framework': src['framework'],
         # The egg is the body: the hit circle is about the egg's size; the head and tail poke out past it.
         'bodyRadius': max(3, int(round(ry))), 'mouth': src['mouth'], 'pixelScale': src.get('pixelScale', 3),
-        'poses': poses, 'updatedAt': STAMP, 'seedVersion': VERSION,
+        'poses': poses, 'updatedAt': STAMP, 'seedVersion': VERSIONS.get(hero, VERSION),
     }
     for d in (SEEDS, HERE):
         json.dump(proj, open(os.path.join(d, f'{hero}-hatchling.json'), 'w'))

@@ -35,7 +35,7 @@ await G(()=>window.addEventListener('ce:perk',()=>setTimeout(()=>document.queryS
 const heroes = await G(()=>[...document.querySelectorAll('[data-hero]')].map(b=>b.dataset.hero));
 ok(heroes.includes('fang'), 'home offers Fang: '+heroes.join());
 await p.click('[data-hero="fang"]'); await p.waitForTimeout(800);
-ok(await G(()=>document.getElementById('heroCroc').getAttribute('aria-label')==='The Fang'), 'the home logo shows Fang');
+ok(await G(()=>document.getElementById('heroCroc').getAttribute('aria-label')==='The Elder Shark'), 'the home logo shows the Elder Shark');
 await p.screenshot({path:'/home/claude/stages/fang_home.png'});
 await play('fang');
 

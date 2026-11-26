@@ -78,10 +78,14 @@ hero's JUVENILE design (same poses and canvas): `python3 tools/heroes/egg_hatchl
 jumps; `bodyRadius` = the egg's half-height, so the egg is the hit circle). Run it after any script that redraws a juvenile
 (the older per-hero scripts still write their old eggshell-cap hatchlings). **A new hero gets its hatchling this way too:**
 add it to `HEROES` in `egg_hatchling.py`.
-**Fang** is the fourth hero: a pixel-art great white from a sheet of four poses (idle, swim, attack, hurt) supplied by
+**Elder Shark** (id `fang`; called Fang until Nov 26, the id stays so saves keep working) is the fourth hero: a pixel-art great white from a sheet of four poses (idle, swim, attack, hurt) supplied by
 Rhopers (`tools/fang/fang_sheet.jpg`). `tools/fang/convert_fang.py` samples each pose to art pixels, maps them to Endesga 32
-plus three neutral body greys (its signature colors), turns them to face right and writes `fang-*.json` (framework `fang`,
-100x44 canvas, same art for all three stages; the hatchling is made by `egg_hatchling.py`). The hurt pose is the `damage` frame.
+plus three neutral body greys (its signature colors), turns them to face right and writes `fang-*.json` (framework `fang`, same art
+for all three stages; the hatchling is made by `egg_hatchling.py`). The hurt pose is the `damage` frame. Nov 26: the swim is from
+Rhopers' new sheet (`tools/fang/elder_shark_swim_sheet.jpg`: IDLE and SWIM with the tail curving down): `tools/fang/update_swim.py`
+(runs `build_swim.mjs` with the skin engine, then `egg_hatchling.py fang`) grew the canvas to 100x60 (8 rows above and below; the
+mouth moved to [84, 36]), matched the new poses to the old body length, palette, snout and head height, and made move = [idle, swim],
+idle and rest = the new idle (seedVersion 4, hatchling 6; `VERSIONS` in `egg_hatchling.py`).
 **Elder Croc** is the fifth hero: a pixel-art crocodile from a sheet of poses (idle, walk, bite, hurt) supplied by Rhopers
 (`tools/elder/elder_sheet.jpg`). `tools/elder/convert_elder.py` finds each pose as a connected shape on the navy background
 (labels and stray bits skipped), samples it to art pixels, maps it to Endesga 32 plus three signature colors (lime body, pale
@@ -94,7 +98,7 @@ the Sprite Studio skin engine (`public/studio/skinmaker.js`) end to end: finds t
 maps colors (Endesga 32 plus three signature blues), places them on the `spino` framework (112x52) and builds the egg hatchling (white
 shell). Swim = the top row, bite = the bottom row, the roar = the bites, the hurt flash = the first swim pose.
 Abilities: croc Shell Guard / Lunge / Death Roll; Elder Croc Lunge / Death Roll / Crushing Bite (armor 0.3, slower); Mosa Dart / Tail Slam / Crushing Bite;
-White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks); Fang Lunge / Crushing Bite /
+White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks); Elder Shark Lunge / Crushing Bite /
 Feeding Frenzy (tougher skin than the White Shark); Spino Lunge / Tail Slam / Feeding Frenzy (fast, armor 0.15).
 
 ## Sprite Studio -> game (`src/skins.ts`, `public/studio/index.html`)
