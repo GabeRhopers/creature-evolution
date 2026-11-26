@@ -425,6 +425,14 @@ Ramming a fish stuns it and knocks it aside; it halves your speed only if it is 
 (`combat.ramSlowRankRatio`, 1.25x your rank). A rock stuns you only on a head-on hit. (Before Nov 23, brushing past
 a same-size tang at normal speed halved your speed: the "small breaks" in swimming.)
 
+## Delayed bites (`GameScene.startBite` / `updatePendingBites`, `balance.json` combat `biteDelaySeconds`, `biteLandReachMul`)
+Rhopers, Nov 26: a bite's damage lands when the bite animation ends, `biteDelaySeconds` (1) after it starts, for the player and
+every creature. `startBite` plays the bite over the delay (`Fish.playBite(seconds)`: the bite frames stretch so the jaws snap shut at
+the hit), sets the cooldown to at least the delay and queues it in `pendingBites` (one per biter). At the end it lands through `bite`
+only if the biter is not stunned or dead and the target is still within `biteLandReachMul` x the usual reach; otherwise "Miss" (your
+bite) or "Dodged!" (a bite at you). Dash bites and the grab abilities (Crushing Bite, Death Roll) still hit at once. `bite()` itself
+stays instant (tests call it). 0 = the old instant bites. E2E: `bite_delay.mjs`.
+
 ## Player damage rules (`GameScene.attackPlayer`)
 AI never swallows the player. Predators that could swallow you "chomp" (x1.5 damage);
 every hit is capped at `playerDefense.maxHitFraction` of max HP, then knockback +

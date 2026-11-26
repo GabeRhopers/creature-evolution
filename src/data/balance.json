@@ -2082,6 +2082,9 @@
   "combat": {
     "biteCooldown": 0.45,
     "aiBiteCooldown": 0.9,
+    "_biteDelay": "A bite's damage lands biteDelaySeconds after it starts, when the jaws snap shut at the end of the bite animation (every creature, player included); it misses if the target got farther than biteLandReachMul x the reach. 0 = instant (the old way).",
+    "biteDelaySeconds": 1,
+    "biteLandReachMul": 1.5,
     "biteReachMul": 0.9,
     "meatXpPerDamage": 0.5,
     "meatTint": "#e2574c",

@@ -146,6 +146,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   playerHunted = false;
   /** The player's bites this run (the first-minutes coach watches it). */
   playerBites = 0;
+  /** Bites under way: the jaws open, and the damage lands `combat.biteDelaySeconds` later if the target is still in reach. */
+  pendingBites = new Map<Creature, { target: Creature; mul: number; t: number }>();
   playerHidden = false;
   /** Day and night: the cycle, seconds into it, and the light right now (read by brains, food, overlay, HUD). */
   readonly dayNight = new DayNight(BALANCE.dayNight as DayNightConfig);
@@ -241,6 +243,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.aiMeals = 0;
     this.playerHunted = false;
     this.playerBites = 0;
+    this.pendingBites = new Map();
     this.playerHidden = false;
     this.mouthState = 'idle';
     this.swallowCooldown = 0;
@@ -507,6 +510,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       this.updateRams();
     }
     this.updateAiEating();
+    this.updatePendingBites(dt);
     this.updateCrab(dt);
 
     if (!this.dead) {
@@ -1512,7 +1516,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
           this.respawnAmbient(swallowTarget);
         }
       } else if (biteTarget && p.biteCooldown <= 0) {
-        this.bite(this.playerCreature, biteTarget);
+        this.startBite(this.playerCreature, biteTarget);
       }
     }
 
@@ -1521,14 +1525,55 @@ export class GameScene extends Phaser.Scene implements AIWorld {
 
   // ---------------------------------------------------------------- combat
 
-  /** `attacker` bites `target`: damage, meat chunks, reactions, maybe a kill. */
-  private bite(attacker: Creature, target: Creature, damageMul = 1): void {
+  /**
+   * A bite starts: the jaws open (the bite animation runs for `combat.biteDelaySeconds`) and the damage lands when they
+   * snap shut, in `updatePendingBites`, only if the target is still in reach (`biteLandReachMul` x the usual reach) and the
+   * biter was not stunned meanwhile. So a bite can be dodged, and the hit matches the animation (Rhopers, Nov 26).
+   * Dash bites and the grab abilities (Crushing Bite, Death Roll) still hit at once: they are the impact itself.
+   */
+  startBite(attacker: Creature, target: Creature, damageMul = 1): void {
+    const cb = BALANCE.combat;
+    const delay = cb.biteDelaySeconds ?? 0;
+    if (delay <= 0) return this.bite(attacker, target, damageMul);
+    if (this.pendingBites.has(attacker)) return;
+    const a = attacker.fish;
+    // The next bite can start once this one lands.
+    a.biteCooldown = Math.max(attacker.isPlayer ? cb.biteCooldown : cb.aiBiteCooldown, delay);
+    a.playBite(delay);
+    if (attacker.isPlayer) this.playerBites++;
+    this.pendingBites.set(attacker, { target, mul: damageMul, t: delay });
+  }
+
+  private updatePendingBites(dt: number): void {
+    const cb = BALANCE.combat;
+    for (const [attacker, b] of this.pendingBites) {
+      b.t -= dt;
+      if (b.t > 0) continue;
+      this.pendingBites.delete(attacker);
+      const a = attacker.fish, t = b.target.fish;
+      if (!a.active || a.hp <= 0 || a.stunned || !t.active || t.hp <= 0 || b.target.asleep) continue;
+      if (b.target.isPlayer && this.dead) continue;
+      const mouth = a.mouthPoint();
+      const reach = (a.mouthRadius(true) + t.size * cb.biteReachMul) * (cb.biteLandReachMul ?? 1.5);
+      if (Phaser.Math.Distance.Between(mouth.x, mouth.y, t.x, t.y) > reach) {
+        if (attacker.isPlayer) this.hud.popup('Miss', t.x, t.y - t.size, false, '#cfe8ff');
+        else if (b.target.isPlayer) this.hud.popup('Dodged!', a.x, a.y - a.size, false, '#cfe8ff');
+        continue;
+      }
+      this.bite(attacker, b.target, b.mul, true);
+    }
+  }
+
+  /** `attacker` bites `target`: damage, meat chunks, reactions, maybe a kill. Lands at once (see `startBite`). */
+  private bite(attacker: Creature, target: Creature, damageMul = 1, started = false): void {
     const cb = BALANCE.combat;
     const a = attacker.fish;
     const t = target.fish;
-    a.biteCooldown = attacker.isPlayer ? cb.biteCooldown : cb.aiBiteCooldown;
-    a.playBite();
-    if (attacker.isPlayer) this.playerBites++;
+    if (!started) {
+      a.biteCooldown = attacker.isPlayer ? cb.biteCooldown : cb.aiBiteCooldown;
+      a.playBite();
+      if (attacker.isPlayer) this.playerBites++;
+    }
     if (target.isPlayer) {
       this.attackPlayer(attacker, damageMul);
       return;
@@ -1846,7 +1891,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, t.fish.x, t.fish.y);
         if (t.isPlayer) {
           // The player is attacked (chomp or bite), never swallowed whole.
-          if (me.biteCooldown <= 0 && d < r + t.fish.size * BALANCE.combat.biteReachMul) this.bite(c, t);
+          if (me.biteCooldown <= 0 && d < r + t.fish.size * BALANCE.combat.biteReachMul) this.startBite(c, t);
         } else if (me.canSwallow(t.fish.size)) {
           if (d < r + t.fish.size * 0.5) {
             b.ate('fish');
@@ -1856,7 +1901,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
             this.respawnAmbient(t);
           }
         } else if (me.biteCooldown <= 0 && d < r + t.fish.size * BALANCE.combat.biteReachMul) {
-          this.bite(c, t);
+          this.startBite(c, t);
         }
       } else if (b.state === 'forage' && b.foodTarget?.alive) {
         const f = b.foodTarget;

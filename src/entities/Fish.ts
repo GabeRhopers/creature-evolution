@@ -81,6 +81,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   }
   /** Seconds left showing the bite / open-jaw frame. */
   private biteAnim = 0;
+  private biteSeconds = BITE_SEQ_SECONDS;
   /** Body, rank and strength for the current level. */
   form!: Form;
   /** Perk effects (player only; AI fish keep 1.0 everywhere). */
@@ -148,8 +149,10 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   }
 
   /** Show the open-jaw frame briefly (species with animation frames). */
-  playBite(): void {
-    this.biteAnim = this.skinFrames?.biteSeq && this.skinFrames.biteSeq.length > 1 ? BITE_SEQ_SECONDS : 0.25;
+  /** Show the bite: over `seconds` when given (a delayed bite: the jaws snap shut when the damage lands), else quickly. */
+  playBite(seconds?: number): void {
+    this.biteSeconds = seconds ?? (this.skinFrames?.biteSeq && this.skinFrames.biteSeq.length > 1 ? BITE_SEQ_SECONDS : 0.25);
+    this.biteAnim = this.biteSeconds;
   }
 
   /** Play the celebrate animation (level-up), if the art has one. */
@@ -453,7 +456,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     const speed = this.arcadeBody.velocity.length();
     const still = speed < this.cruiseSpeed * 0.12 && !this.stunned;
     if (this.biteAnim > 0 && frames.biteSeq && frames.biteSeq.length > 1) {
-      const k = Math.min(frames.biteSeq.length - 1, Math.floor((1 - this.biteAnim / BITE_SEQ_SECONDS) * frames.biteSeq.length));
+      const k = Math.min(frames.biteSeq.length - 1, Math.floor((1 - this.biteAnim / this.biteSeconds) * frames.biteSeq.length));
       frame = frames.biteSeq[Math.max(0, k)];
     } else if (this.biteAnim > 0 && frames.bite) {
       frame = frames.bite;
