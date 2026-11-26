@@ -4,9 +4,14 @@ import { saves } from '../save';
 import { PERK_ICONS, perkIconCanvas } from '../ui/perkIcons';
 import { BALANCE, legendLevel, tideOf } from '../data';
 import type { GameScene } from './GameScene';
+
+/** Bot runs (?bot) never get the coach. */
+const GameSceneBot = () => new URLSearchParams(window.location.search).has('bot');
 import { toggleTuningPanel } from '../ui/tuning';
 import { Joystick } from '../ui/Joystick';
 import { PAD, padHint, pads } from '../input/gamepad';
+import { newCoach, stepCoach, type CoachState } from '../systems/coach';
+import { coachProfile, updateCoachProfile } from '../ui/coachStore';
 
 /** Help line while a controller is in use. */
 
@@ -139,6 +144,11 @@ export class HudScene extends Phaser.Scene {
     this.clock = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '16px', color: '#ffffff', stroke: '#181425', strokeThickness: 4 }).setOrigin(1, 0);
     this.clockBack = this.add.rectangle(0, 0, 64, 4, HUD.ink, 0.7).setOrigin(1, 0);
     this.clockBar = this.add.rectangle(0, 0, 0, 4, 0xffffff).setOrigin(0, 0);
+    this.coachText = this.add
+      .text(0, 0, '', { fontFamily: FONT, fontSize: '17px', color: '#ffffff', stroke: '#181425', strokeThickness: 5, align: 'center', backgroundColor: '#181425aa', padding: { x: 10, y: 6 } })
+      .setOrigin(0.5, 0)
+      .setAlpha(0)
+      .setName('coach');
     this.hint = this.add.text(16, 0, '', { fontFamily: BODY, fontSize: '12px', color: '#c0cbdc', stroke: '#181425', strokeThickness: 3 }).setAlpha(0.9);
     // Perk icons (16x16 pixel art) in a row under the info line.
     for (const id of Object.keys(PERK_ICONS)) {
@@ -546,9 +556,53 @@ export class HudScene extends Phaser.Scene {
         : 'WASD/arrows or mouse: swim | Shift: sprint | Space/right-click: eat (green swallow, orange bite) | E/Q: ability | R restart | ` tune | P hitboxes'
     );
     this.hint.setText(this.baseHint);
+    this.coachText.setPosition(width / 2, 104).setWordWrapWidth(Math.min(620, width - 40));
   }
 
   private baseHint = '';
+
+  // ---------------------------------------------------------------- first-minutes coach (src/systems/coach.ts)
+  private coachText!: Phaser.GameObjects.Text;
+  private coach: CoachState | null = null;
+  private coachT = 0;
+  private coachRun = -1;
+  private coachMoved = 0;
+  private coachLast: { x: number; y: number } | null = null;
+  /** One short line near the top, teaching by doing; it moves on as soon as the player has done it. */
+  private updateCoach(g: GameScene): void {
+    const p = g.player;
+    const off = g.menuMode || g.dead || GameSceneBot() || new URLSearchParams(window.location.search).has('try');
+    if (off) {
+      this.coach = null;
+      this.coachText.setAlpha(Math.max(0, this.coachText.alpha - 0.1));
+      return;
+    }
+    // A new run (runTime went back to the start): the coach starts again from the player's progress.
+    if (!this.coach || g.runTime < this.coachRun) {
+      const prof = coachProfile();
+      this.coach = newCoach(prof.done, prof.tipsSeen);
+      this.coachMoved = 0;
+      this.coachLast = null;
+    }
+    this.coachRun = g.runTime;
+    if (this.coachLast) {
+      const d = Math.hypot(p.x - this.coachLast.x, p.y - this.coachLast.y);
+      if (d < 400) this.coachMoved += d; // the sea loops: a wrap jump is not swimming
+    }
+    this.coachLast = { x: p.x, y: p.y };
+    this.coachT += this.game.loop.delta / 1000;
+    if (this.coachT < 0.25) return;
+    const dt = this.coachT;
+    this.coachT = 0;
+    const r = stepCoach(this.coach, {
+      moved: this.coachMoved, plankton: g.stats.plankton, fish: g.stats.fish, bites: g.playerBites, level: p.level,
+      stomach: g.stomach.ratio, hunted: g.playerHunted, touch: this.sys.game.device.input.touch, pad: pads.inUse,
+    }, dt);
+    if (r.finished) updateCoachProfile({ done: true });
+    if (r.tipSeen) updateCoachProfile({ tipsSeen: [...coachProfile().tipsSeen, r.tipSeen] });
+    if (r.text && this.coachText.text !== r.text) this.coachText.setText(r.text);
+    this.coachText.setAlpha(r.text ? 1 : 0);
+  }
 
   update(): void {
     const g = this.game$;
@@ -567,7 +621,9 @@ export class HudScene extends Phaser.Scene {
     }
     if (this.hint.text !== hint) this.hint.setText(hint);
     // The help line shows for the first moments of a run, then fades (the pause menu has the details).
-    const showHint = g.runTime < HINT_SECONDS;
+    this.updateCoach(g);
+    // While the coach is teaching, its line replaces the help line.
+    const showHint = g.runTime < HINT_SECONDS && this.coachText.alpha === 0;
     this.hint.setAlpha(Phaser.Math.Linear(this.hint.alpha, showHint ? 0.9 : 0, 0.05));
     if (this.deathLayer.visible && this.deathLayer.alpha > 0.5) {
       if (pads.justDown(PAD.A)) this.respawn();

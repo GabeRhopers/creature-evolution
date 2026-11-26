@@ -16,6 +16,7 @@ import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assign
 import { backupFileName, backupKey, buildBackup, parseBackup } from '../save/backup';
 import { applyUpdate } from '../offline';
 import { perfMeterShown, readPerfLog, showPerfMeter } from './perfMeter';
+import { setCoachProfile } from './coachStore';
 import { decodeFrame, getStageLook, heroLookSkin, heroSkins, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, setHeroLooks, skinStageId, validateProject, type StudioProject } from '../skins';
 import { earlyHelpMods, earlyHelpStrength, perkById, type PerkDef } from '../systems/perks';
 import { installSafetyNet, lastErrorLine, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
@@ -59,6 +60,15 @@ export function initMenu(game: Phaser.Game): void {
   const saveProfile = () => {
     if (!saves.saveProfile(profile)) badge('Could not save on this device', true);
   };
+  // The first-minutes coach: new players get it; players who already played a few runs before it existed do not.
+  if (opts.coachDone === undefined && profile.lifetime.runs >= 3) opts.coachDone = true;
+  const connectCoach = () =>
+    setCoachProfile({ done: !!opts.coachDone, tipsSeen: opts.tipsSeen ?? [] }, (c) => {
+      opts.coachDone = c.done;
+      opts.tipsSeen = c.tipsSeen;
+      saveProfile();
+    });
+  connectCoach();
   // The save slot the game reads and writes (picked in Saved games).
   saves.setSlot(heroSlots().active);
   const scene = () => game.scene.getScene('Game') as GameScene | null;
@@ -617,6 +627,7 @@ export function initMenu(game: Phaser.Game): void {
       <div class="toggle"><span>Controller buttons<br><span style="color:var(--muted);font-size:13px">Choose which button does what</span></span><button class="btn" id="oPad">Set up</button></div>
       <div class="toggle"><span>Enemy settings<br><span style="color:var(--muted);font-size:13px">${enemiesChanged() ? 'Changed on this device' : 'When enemies appear, how strong they are'}</span></span><button class="btn" id="oEnemies">Edit</button></div>
       <div class="toggle"><span>Backup<br><span style="color:var(--muted);font-size:13px">Every player, saved game and Sprite Studio drawing in one file</span></span><span class="row" style="margin:0"><button class="btn" id="oBackup">Save file</button><button class="btn" id="oRestore">Load file</button></span></div>
+      <div class="toggle"><span>Tips for new players<br><span style="color:var(--muted);font-size:13px">${opts.coachDone ? 'Done. Show them again on the next run' : 'They show on your next run'}</span></span><button class="btn" id="oCoach"${opts.coachDone ? '' : ' disabled'}>Show again</button></div>
       <div class="toggle"><span>Performance meter<br><span style="color:var(--muted);font-size:13px">${perfLine()}</span></span><button class="btn" id="oPerf" aria-pressed="${perfMeterShown()}">${perfMeterShown() ? 'Hide' : 'Show'}</button></div>
       <div class="toggle"><span>Problem log<br><span style="color:var(--muted);font-size:13px">${readErrorLog().length ? `${readErrorLog().length} problem(s) noted on this device` : 'No problems noted'}</span></span><button class="btn" id="oErrors">Show</button></div>
       <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${profile.best.level ? `Level ${profile.best.level} · ${lt.runs} runs played` : 'None yet'}</span></span><button class="btn" id="oReset" data-label="Reset">Reset</button></div>
@@ -641,6 +652,14 @@ export function initMenu(game: Phaser.Game): void {
           $('oPerf').setAttribute('aria-pressed', String(on));
         };
         $('oBackup').onclick = saveBackup;
+        $('oCoach').onclick = () => {
+          opts.coachDone = false;
+          opts.tipsSeen = [];
+          saveProfile();
+          connectCoach();
+          ($('oCoach') as HTMLButtonElement).disabled = true;
+          badge('Tips will show on your next run');
+        };
         $('oRestore').onclick = () => $('backupFile').click();
         confirmButton('oReset', 'Tap again to reset', () => {
           profile.best = { level: 0, kills: 0, fish: 0 };

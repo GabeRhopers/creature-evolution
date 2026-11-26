@@ -239,6 +239,16 @@ take `damageTaken` x damage, fully up to level `fullUntil` (5), fading evenly to
 into the player's mods with the perks (`applyPerks`, refreshed whenever the level changes; `PerkMods` gained `turn`
 and `stamina`). The pause menu shows the current head start. AI fish are unchanged.
 
+## First minutes coach (`src/systems/coach.ts` pure, `HudScene.updateCoach`, `src/ui/coachStore.ts`)
+A new player's first run teaches by doing: one line near the top (`coach` text object), each step moving on as soon as it is
+done: swim 400 px (`coachMoved`, wrap jumps ignored), eat 5 plankton (`stats.plankton`), swallow a fish (`stats.fish`), bite
+(`GameScene.playerBites`), reach level 2; then "Nice! ... Checkpoint Crab" for `DONE_SECONDS`. Wording follows the controls
+(touch joystick + EAT, keyboard Space, controller A). Steps can complete together. While the coach talks, the bottom help line
+stays hidden. After the steps, one-time tips show for `TIP_SECONDS` when they matter (stomach >= 90%, being hunted). Saved per
+player: `settings.coachDone`, `settings.tipsSeen` (players with 3+ runs before the coach existed count as done); Options > Tips for
+new players > Show again resets both. Bots (`?bot`) and Try in game (`?try`) never see it. E2E: `coach.mjs`; unit: `tests/coach.test.ts`.
+CI runs the game at about 10 fps (software rendering), so e2e tests wait on progress (`waitFor`), never on fixed seconds of play.
+
 ## Performance meter (`src/ui/perfMeter.ts`)
 Options > Performance meter (remembered, `ce.perf.show`) or `?perf=1` shows a corner panel, updated twice a second: fps, the
 slowest 5% of frames as fps ("slowest"), the worst frame, creatures (all / awake / drawn), display objects, textures, renderer
