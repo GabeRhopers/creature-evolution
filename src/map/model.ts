@@ -104,7 +104,7 @@ export function mapChecks(m: MapModel): MapIssue[] {
   for (const t of things) {
     const solid = t.kind === 'island' || t.kind === 'seamount' || t.kind === 'ridge' || t.kind === 'cave' || (t.kind === 'scenery' && t.label === 'arch');
     if (!solid) continue;
-    if (gap(m, t.x, start) < t.width / 2 + CHECKS.startClear / 2) out.push({ level: 'warn', text: `${cap(t.label)} is close to where new runs start`, x: t.x, thing: t.id });
+    if (gap(m, t.x, start) < t.width / 2 + CHECKS.startClear / 2) out.push({ level: 'warn', text: `${cap(t.label)}${t.kind === 'island' ? ' island' : ''} is close to where new runs start`, x: t.x, thing: t.id });
   }
   // Gates sit on region borders.
   const borders = regs.map((r) => r.from).concat(m.width);

@@ -5,6 +5,9 @@ import { HudScene } from './scenes/HudScene';
 import { LightScene } from './scenes/LightScene';
 import { initMenu } from './ui/menu';
 import { applyEnemySettings } from './data/adminSettings';
+import { applyMapEdits } from './map/edits';
+import { BALANCE } from './data';
+import type { MapBalance } from './map/model';
 import { reportError } from './ui/safety';
 import { startOffline } from './offline';
 import { perfSessionSeconds, readPerfLog, startPerfMeter } from './ui/perfMeter';
@@ -12,6 +15,12 @@ import { APP_VERSION } from './save';
 
 // Enemy settings changed on this device (Options > Enemy settings) apply before anything spawns.
 applyEnemySettings();
+// Map edits made on this device (the Map page) change the sea before the game builds it.
+try {
+  applyMapEdits(BALANCE as unknown as MapBalance, localStorage);
+} catch {
+  /* storage blocked: the shipped map */
+}
 
 // Add ?canvas to the URL to force the Canvas renderer (debug fallback for
 // devices with WebGL driver problems).
