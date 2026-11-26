@@ -1,6 +1,7 @@
-# Spino, the sixth hero (Rhopers' sheet spino_sheet.jpg). Decodes the picture and runs build_spino.mjs, which uses the
-# Sprite Studio skin engine to find the four poses, turn them to face right and write spino-*.json (all three stages,
-# the hatchling inside its egg) into public/studio/seeds and next to this script. Then draws spino_preview.png.
+# Spino, the sixth hero: one sheet per stage from Rhopers and Mike (spino_<stage>_sheet.jpg, Nov 26; the hatchling is drawn
+# inside its egg). Decodes the pictures and runs build_spino.mjs, which uses the Sprite Studio skin engine to find the four
+# poses, turn them to face right and write spino-*.json into public/studio/seeds and next to this script. Then draws
+# spino_preview.png (every pose of every stage).
 #     python3 convert_spino.py
 import os, subprocess, tempfile, json
 from PIL import Image
@@ -10,17 +11,22 @@ ALPH = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 
 
 def main():
-    im = Image.open(os.path.join(HERE, 'spino_sheet.jpg')).convert('RGBA')
-    with tempfile.NamedTemporaryFile(suffix='.raw', delete=False) as f:
-        f.write(im.tobytes())
-    subprocess.run(['node', os.path.join(HERE, 'build_spino.mjs'), f.name, str(im.width), str(im.height)], check=True)
-    os.unlink(f.name)
+    args, tmp = [], []
+    for stage in ('hatchling', 'juvenile', 'adult'):
+        im = Image.open(os.path.join(HERE, f'spino_{stage}_sheet.jpg')).convert('RGBA')
+        with tempfile.NamedTemporaryFile(suffix='.raw', delete=False) as f:
+            f.write(im.tobytes())
+        tmp.append(f.name)
+        args += [stage, f.name, str(im.width), str(im.height)]
+    subprocess.run(['node', os.path.join(HERE, 'build_spino.mjs'), *args], check=True)
+    for t in tmp:
+        os.unlink(t)
     tiles = []
-    for stage in ('juvenile', 'hatchling'):
+    for stage in ('hatchling', 'juvenile', 'adult'):
         p = json.load(open(os.path.join(HERE, f'spino-{stage}.json')))
         w, h = p['w'], p['h']
         for pose in p['poses']:
-            if pose['name'] not in ('move', 'attack', 'celebrate'):
+            if pose['name'] not in ('move', 'attack', 'damage'):
                 continue
             for fr in pose['frames'][:4]:
                 t = Image.new('RGB', (w, h), (30, 70, 120))

@@ -92,11 +92,14 @@ idle and rest = the new idle (seedVersion 4, hatchling 6; `VERSIONS` in `egg_hat
 belly, pink mouth), turns every pose to face right and writes `elder_croc-*.json` (framework `elder_croc`, 100x56 canvas, same
 art for all stages; hatchling by `egg_hatchling.py`). Walk = swim (`move`; its first frame is `idle` and `rest`), bite =
 `attack`, the standing poses = the level-up roar (`celebrate`), the first hurt pose = `damage`.
-**Spino** is the sixth hero: a blue spinosaurus with a tall sail from Rhopers' sheet (`tools/spino/spino_sheet.jpg`: two swim and
-two bite poses, all facing left, with water splashes). `tools/spino/convert_spino.py` decodes it and runs `build_spino.mjs`, which uses
-the Sprite Studio skin engine (`public/studio/skinmaker.js`) end to end: finds the four poses (splash dots skipped), turns them right,
-maps colors (Endesga 32 plus three signature blues), places them on the `spino` framework (112x52) and builds the egg hatchling (white
-shell). Swim = the top row, bite = the bottom row, the roar = the bites, the hurt flash = the first swim pose.
+**Spino** is the sixth hero: Mike's brown spinosaurus with a tall sail, **one sheet per stage** (Nov 26, `tools/spino/spino_<stage>_sheet.jpg`:
+the hatchling is drawn inside its egg by Mike, so `egg_hatchling.py` skips Spino; the adult has yellow stripes), each with IDLE, SWIM,
+SWIM ATTACK and HURT top to bottom, facing left. `tools/spino/convert_spino.py` decodes them and runs `build_spino.mjs`, which uses the
+Sprite Studio skin engine (`public/studio/skinmaker.js`): clears closed-in white background pockets (between legs), finds the four poses
+(labels, splash and blood dots skipped), turns them right, maps colors to Endesga 32 plus three signature browns measured on the sheets
+(`SIGNATURE`; Endesga's nearest read red-orange) and places them on the `spino` framework (112x52, mouth [105, 23]). Swim = idle + swim
+(idle and rest = idle), bite = swim + swim attack, hurt = hurt, roar = the bite then idle. seedVersion 6 for all three. (The first Spino,
+Nov 25, was blue, from `spino_sheet.jpg`.)
 Abilities: croc Shell Guard / Lunge / Death Roll; Elder Croc Lunge / Death Roll / Crushing Bite (armor 0.3, slower); Mosa Dart / Tail Slam / Crushing Bite;
 White Shark Dart / Lunge / Feeding Frenzy (a short bite and speed boost on top of the perks); Elder Shark Lunge / Crushing Bite /
 Feeding Frenzy (tougher skin than the White Shark); Spino Lunge / Tail Slam / Feeding Frenzy (fast, armor 0.15).

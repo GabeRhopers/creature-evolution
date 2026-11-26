@@ -1,4 +1,4 @@
-// The Spino, the sixth hero (a blue spinosaurus from a sheet of swim and bite poses): pick it, grow through its three stages
+// The Spino, the sixth hero (Mike's brown spinosaurus, one sheet per stage): pick it, grow through its three stages
 // with their abilities, see its hurt pose and its standing roar, and play on an iPad-sized screen.
 import { chromium } from 'playwright-core';
 const b = await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--mute-audio']});
