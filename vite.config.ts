@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { resolve } from 'node:path';
 import pkg from './package.json' with { type: 'json' };
 
 // base './' keeps asset paths relative, so the same build works on
@@ -11,6 +12,8 @@ export default defineConfig({
     outDir: 'dist',
     assetsInlineLimit: 0,
     chunkSizeWarningLimit: 2000,
+    // Two pages: the game, and the Map (map.html, src/map/main.ts).
+    rollupOptions: { input: { main: resolve(__dirname, 'index.html'), map: resolve(__dirname, 'map.html') } },
   },
   plugins: [
     // Offline: a service worker keeps the whole game (code, art, music, fonts, Sprite Studio and every

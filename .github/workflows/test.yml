@@ -44,7 +44,7 @@ jobs:
           - shard: creatures and fights
             suites: crab enemies creatures tides stomach areas enemy_settings hud spawn_factors trench crowd kelp
           - shard: world and controls
-            suites: gamepad pad_map studio_game studio_restore terrain daynight world music land gates region_twists boss offline perf coach playlog
+            suites: gamepad pad_map studio_game studio_restore terrain daynight world music land gates region_twists boss offline perf coach playlog map
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

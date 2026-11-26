@@ -1016,6 +1016,7 @@ export function initMenu(game: Phaser.Game): void {
       `<h3>Sprite Studio</h3>
       <p>Pick a creature to change how it looks in the game. Your changes show up on your next swim.</p>
       <div class="row"><a class="btn" href="${STUDIO_URL}?newskin=${encodeURIComponent(opts.hero ?? DEFAULT_HERO)}">+ New skin from a picture</a></div>
+      <div class="row"><a class="btn" href="map.html" id="openMap">Open the map of the sea</a></div>
       ${heroes}
       <p class="studio-group">Reef creatures</p><div class="row">${reef}</div>
       <div class="row"><a class="btn" href="${STUDIO_URL}">Open Sprite Studio</a><button class="btn" id="pClose">Close</button></div>`,

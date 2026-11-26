@@ -243,6 +243,20 @@ take `damageTaken` x damage, fully up to level `fullUntil` (5), fading evenly to
 into the player's mods with the perks (`applyPerks`, refreshed whenever the level changes; `PerkMods` gained `turn`
 and `stamina`). The pause menu shows the current head start. AI fish are unchanged.
 
+## Map (`map.html`, `src/map/main.ts`, pure model and checks in `src/map/model.ts`)
+A second Vite page (`build.rollupOptions.input`: main + map; precached by the service worker, so it works offline), linked from
+the Sprite Studio card ("Open the map of the sea") and openable at a spot with `map.html?x=2400`. Phase 1 (Nov 26) = view and
+checks; editing is planned in phases (plan doc "Map editor"). `buildMap(BALANCE)` turns the world into `things` (islands,
+seamounts, ridges, scenery, floats, gates, caves, the start; ids like `island:3` = index in balance.json) and builds the game's own
+`Terrain`, so the seabed drawn is the one you swim through. The canvas squeezes the sea sideways (`view.s` world px per screen px,
+whole sea = `W / screen width`) and always fits the full depth (sky, water in the region's 4 colors, ground by kind, islands by
+style, depth bands and names); drag/pinch/wheel/buttons/arrow keys; region buttons jump; tap = `hitTest` (point things within 16 px,
+then an island above its underside, then the seamount or ridge near the ground) or the region summary. `mapChecks` (errors and
+warnings, `CHECKS`): regions cover 0..width with no gaps, things inside the world, nothing solid near the start (scenery you swim
+past is fine, the arch counts), gates within `gateSnap` of a border, each cave entrance reachable by the stage at its boss's level,
+at least `passage` px of water under every island, islands not overlapping (cave rocks overlap on purpose), big scenery (`FOOTPRINT`
+>= 250) not drawn over each other. Today's map has none. `window.ceMap` is for tests. E2E: `map.mjs`; unit: `tests/map.test.ts`.
+
 ## First minutes coach (`src/systems/coach.ts` pure, `HudScene.updateCoach`, `src/ui/coachStore.ts`)
 A new player's first run teaches by doing: one line near the top (`coach` text object), each step moving on as soon as it is
 done: swim 400 px (`coachMoved`, wrap jumps ignored), eat 5 plankton (`stats.plankton`), swallow a fish (`stats.fish`), bite
