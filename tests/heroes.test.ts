@@ -5,7 +5,7 @@ import { stageAt } from '../src/systems/growth';
 afterEach(() => setHero(DEFAULT_HERO));
 
 describe('heroes', () => {
-  it('offers the crocodile, Mosa, the White Shark, Fang and the Elder Croc, each with a species', () => {
+  it('offers the crocodile, Mosa, the White Shark, the Elder Shark (fang), the Elder Croc and Spino, each with a species', () => {
     expect(HEROES.map((h) => h.id)).toEqual(['crocodile', 'mosa', 'white_shark', 'fang', 'elder_croc', 'spino']);
     for (const h of HEROES) expect(SPECIES[h.id], h.id).toBeDefined();
     expect(DEFAULT_HERO).toBe('crocodile');

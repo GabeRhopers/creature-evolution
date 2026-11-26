@@ -146,18 +146,18 @@
   },
   "fang": {
     "extends": "default",
-    "name": "Fang",
+    "name": "Elder Shark",
     "canvas": [
       100,
-      44
+      60
     ],
     "bodyRadius": 14,
     "mouth": [
       84,
-      28
+      36
     ],
     "pixelScale": 2,
-    "notes": "The fourth playable hero: a pixel-art great white from a sheet of four poses (idle, swim, attack, hurt), converted by tools/fang/convert_fang.py. Long and low, so the canvas is wide. The snout stays in the same place in every frame so the mouth does not jump."
+    "notes": "The fourth playable hero, the Elder Shark (called Fang until Nov 26; the id stays 'fang' so saves keep working): a pixel-art great white from Rhopers' sheets, converted by tools/fang/convert_fang.py, with the swim from his Nov 26 sheet (tools/fang/update_swim.py). Long, with room above and below for the tail curving down while it swims. The snout stays in the same place in every frame so the mouth does not jump."
   },
   "elder_croc": {
     "extends": "default",

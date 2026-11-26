@@ -2438,8 +2438,8 @@
       }
     },
     "fang": {
-      "name": "Fang",
-      "blurb": "A pixel great white with tougher skin. Lunge, Crushing Bite, Feeding Frenzy.",
+      "name": "Elder Shark",
+      "blurb": "A big old great white with tougher skin. Lunge, Crushing Bite, Feeding Frenzy.",
       "stages": {
         "hatchling": {
           "skin": "fang-hatchling",
