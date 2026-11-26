@@ -11,7 +11,7 @@ function framework(name: string): Record<string, unknown> {
 }
 const E32: string[] = JSON.parse(fs.readFileSync('public/studio/palette-endesga32.json', 'utf8')).colors;
 /** Signature colors a creature may add on top of the shared palette (at most 3 each). */
-const SIGNATURE: Record<string, string[]> = { crocodile: ['#aad678'], mosa: ['#429698', '#58c2c2', '#fefeb4'], fang: ['#444854', '#666a73', '#848a91'], elder_croc: ['#b5e86c', '#c9e092', '#b6636b'], spino: ['#448ddb', '#0b1486', '#0a20ce'] };
+const SIGNATURE: Record<string, string[]> = { crocodile: ['#aad678'], mosa: ['#429698', '#58c2c2', '#fefeb4'], fang: ['#444854', '#666a73', '#848a91'], elder_croc: ['#b5e86c', '#c9e092', '#b6636b'], spino: ['#935939', '#6a3d22', '#b58265'] };
 const seeds = fs.readdirSync('public/studio/seeds').map((f) => ({ id: f.replace('.json', ''), p: JSON.parse(fs.readFileSync('public/studio/seeds/' + f, 'utf8')) as StudioProject }));
 
 describe('sprite framework', () => {

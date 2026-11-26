@@ -183,10 +183,10 @@
     ],
     "bodyRadius": 14,
     "mouth": [
-      103,
-      19
+      105,
+      23
     ],
     "pixelScale": 2,
-    "notes": "The sixth playable hero: a blue spinosaurus with a tall sail, from a sheet of two swim and two bite poses (all facing left, with water splashes), converted by tools/spino/convert_spino.py with the Sprite Studio skin engine (skinmaker.js). Long and low with room for the sail; the snout stays put in the swim and bite frames."
+    "notes": "The sixth playable hero: Mike's brown spinosaurus with a tall sail, one sheet per stage (the hatchling inside its egg, the adult with yellow stripes), each with idle, swim, swim attack and hurt facing left, converted by tools/spino/convert_spino.py with the Sprite Studio skin engine (skinmaker.js). Long and low with room for the sail; the snout stays put in the swim and bite frames."
   }
 }

@@ -19,13 +19,13 @@ VERSIONS = {'fang': 6}   # redrawn later (Elder Shark's new swim, Nov 26)
 OUTLINE = '#181425'
 # Shell colors: white, or beige for heroes with a white belly (so the egg stands out from the body).
 SHELLS = {'white': ('#ffffff', '#c0cbdc'), 'beige': ('#ead4aa', '#c28569')}
+# Spino is not here: since Nov 26 its hatchling is Mike's own drawing (tools/spino/spino_hatchling_sheet.jpg).
 HEROES = {   # hero prefix: (title, shell, share of the body length hidden in the egg)
     'croc': ('Crocodile 1: Hatchling', 'white', 0.42),
     'mosa': ('Mosa 1: Hatchling', 'white', 0.42),
     'white_shark': ('White Shark 1: Hatchling', 'beige', 0.40),
     'fang': ('Elder Shark 1: Hatchling', 'beige', 0.40),
     'elder_croc': ('Elder Croc 1: Hatchling', 'beige', 0.40),
-    'spino': ('Spino 1: Hatchling', 'white', 0.40),
 }
 
 
