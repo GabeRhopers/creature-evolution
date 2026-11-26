@@ -28,7 +28,7 @@ ok(/map\.html$/.test(p.url()), 'the map opens');
 const info = await G(() => ({ things: window.ceMap.model.things.length, issues: window.ceMap.issues.length, w: window.ceMap.view.w, s: window.ceMap.view.s, label: document.getElementById('btnProblems').textContent }));
 ok(info.things > 200 && info.issues === 0 && info.label === 'No problems', `the whole sea is drawn: ${info.things} things, ${info.label}`);
 ok(Math.abs(info.s * info.w - 114000) < 200, 'it starts zoomed out to the whole sea');
-const painted = await G(() => { const c = document.getElementById('map'); const d = c.getContext('2d').getImageData(c.width * 0.1, c.height * 0.3, 1, 1).data; return d[3] === 255 && (d[0] + d[1] + d[2]) > 0; });
+const painted = await waitFor(() => { const c = document.getElementById('map'); const d = c.getContext('2d').getImageData(c.width * 0.1, c.height * 0.3, 1, 1).data; return d[3] === 255 && (d[0] + d[1] + d[2]) > 0; });
 ok(painted, 'the canvas is painted');
 
 // Region buttons jump and zoom.
