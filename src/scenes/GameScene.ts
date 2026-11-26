@@ -248,6 +248,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.menuMode = nextMenuMode && !BOT_MODE;
     this.testMode = nextTestMode && !this.menuMode;
     this.runTime = 0;
+    this.runStartLevel = 0;
     this.sampleTimer = 0;
     this.autosaveTimer = AUTOSAVE_SECONDS;
     this.lastCheckpointAt = 0;
@@ -383,6 +384,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   private loggedErrors = new Set<string>();
 
   update(time: number, deltaMs: number): void {
+    if (!this.runStartLevel && !this.menuMode && this.player) this.runStartLevel = this.player.level;
     try {
       this.step(time, deltaMs);
     } catch (err) {
@@ -635,7 +637,13 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     if (ended) this.runReported = true;
     const level = Math.max(this.stats.maxLevel, this.player?.level ?? 1);
     window.dispatchEvent(
-      new CustomEvent('ce:run', { detail: { level, kills: this.stats.kills, fish: this.stats.fish, ended, cause } }),
+      new CustomEvent('ce:run', {
+        detail: {
+          level, kills: this.stats.kills, fish: this.stats.fish, ended, cause,
+          // For the playtest log (src/ui/playLog.ts).
+          seconds: this.runTime, startLevel: this.runStartLevel || level, region: this.region?.name, hero: this.player?.species.id,
+        },
+      }),
     );
   }
 
@@ -1415,6 +1423,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.lastCheckpointAt = Date.now();
   }
   private runReported = false;
+  /** The level this run (or this Continue) started at, for the playtest log. */
+  runStartLevel = 0;
 
   /** Attract mode: AI, food and bubbles run; the camera drifts back and forth. */
   private attractDir = 1;

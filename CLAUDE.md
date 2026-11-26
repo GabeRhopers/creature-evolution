@@ -249,6 +249,14 @@ player: `settings.coachDone`, `settings.tipsSeen` (players with 3+ runs before t
 new players > Show again resets both. Bots (`?bot`) and Try in game (`?try`) never see it. E2E: `coach.mjs`; unit: `tests/coach.test.ts`.
 CI runs the game at about 10 fps (software rendering), so e2e tests wait on progress (`waitFor`), never on fixed seconds of play.
 
+## Playtest log (`src/ui/playLog.ts`, recorded in `menu.ts`)
+Every run on the device goes into `ce.playlog` (last 60; private, never sent; carried in the backup file): player, hero, seconds,
+start and end level, how it ended (`died` with cause and region, `home`, or `closed` = the page closed mid-run via `pagehide`),
+kills, fish, coach finished. `ce:run` carries `seconds`, `startLevel` (`GameScene.runStartLevel`), `region`, `hero`.
+Options > Playtest log shows `playReport` (runs, days, typical run length, runs under a minute, best level, runs reaching the first
+crab, endings, deaths by cause and region, heroes, the last 30 runs) with Copy report / Save file / Clear. `summarize` and
+`playReport` are pure (`tests/playlog.test.ts`). E2E: `playlog.mjs`.
+
 ## Performance meter (`src/ui/perfMeter.ts`)
 Options > Performance meter (remembered, `ce.perf.show`) or `?perf=1` shows a corner panel, updated twice a second: fps, the
 slowest 5% of frames as fps ("slowest"), the worst frame, creatures (all / awake / drawn), display objects, textures, renderer

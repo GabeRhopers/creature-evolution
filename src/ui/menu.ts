@@ -16,7 +16,9 @@ import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assign
 import { backupFileName, backupKey, buildBackup, parseBackup } from '../save/backup';
 import { applyUpdate } from '../offline';
 import { perfMeterShown, readPerfLog, showPerfMeter } from './perfMeter';
-import { setCoachProfile } from './coachStore';
+import { coachProfile, setCoachProfile } from './coachStore';
+import { addRun, clearPlayLog, playReport, readPlayLog, summarize, type RunEnd } from './playLog';
+import { deviceName } from './perfMeter';
 import { decodeFrame, getStageLook, heroLookSkin, heroSkins, listStudioProjects, loadStageLooks, loadStudioProject, setActiveSkin, setHeroLooks, skinStageId, validateProject, type StudioProject } from '../skins';
 import { earlyHelpMods, earlyHelpStrength, perkById, type PerkDef } from '../systems/perks';
 import { installSafetyNet, lastErrorLine, readErrorLog, requestAutoContinue, takeAutoContinue } from './safety';
@@ -628,6 +630,7 @@ export function initMenu(game: Phaser.Game): void {
       <div class="toggle"><span>Enemy settings<br><span style="color:var(--muted);font-size:13px">${enemiesChanged() ? 'Changed on this device' : 'When enemies appear, how strong they are'}</span></span><button class="btn" id="oEnemies">Edit</button></div>
       <div class="toggle"><span>Backup<br><span style="color:var(--muted);font-size:13px">Every player, saved game and Sprite Studio drawing in one file</span></span><span class="row" style="margin:0"><button class="btn" id="oBackup">Save file</button><button class="btn" id="oRestore">Load file</button></span></div>
       <div class="toggle"><span>Tips for new players<br><span style="color:var(--muted);font-size:13px">${opts.coachDone ? 'Done. Show them again on the next run' : 'They show on your next run'}</span></span><button class="btn" id="oCoach"${opts.coachDone ? '' : ' disabled'}>Show again</button></div>
+      <div class="toggle"><span>Playtest log<br><span style="color:var(--muted);font-size:13px">${playLine()}</span></span><button class="btn" id="oPlaylog">Show</button></div>
       <div class="toggle"><span>Performance meter<br><span style="color:var(--muted);font-size:13px">${perfLine()}</span></span><button class="btn" id="oPerf" aria-pressed="${perfMeterShown()}">${perfMeterShown() ? 'Hide' : 'Show'}</button></div>
       <div class="toggle"><span>Problem log<br><span style="color:var(--muted);font-size:13px">${readErrorLog().length ? `${readErrorLog().length} problem(s) noted on this device` : 'No problems noted'}</span></span><button class="btn" id="oErrors">Show</button></div>
       <div class="toggle"><span>Best record<br><span style="color:var(--muted);font-size:13px">${profile.best.level ? `Level ${profile.best.level} · ${lt.runs} runs played` : 'None yet'}</span></span><button class="btn" id="oReset" data-label="Reset">Reset</button></div>
@@ -652,6 +655,7 @@ export function initMenu(game: Phaser.Game): void {
           $('oPerf').setAttribute('aria-pressed', String(on));
         };
         $('oBackup').onclick = saveBackup;
+        $('oPlaylog').onclick = openPlayLog;
         $('oCoach').onclick = () => {
           opts.coachDone = false;
           opts.tipsSeen = [];
@@ -675,6 +679,45 @@ export function initMenu(game: Phaser.Game): void {
     );
   }
   $('cardOptions').addEventListener('click', openOptions);
+  function playLine(): string {
+    const s = summarize(readPlayLog());
+    return s.runs ? `${s.runs} runs, ${s.minutes} min, best level ${s.bestLevel}` : 'Every run on this device, for playtests (never sent anywhere)';
+  }
+  /** The playtest log: a summary and the report text, to copy or save. */
+  function openPlayLog(): void {
+    const text = playReport(readPlayLog(), deviceName(navigator.userAgent));
+    openPanel(
+      `<h3>Playtest log</h3>
+      <p style="color:var(--muted);font-size:13px">Kept only on this device. Copy it and paste it into a chat, or save it as a file.</p>
+      <pre id="plText" style="white-space:pre-wrap;font-size:12px;max-height:50vh;overflow:auto;background:rgba(0,0,0,.25);padding:8px;border-radius:4px">${esc(text)}</pre>
+      <div class="row"><button class="btn" id="plCopy">Copy report</button><button class="btn" id="plSave">Save file</button><button class="btn" id="plClear" data-label="Clear">Clear</button><button class="btn" id="plBack">Back</button></div>`,
+      () => {
+        $('plBack').onclick = openOptions;
+        $('plCopy').onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(text);
+            badge('Report copied');
+          } catch {
+            badge('Copy did not work: use Save file', true);
+          }
+        };
+        $('plSave').onclick = () => {
+          const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `creature-evolution-playtest-${new Date().toISOString().slice(0, 10)}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 30000);
+        };
+        confirmButton('plClear', 'Tap again to clear', () => {
+          clearPlayLog();
+          openPlayLog();
+        });
+      },
+    );
+  }
   /** The last play session's smoothness on this device, for the Options line. */
   function perfLine(): string {
     const last = readPerfLog().at(-1);
@@ -1232,8 +1275,23 @@ export function initMenu(game: Phaser.Game): void {
 
   // ---------------------------------------------------------------- game events
   window.addEventListener('ce:home', showHome);
+  type RunDetail = { level: number; kills: number; fish: number; ended: boolean; cause?: DeathCause; seconds?: number; startLevel?: number; region?: string; hero?: string };
+  /** One line in the playtest log (Options > Playtest log). */
+  const logRun = (r: RunDetail, end: RunEnd) =>
+    addRun({
+      at: new Date().toISOString(), app: APP_VERSION, player: playerName, hero: r.hero ?? opts.hero ?? DEFAULT_HERO,
+      seconds: Math.round(r.seconds ?? 0), level: r.level, startLevel: r.startLevel ?? r.level, end,
+      ...(end === 'died' ? { cause: r.cause, region: r.region } : {}), kills: r.kills, fish: r.fish, coachDone: coachProfile().done,
+    });
+  // Closing the game in the middle of a run counts too (it is how players quit).
+  window.addEventListener('pagehide', () => {
+    const g = scene();
+    if (!g || g.menuMode || g.dead || !g.player || g.runTime < 1 || new URLSearchParams(window.location.search).has('bot')) return;
+    logRun({ level: g.player.level, kills: g.stats.kills, fish: g.stats.fish, ended: false, seconds: g.runTime, startLevel: g.runStartLevel, region: g.region?.name, hero: g.player.species.id }, 'closed');
+  });
   window.addEventListener('ce:run', (e) => {
-    const r = (e as CustomEvent<{ level: number; kills: number; fish: number; ended: boolean; cause?: DeathCause }>).detail;
+    const r = (e as CustomEvent<RunDetail>).detail;
+    if ((r.seconds ?? 0) >= 1) logRun(r, r.ended ? 'died' : 'home');
     profile.best = mergeBest(profile.best, { level: r.level, kills: r.kills, fish: r.fish });
     if (r.ended) {
       profile.lifetime.runs++;
