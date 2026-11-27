@@ -66,7 +66,7 @@ await G(() => {
 
 // game: hero stage uses the edited drawing
 await p.goto(base);
-await waitFor(() => window.game?.scene.getScene('Game')?.player);
+await waitFor(() => !!window.game?.scene.getScene('Game')?.player);
 await p.click('#btnPlay');
 await waitFor(() => { const g = window.game.scene.getScene('Game'); return g.player && !g.menuMode && g.player.texture.key.startsWith('stage_'); });
 const heroDiff = await G(() => {

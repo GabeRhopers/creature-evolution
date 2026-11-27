@@ -4,7 +4,7 @@ import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Bubbles } from '../systems/Bubbles';
-import { C, makeGiantKelp, makeKelp, makeOutcrop, makeRay, makeRock, makeShelf, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
+import { C, makeGiantKelp, makeKelp, makeOutcrop, makeRay, makeRock, makeShelf, STRUCTURE_LOOKS, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
 import { Terrain, type TerrainConfig } from '../systems/terrain';
 import { SpatialGrid } from '../systems/spatialGrid';
 import { countInTide, factorsFor, groupSizes, outShare, rollLevel, type PeriodId, type SpawnFactors } from '../systems/spawnFactors';
@@ -2345,9 +2345,11 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       .setScrollFactor(0.5, 1)
       .setAlpha(0.45)
       .setDepth(-99);
-    makeFarPeaks(this, 'w_far_peaks', 450, 300);
+    // Peaks about 40% of the water tall, whatever the depth.
+    const peakRows = Math.round(((this.seabedTop - surfaceY) * 0.43) / P);
+    makeFarPeaks(this, 'w_far_peaks', 450, peakRows);
     this.add
-      .tileSprite(farX, this.seabedTop + 10, farW, 300 * P, 'w_far_peaks')
+      .tileSprite(farX, this.seabedTop + 10, farW, peakRows * P, 'w_far_peaks')
       .setOrigin(0, 1)
       .setTileScale(P)
       .setScrollFactor(0.6, 1)
@@ -2979,19 +2981,18 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
   }
 
-  /** Mid-water rock outcrops and one-way shelves (their shape and solidity live in Terrain). */
+  /** Mid-water rock outcrops and one-way shelves (shape and solidity live in Terrain; the look comes from the region). */
   private placeStructures(): void {
     this.terrain.structures.forEach((s, i) => {
-      const tint = ROCK_TINT[this.regions.at(s.x).id] ?? 0xffffff;
+      const look = STRUCTURE_LOOKS[this.regions.at(s.x).id] ?? STRUCTURE_LOOKS.coral;
       if (s.kind === 'rock') {
         const key = `w_outcrop_${i}`;
-        makeOutcrop(this, key, 300 + i, Math.round((s.rx * 2) / WORLD_PX), Math.round((s.ry * 2) / WORLD_PX));
-        // The texture has 3 art px of weed above the oval: anchor the oval's center on (x, y).
-        const img = this.add.image(s.x, s.y + (3 * WORLD_PX) / 2, key).setScale(WORLD_PX).setDepth(-14).setTint(tint);
-        img.setName('structure');
+        makeOutcrop(this, key, 300 + i, Math.round((s.rx * 2) / WORLD_PX), Math.round((s.ry * 2) / WORLD_PX), look.rock);
+        // The texture has 3 art px of tufts above the oval: anchor the oval's center on (x, y).
+        this.add.image(s.x, s.y - (3 * WORLD_PX) / 2, key).setScale(WORLD_PX).setDepth(-14).setName('structure');
       } else {
         const key = `w_shelf_${i}`;
-        makeShelf(this, key, 400 + i, Math.round((s.rx * 2) / WORLD_PX));
+        makeShelf(this, key, 400 + i, Math.round((s.rx * 2) / WORLD_PX), look.shelf);
         this.add.image(s.x, s.y, key).setOrigin(0.5, 0).setScale(WORLD_PX).setDepth(-14).setName('structure');
       }
     });
@@ -3063,8 +3064,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       trench: regional('trench', [[20, C.navy, C.plum, C.cyan], [30, C.navy, C.slate, C.cyan], [42, C.ink, C.plum, C.pinkLight]]),
       // Kelp Forest: giant kelp, the tallest plants in the sea (from the seabed up to the surface), and a few short ones.
       kelp: [
-        ...[420, 520, 600, 660].map((h, i) => {
+        // Heights as shares of the water (so they still reach up near the surface in the deeper sea).
+        ...[0.6, 0.74, 0.85, 0.94].map((share, i) => {
           const key = `w_giantkelp_${i}`;
+          const h = Math.round((share * (this.seabedTop - BALANCE.world.surfaceY)) / WORLD_PX);
           makeGiantKelp(this, key, 90 + i, h);
           return { key, h };
         }),

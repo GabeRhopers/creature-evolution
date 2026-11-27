@@ -246,13 +246,58 @@ export function makeRock(scene: Phaser.Scene, key: string, seed: number, w: numb
   add(scene, key, c);
 }
 
+/** Colors of one region's mid-water structures (rock outcrop and one-way shelf). */
+export interface StructureLook {
+  rock: { edge: string; lit: string; body: string; shade: string; speck: string; specks: number; tuft?: [string, string] };
+  shelf: { edge: string; top: string; body: string; dither: string; dots: string[]; thick: number; ragged: number };
+}
+
+/** Each region builds its mid-water structures from its own material. */
+export const STRUCTURE_LOOKS: Record<string, StructureLook> = {
+  // Coral Sea: grey stone with weed, coral ledges with polyps.
+  coral: {
+    rock: { edge: C.navy, lit: C.stone, body: C.grey, shade: C.slate, speck: C.slate, specks: 0.05, tuft: [C.leaf, C.leafLight] },
+    shelf: { edge: C.navy, top: C.coralLight, body: C.coral, dither: C.clay, dots: [C.pinkLight, C.yellow], thick: 5, ragged: 3 },
+  },
+  // Swamp: mud lumps and sunken logs.
+  swamp: {
+    rock: { edge: C.bark, lit: C.clay, body: C.brown, shade: C.bark, speck: C.leafDark, specks: 0.06, tuft: [C.leafDark, C.leaf] },
+    shelf: { edge: C.bark, top: C.clay, body: C.brown, dither: C.bark, dots: [C.leafDark, C.leaf], thick: 7, ragged: 1 },
+  },
+  // Sargasso Sea: open water; floating weed mats.
+  sargasso: {
+    rock: { edge: C.brown, lit: C.gold, body: C.clay, shade: C.brown, speck: C.gold, specks: 0.08 },
+    shelf: { edge: C.brown, top: C.yellow, body: C.gold, dither: C.clay, dots: [C.leafLight, C.yellow], thick: 4, ragged: 5 },
+  },
+  // Volcanic Rift: black basalt with glowing cracks.
+  volcano: {
+    rock: { edge: C.ink, lit: C.slate, body: C.navy, shade: C.ink, speck: C.coralLight, specks: 0.008 },
+    shelf: { edge: C.ink, top: C.slate, body: C.navy, dither: C.ink, dots: [C.coralLight, C.orange], thick: 6, ragged: 2 },
+  },
+  // Twilight Trench: dark stone flecked with glow.
+  trench: {
+    rock: { edge: C.ink, lit: C.plum, body: C.navy, shade: C.ink, speck: C.cyan, specks: 0.01 },
+    shelf: { edge: C.ink, top: C.plum, body: C.navy, dither: C.ink, dots: [C.cyan, C.pinkLight], thick: 5, ragged: 3 },
+  },
+  // Kelp Forest: mossy stone.
+  kelp: {
+    rock: { edge: C.navy, lit: C.leaf, body: C.grey, shade: C.slate, speck: C.leafDark, specks: 0.07, tuft: [C.brown, C.gold] },
+    shelf: { edge: C.navy, top: C.leaf, body: C.grey, dither: C.leafDark, dots: [C.gold, C.leafLight], thick: 5, ragged: 2 },
+  },
+  // Frozen Sea: ice chunks and ice shelves.
+  ice: {
+    rock: { edge: C.stone, lit: C.white, body: C.mist, shade: C.stone, speck: C.cyan, specks: 0.04 },
+    shelf: { edge: C.stone, top: C.white, body: C.mist, dither: C.stone, dots: [C.cyan, C.white], thick: 6, ragged: 2 },
+  },
+};
+
 /**
- * A mid-water rock outcrop: a lumpy oval w x h art px (navy outline, lit top, shaded underside)
- * with a few weed tufts on top. The solid part is the oval the terrain uses.
+ * A mid-water rock outcrop: a lumpy oval w x h art px (outline, lit top, shaded underside) in a region's look,
+ * maybe with tufts on top. The solid part is the oval the terrain uses.
  */
-export function makeOutcrop(scene: Phaser.Scene, key: string, seed: number, w: number, h: number): void {
+export function makeOutcrop(scene: Phaser.Scene, key: string, seed: number, w: number, h: number, look: StructureLook['rock'] = STRUCTURE_LOOKS.coral.rock): void {
   const r = rng(seed);
-  const top = 3; // room for weed tufts above the oval
+  const top = 3; // room for tufts above the oval
   const [c, g] = canvas(w, h + top);
   const lumps = Array.from({ length: 6 }, () => 0.9 + r() * 0.1);
   const inside = (x: number, y: number) => {
@@ -267,36 +312,37 @@ export function makeOutcrop(scene: Phaser.Scene, key: string, seed: number, w: n
       const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
       const lit = !inside(x, y - 2);
       const under = y > h * 0.62 && bayer(x, y) < (y / h - 0.62) * 3;
-      px(g, x, y + top, edge ? C.navy : lit ? C.stone : under ? C.slate : C.grey);
-      if (!edge && !lit && r() < 0.05) px(g, x, y + top, C.slate);
+      px(g, x, y + top, edge ? look.edge : lit ? look.lit : under ? look.shade : look.body);
+      if (!edge && !lit && r() < look.specks) px(g, x, y + top, look.speck);
     }
-  for (let x = 2; x < w - 2; x++) {
-    if (r() > 0.18) continue;
-    let y = 0;
-    while (y < h && !inside(x, y)) y++;
-    if (y >= h * 0.4) continue;
-    const tall = 1 + Math.floor(r() * 3);
-    for (let k = 1; k <= tall; k++) px(g, x, y + top - k, k === tall ? C.leafLight : C.leaf);
-  }
+  if (look.tuft)
+    for (let x = 2; x < w - 2; x++) {
+      if (r() > 0.18) continue;
+      let y = 0;
+      while (y < h && !inside(x, y)) y++;
+      if (y >= h * 0.4) continue;
+      const tall = 1 + Math.floor(r() * 3);
+      for (let k = 1; k <= tall; k++) px(g, x, y + top - k, k === tall ? look.tuft[1] : look.tuft[0]);
+    }
   add(scene, key, c);
 }
 
-/** A one-way shelf: a thin coral-stone ledge w art px long, its top flat, its underside ragged. */
-export function makeShelf(scene: Phaser.Scene, key: string, seed: number, w: number): void {
+/** A one-way shelf in a region's look: a ledge w art px long, its top flat, its underside ragged. */
+export function makeShelf(scene: Phaser.Scene, key: string, seed: number, w: number, look: StructureLook['shelf'] = STRUCTURE_LOOKS.coral.shelf): void {
   const r = rng(seed);
-  const h = 7;
+  const h = look.thick + look.ragged + 1;
   const [c, g] = canvas(w, h);
   for (let x = 0; x < w; x++) {
     const end = Math.min(x, w - 1 - x);
-    const depth = Math.max(2, Math.min(h, 3 + Math.floor(r() * 3) + Math.min(2, end)));
+    const depth = Math.max(2, Math.min(h, look.thick - 2 + Math.floor(r() * (look.ragged + 1)) + Math.min(2, end)));
     const start = end < 2 ? 2 - end : 0; // rounded ends
     for (let y = start; y < depth; y++) {
       const edge = y === start || y === depth - 1 || end === 0;
-      px(g, x, y, edge ? C.navy : y === start + 1 ? C.coralLight : bayer(x, y) < 0.4 ? C.clay : C.coral);
+      px(g, x, y, edge ? look.edge : y === start + 1 ? look.top : bayer(x, y) < 0.4 ? look.dither : look.body);
     }
   }
-  // Small polyps on top.
-  for (let x = 3; x < w - 3; x += 4 + Math.floor(r() * 5)) px(g, x, 1, r() < 0.5 ? C.pinkLight : C.yellow);
+  // Small dots on top (polyps, moss, glow).
+  for (let x = 3; x < w - 3; x += 4 + Math.floor(r() * 5)) px(g, x, 1, look.dots[Math.floor(r() * look.dots.length)]);
   add(scene, key, c);
 }
 
