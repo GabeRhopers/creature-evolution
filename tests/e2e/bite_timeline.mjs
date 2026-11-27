@@ -62,7 +62,8 @@ ok(await waitFor(() => { const g = window.game.scene.getScene('Game'); return !g
 // A quick tap: the bite still lands, right after the short wind-up.
 await G(place);
 await G(() => { const g = window.game.scene.getScene('Game'); g.player.biteCooldown = 0; g.controller.uiSwallow = true; });
-await p.waitForTimeout(30);
+// Release once the game has seen the press (slow machines run few frames).
+await waitFor(() => { const g = window.game.scene.getScene('Game'); return g.pendingBites.has(g.playerCreature); }, 10000);
 await G(() => { window.game.scene.getScene('Game').controller.uiSwallow = false; });
 const tap0 = await G(() => window.__t.fish.hp);
 ok(await waitFor((hp) => window.__t.fish.hp < hp, 10000, tap0), 'a quick tap bites after the wind-up');
@@ -113,7 +114,8 @@ ok(cancel.had && !cancel.after && cancel.look === null, 'getting bitten during t
 await waitFor(() => { const g = window.game.scene.getScene('Game'); return !g.pendingBites.has(g.playerCreature); }, 10000);
 const meat = await G(() => {
   const g = window.game.scene.getScene('Game'), pl = g.player;
-  window.__t.fish.setPosition(pl.x - 2000, pl.y);
+  // Nothing else in reach: every creature near the mouth is moved away, so the jaws close on the meat.
+  for (const c of g.creatures) if (!c.isPlayer && Math.hypot(c.fish.x - pl.x, c.fish.y - pl.y) < pl.size * 6) c.fish.setPosition(pl.x - 2500 - Math.random() * 500, pl.y);
   const m = pl.mouthPoint();
   const big = pl.devourSize * 3;
   const f = g.food.spawnMeat(m.x, m.y, big, 90, false);
@@ -126,7 +128,8 @@ const meat = await G(() => {
   return { big, before: g.food.items.filter((x) => x.kind === 'meat').length };
 });
 await G(() => { const g = window.game.scene.getScene('Game'); g.player.biteCooldown = 0; g.controller.uiSwallow = true; });
-await p.waitForTimeout(30);
+// Release once the game has seen the press (slow machines run few frames).
+await waitFor(() => { const g = window.game.scene.getScene('Game'); return g.pendingBites.has(g.playerCreature); }, 10000);
 await G(() => { window.game.scene.getScene('Game').controller.uiSwallow = false; });
 ok(await waitFor(() => !window.__chunk.alive, 10000), 'biting a chunk too big to swallow breaks it');
 const pieces = await G((big) => { const g = window.game.scene.getScene('Game'); const m = window.__pieces; return { n: m.length, sizes: m.map((x) => Math.round(x)), canSwallow: m.every((x) => x < big * 0.75 && g.player.canSwallow(x)) }; }, meat.big);

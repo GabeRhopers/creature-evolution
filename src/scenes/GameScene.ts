@@ -1555,6 +1555,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const cfg = BALANCE.combat.bite;
     this.pendingBites.set(this.playerCreature, { target, mul: 1, phase: 'windup', t: cfg.windup, held, holdT: 0 });
     this.player.openJaw(cfg.windup);
+    // The cooldown runs from the start of the bite, so the pace of bites stays as before (the wind-up is part of it).
+    this.player.biteCooldown = BALANCE.combat.biteCooldown;
   }
 
   /** What the player's jaws close on right now: the nearest creature in reach that is too big to swallow (or guards). */
@@ -1577,7 +1579,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
    * A chunk of meat too big to swallow, at the player's mouth, is bitten into smaller pieces (each one the player can
    * swallow when possible, always smaller than the chunk), so any carcass can be eaten bit by bit. Returns true if it bit one.
    */
-  breakMeatAtMouth(): boolean {
+  breakMeatAtMouth(closerThan = Infinity): boolean {
     const p = this.player;
     const cfg = BALANCE.combat.bite;
     const mouth = p.mouthPoint();
@@ -1587,7 +1589,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     for (const f of this.food.items) {
       if (f.kind !== 'meat' || p.canSwallow(f.size)) continue;
       const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, f.img.x, f.img.y);
-      if (d <= r + f.size && d < bd) { bd = d; chunk = f; }
+      if (d <= r + f.size && d < bd && d < closerThan) { bd = d; chunk = f; }
     }
     if (!chunk) return false;
     const piece = Phaser.Math.Clamp(p.devourSize * cfg.meatBreakPieceMul, 3, chunk.size * 0.7);
@@ -1623,6 +1625,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const w = Math.min(cfg.aiWindupMax, cfg.aiWindup + cfg.aiWindupPerTier * Math.max(0, tier - 1));
     this.pendingBites.set(attacker, { target, mul: damageMul, phase: 'windup', t: w, held: false, holdT: 0 });
     attacker.fish.openJaw(w);
+    attacker.fish.biteCooldown = BALANCE.combat.aiBiteCooldown;
   }
 
   private updatePendingBites(dt: number): void {
@@ -1675,7 +1678,6 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     b.t = isP ? cfg.recovery : cfg.aiRecovery;
     a.snapJaw(b.t);
     a.jawSpeed = 1;
-    a.biteCooldown = isP ? cb.biteCooldown : cb.aiBiteCooldown;
     // Held past the wind-up: up to chargeDamageBonus more damage.
     const charge = isP ? Phaser.Math.Clamp((b.holdT - cfg.windup) / cfg.chargeSeconds, 0, 1) : 0;
     const mul = b.mul * (1 + cfg.chargeDamageBonus * charge);
@@ -1692,7 +1694,14 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         target = null;
       }
     }
-    if (isP && !target) target = this.playerBiteTargetNow();
+    if (isP && !target) {
+      target = this.playerBiteTargetNow();
+      // The jaws close on whatever is nearest: a creature, or a chunk of meat too big to swallow.
+      if (target) {
+        const m = a.mouthPoint();
+        if (this.breakMeatAtMouth(Phaser.Math.Distance.Between(m.x, m.y, target.fish.x, target.fish.y))) return;
+      }
+    }
     if (target) {
       if (isP) this.playerBites++;
       this.bite(attacker, target, mul, true, charge >= 1);
