@@ -196,7 +196,9 @@ export function getHero(): string {
 /** Every stage design of every hero (to preload them all). */
 export const ALL_STAGE_SKINS: string[] = [...new Set(HEROES.flatMap((h) => heroStages(h.id).map((s) => s.skin)))];
 /** Every reef creature design (fish, crab, enemies): Sprite Studio project ids. */
-export const ALL_SPECIES_LOOKS: string[] = [...new Set(Object.values(SPECIES).map((sp) => sp.look).filter((l): l is string => !!l))];
+/** Looks of creatures that are not swimmers (the Fisher Ape in his boat). */
+export const EXTRA_LOOKS = ['beast-fisher_ape'];
+export const ALL_SPECIES_LOOKS: string[] = [...new Set([...Object.values(SPECIES).map((sp) => sp.look).filter((l): l is string => !!l), ...EXTRA_LOOKS])];
 /** How much a species likes a region (balance "biomes"; missing = 1). */
 export function biomeWeight(speciesId: string, regionId: string): number {
   const b = (BALANCE as unknown as { biomes?: Record<string, Record<string, number>> }).biomes?.[speciesId];

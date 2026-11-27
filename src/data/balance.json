@@ -2555,6 +2555,48 @@
       }
     }
   },
+  "fisher": {
+    "_comment": "The Fisher Ape (src/scenes/FisherSystem.ts, rules in src/systems/fisher.ts): sometimes a monkey in a rowboat drifts in near the player (regions, periods: day only) after firstAfter, then every everyMin-everyMax seconds; he casts, the hook drops to a fish's depth (or hookDepthMin-Max of the water), waits, reels in. Fish up to catchMaxSize are caught. The hero is hooked: hookDamageFraction of health (never the last bit); stages in pullStages are pulled up at pullSpeed until EAT (bite the line) or breakSprintSeconds of sprinting; others just get stung (the line snaps). boatHitsToScare rams from below (or leaps into the boat) scare him off with scareXpShare of a level in XP. He leaves after `catches` catches or `stay` seconds. artScale = world px per art pixel of his drawing.",
+    "regions": [
+      "coral",
+      "swamp"
+    ],
+    "periods": [
+      "day"
+    ],
+    "firstAfter": 90,
+    "everyMin": 150,
+    "everyMax": 300,
+    "stay": 60,
+    "catches": 3,
+    "arriveDistance": 1100,
+    "arriveSpeed": 200,
+    "leaveSpeed": 260,
+    "castSeconds": 0.8,
+    "lineSpeed": 260,
+    "waitMin": 3,
+    "waitMax": 7,
+    "reelSpeed": 220,
+    "catchSeconds": 1.8,
+    "hookDepthMin": 0.06,
+    "hookDepthMax": 0.3,
+    "hookSwing": 14,
+    "hookRadius": 16,
+    "catchMaxSize": 30,
+    "hookDamageFraction": 0.12,
+    "pullSpeed": 140,
+    "pullStages": [
+      "hatchling",
+      "juvenile"
+    ],
+    "breakSprintSeconds": 1,
+    "rehookSeconds": 3,
+    "boatHitsToScare": 3,
+    "boatHitCooldown": 0.6,
+    "boatHitSpeedRatio": 0.9,
+    "scareXpShare": 0.25,
+    "artScale": 3
+  },
   "checkpointCrab": {
     "_comment": "A Checkpoint Crab appears every `everyLevels` levels. Defeat it and that level is saved: after dying you swim again from it (instead of from level 1). Its strength is set from yours when it appears, so the fight is fair for every hero and perk: it takes about `hitsToDefeat` of your bites, and each pinch takes `pinchHpFraction` of your health and stuns you briefly. It stays around its spot (`homeWidth` x `homeHeight`) near the deepest water you may swim in, and chases you only within `guardRange`.",
     "everyLevels": 10,

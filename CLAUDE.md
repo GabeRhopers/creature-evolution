@@ -360,6 +360,24 @@ California Sheephead (51, eats tier 1 and `sea_urchin`, buck teeth), Purple Sea 
 `maxSpeed` 25, `venom`, `upright`), **Sea Otter** (52, `friendly` like the turtle, diet `sea_urchin`) and California Sea Lion
 (55, fast agile pack hunter, `rankMul` 5). E2E: `kelp.mjs`; unit: `tests/kelp.test.ts`.
 
+## The Fisher Ape (`src/scenes/FisherSystem.ts`, rules in `src/systems/fisher.ts`, `balance.json` "fisher")
+Rhopers, Nov 27 (from his sheet `tools/fisher/fisher_ape_sheet.jpg`; `tools/fisher/convert_fisher.py` keeps idle x3, walk x3, cast,
+hook, catch and celebration x2, wipes the drawn line and fish from HOOK, makes background-blue pockets see-through and runs
+`build_fisher.mjs` with the skin engine: feet on the bottom line, face in column 21, framework `fisher_ape` 48x48, look
+`beast-fisher_ape`, in `EXTRA_LOOKS` so Boot, the menu and the studio load it like a species look). Not a swimmer: a monkey in a
+rowboat (`w_float_rowboat`, depth 9; he stands in it at `artScale` world px per art px). One at a time: after `firstAfter`, then every
+`everyMin`-`everyMax` s, by day in the Coral Sea and Mangrove Swamp (`canVisit`; never in a boss cave), he rows in from off screen
+(`arrive`), casts (`cast`, attack frame 0), the line goes in past the boat's end (`castX`) with a red-and-white bobber and a hook
+(Graphics, any depth) and drops (`drop`) to a small fish's depth or `hookDepthMin`-`Max` of the water, waits, reels (`reel`, attack
+frame 1). Fish up to `catchMaxSize` touching the hook are reeled up and caught (`respawnAmbient`, `catch` = celebrate frames). The hero
+touching it is HOOKED: `hookDamage` (`hookDamageFraction`, never the last bit of health); stages in `pullStages` are pulled toward
+the hook at `pullSpeed` until EAT is held (bites the line) or `breakSprintSeconds` of sprinting ("Free!"); reaching the surface
+gives another small hit and drops them back; an adult just gets stung ("Snap!"). `rehookSeconds` of safety after. Ramming the boat
+from below (swimming up fast within 0.35 s, `boatHitSpeedRatio` x cruise) or leaping into it counts a hit ("Bonk!");
+`boatHitsToScare` hits scare him off ("Scared off!", `scareXpShare` of a level in XP). He leaves (`leave`) after `catches` catches or
+`stay` seconds, or is gone at once if the player gets far away or enters a cave. First visit per run: a NEW banner. Tests:
+`fisher.spawnNow(side)`. E2E: `fisher.mjs`; unit: `tests/fisher.test.ts`.
+
 ## Bosses (`src/scenes/BossSystem.ts`, rules in `src/systems/bosses.ts`, art in `src/systems/arenaArt.ts`, `balance.json` "bosses")
 Each boss has its own **arena, a separate screen** (Rhopers, Nov 25, end to end): (1) a SMALL cave entrance sits on the
 seabed in the open world, in the background (`makeCaveEntrance`, depth -11: in front of coral, behind every fish; a small
