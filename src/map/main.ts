@@ -4,18 +4,26 @@
 // long and 3,200 px deep) and keeps its full depth, so its shape reads in one screen; zooming in brings it toward true
 // proportions. Touch first: drag to pan, pinch or the buttons to zoom, tap anything for its details.
 // Phase 2 (Edit): move, resize, add and delete islands, seamounts, ridges, scenery, floats and cave entrances, with undo.
-// Edits are saved on this device as changes from the shipped map (src/map/edits.ts) and the game uses them the next time it opens.
+// The Original (shipped) map is never changed: the first edit makes a copy ("My map 1"), saved on this device as changes from
+// the Original (src/map/edits.ts). The player keeps several maps, picks one in the header, and "Play this map" (or Map on the
+// game's home screen) sets which one the game plays. The Original stays the default.
 import { BALANCE } from '../data';
 import { buildMap, depthShare, mapChecks, regionAt, regionSummary, FOOTPRINT, type MapBalance, type MapIssue, type MapModel, type Thing } from './model';
-import { addChoices, addThing, changedLists, editable, exportMap, ISLAND_STYLES, LIMITS, listsOf, loadLists, moveThing, removeThing, resizeThing, saveLists, savedOnOldMap, withLists, type AddChoice, type MapLists, type SizeChange } from './edits';
+import { addChoices, addThing, changedLists, createMap, deleteMap, editable, exportMap, ISLAND_STYLES, LIMITS, listsOf, madeOnOldMap, mapLists, MAX_MAPS, moveThing, ORIGINAL, playMapId, readMaps, removeThing, renameMap, resizeThing, saveMap, setPlayMap, withLists, type AddChoice, type MapLists, type SizeChange } from './edits';
 
 const $ = (id: string) => document.getElementById(id)!;
 const B = BALANCE as unknown as MapBalance;
 const SHIPPED = listsOf(B);
 const store = (() => { try { localStorage.getItem('x'); return localStorage; } catch { const m = new Map<string, string>(); return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) }; } })();
-/** The lists being edited (shipped, plus this device's saved edits). */
-let L: MapLists = loadLists(SHIPPED, store);
-const oldBase = savedOnOldMap(SHIPPED, store);
+// Which map is shown: the Original (shipped, read-only: the editor never changes it) or one of the player's maps.
+// ?map=<id> picks one; otherwise the map the game is set to play.
+let curId = (() => {
+  const q = new URLSearchParams(location.search).get('map');
+  return q && readMaps(store).some((m) => m.id === q) ? q : playMapId(store);
+})();
+/** The lists shown (and edited, on the player's own maps). */
+let L: MapLists = mapLists(SHIPPED, readMaps(store), curId);
+let oldBase = madeOnOldMap(SHIPPED, readMaps(store).find((m) => m.id === curId));
 let M: MapModel = buildMap(withLists(B, L));
 let issues: MapIssue[] = [];
 const W = M.width;
@@ -51,7 +59,7 @@ function rebuild(): void {
   dirty = false;
   M = buildMap(withLists(B, L));
   issues = mapChecks(M);
-  if (oldBase && changedLists(SHIPPED, L)) issues.unshift({ level: 'warn', x: B.world.startX, text: 'The game was updated since these map edits were made. Check them, or Reset all in Edit.' });
+  if (oldBase && changedLists(SHIPPED, L)) issues.unshift({ level: 'warn', x: B.world.startX, text: 'The game was updated since this map was made. Check it, or Start over in Edit.' });
   if (selected) selected = M.things.find((t) => t.id === selected!.id) ?? null;
   updateProblems();
 }
@@ -393,10 +401,23 @@ const history: string[] = [];
 let future: string[] = [];
 function commit(before: string): void {
   if (before === JSON.stringify(L)) return;
+  // The Original is read-only: the first change to it goes into a new map of the player's ("My map 1", ...).
+  if (curId === ORIGINAL) {
+    const m = createMap(store, SHIPPED, undefined, L);
+    if (!m) {
+      L = JSON.parse(before);
+      rebuild();
+      draw();
+      alert(`The Original map can't be changed, and this device already keeps ${MAX_MAPS} maps. Delete one to make a copy.`);
+      return;
+    }
+    curId = m.id;
+    oldBase = false;
+  }
   history.push(before);
   if (history.length > 80) history.shift();
   future = [];
-  saveLists(SHIPPED, L, store);
+  saveMap(store, SHIPPED, curId, L);
   updateEditBar();
 }
 function undo(): void {
@@ -414,7 +435,7 @@ function redo(): void {
   afterHistory();
 }
 function afterHistory(): void {
-  saveLists(SHIPPED, L, store);
+  saveMap(store, SHIPPED, curId, L);
   rebuild();
   updateEditBar();
   if (selected) showThing(selected); else draw();
@@ -432,11 +453,53 @@ function addAtCenter(c: AddChoice): void {
 }
 function updateEditBar(): void {
   const n = changedLists(SHIPPED, L);
+  const mine = curId !== ORIGINAL;
   ($('btnUndo') as HTMLButtonElement).disabled = !history.length;
   ($('btnRedo') as HTMLButtonElement).disabled = !future.length;
-  $('editState').textContent = n ? 'Changes saved on this device. The game uses them next time it opens.' : 'No changes: this is the shipped map.';
-  ($('btnReset') as HTMLButtonElement).disabled = !n;
-  $('btnEdit').classList.toggle('changed', n > 0);
+  const name = mine ? readMaps(store).find((m) => m.id === curId)?.name ?? 'My map' : 'Original';
+  $('editState').textContent = mine
+    ? `Editing “${name}”, saved on this device.${n ? '' : ' It is the same as the Original so far.'} The Original map never changes.`
+    : 'The Original map is never changed. Your first edit makes a copy of it to edit.';
+  ($('btnReset') as HTMLButtonElement).disabled = !mine || !n;
+  ($('btnRename') as HTMLButtonElement).disabled = !mine;
+  ($('btnDeleteMap') as HTMLButtonElement).disabled = !mine;
+  $('btnEdit').classList.toggle('changed', mine);
+  renderMapPick();
+}
+/** The map picker in the header: the Original, the player's maps, and which one the game plays. */
+function renderMapPick(): void {
+  const maps = readMaps(store);
+  const play = playMapId(store);
+  const opt = (id: string, name: string) => `<option value="${id}"${id === curId ? ' selected' : ''}>${esc(name)}${id === play ? ' (playing)' : ''}</option>`;
+  ($('mapPick') as HTMLSelectElement).innerHTML =
+    opt(ORIGINAL, 'Original') + maps.map((m) => opt(m.id, m.name)).join('') + (maps.length < MAX_MAPS ? '<option value="+new">+ New map</option>' : '');
+  const btn = $('btnPlayMap') as HTMLButtonElement;
+  btn.textContent = curId === play ? 'Playing this map' : 'Play this map';
+  btn.disabled = curId === play;
+}
+/** Show another map (history starts fresh for it). */
+function openMap(id: string): void {
+  curId = id;
+  const maps = readMaps(store);
+  L = mapLists(SHIPPED, maps, id);
+  oldBase = madeOnOldMap(SHIPPED, maps.find((m) => m.id === id));
+  history.length = 0;
+  future = [];
+  selected = null;
+  $('info').classList.remove('open');
+  rebuild();
+  updateEditBar();
+  draw();
+}
+/** A new map of the player's (a copy of `from`), shown at once. False when the device already keeps MAX_MAPS maps. */
+function newMap(from: MapLists = SHIPPED): boolean {
+  const m = createMap(store, SHIPPED, undefined, from);
+  if (!m) {
+    alert(`This device already keeps ${MAX_MAPS} maps. Delete one to make another.`);
+    return false;
+  }
+  openMap(m.id);
+  return true;
 }
 function setEditing(on: boolean): void {
   editing = on;
@@ -637,8 +700,35 @@ $('btnExport').onclick = () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 $('btnReset').onclick = () => {
-  if (!confirm('Put the whole map back the way it shipped? This removes every map edit on this device.')) return;
+  if (curId === ORIGINAL || !confirm('Start this map over as a copy of the Original? Undo can bring the edits back.')) return;
   edit(() => JSON.parse(JSON.stringify(SHIPPED)));
+};
+$('mapPick').onchange = () => {
+  const v = ($('mapPick') as HTMLSelectElement).value;
+  if (v === '+new') {
+    if (!newMap()) renderMapPick();
+    return;
+  }
+  openMap(v);
+};
+$('btnRename').onclick = () => {
+  if (curId === ORIGINAL) return;
+  const now = readMaps(store).find((m) => m.id === curId)?.name ?? '';
+  const name = prompt('Name this map', now);
+  if (name && name.trim()) renameMap(store, curId, name);
+  updateEditBar();
+};
+$('btnDeleteMap').onclick = () => {
+  if (curId === ORIGINAL) return;
+  const name = readMaps(store).find((m) => m.id === curId)?.name ?? 'this map';
+  if (!confirm(`Delete “${name}”? The Original map stays.`)) return;
+  deleteMap(store, curId);
+  openMap(ORIGINAL);
+};
+$('btnPlayMap').onclick = () => {
+  setPlayMap(store, curId);
+  renderMapPick();
+  location.href = 'index.html';
 };
 
 // ---------------------------------------------------------------- start
@@ -647,11 +737,12 @@ const qx = Number(new URLSearchParams(location.search).get('x'));
 window.addEventListener('resize', resize);
 rebuild();
 resize();
+updateEditBar();
 if (new URLSearchParams(location.search).has('edit')) setEditing(true);
 if (Number.isFinite(qx) && qx > 0) goTo(qx, 12);
 else goTo(W / 2, maxS());
 // For tests and debugging.
 (window as unknown as { ceMap: unknown }).ceMap = {
-  get model() { return M; }, get issues() { return issues; }, get lists() { return L; }, get selected() { return selected; },
-  view, hitTest, sx, sy, wxAt, showThing, goTo, setEditing, undo, redo, rebuild,
+  get model() { return M; }, get issues() { return issues; }, get lists() { return L; }, get selected() { return selected; }, get mapId() { return curId; },
+  view, hitTest, sx, sy, wxAt, showThing, goTo, setEditing, undo, redo, rebuild, openMap,
 };

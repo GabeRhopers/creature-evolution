@@ -5,7 +5,7 @@ import { HudScene } from './scenes/HudScene';
 import { LightScene } from './scenes/LightScene';
 import { initMenu } from './ui/menu';
 import { applyEnemySettings } from './data/adminSettings';
-import { applyMapEdits } from './map/edits';
+import { applyPlayMap } from './map/edits';
 import { BALANCE } from './data';
 import type { MapBalance } from './map/model';
 import { reportError } from './ui/safety';
@@ -15,9 +15,10 @@ import { APP_VERSION } from './save';
 
 // Enemy settings changed on this device (Options > Enemy settings) apply before anything spawns.
 applyEnemySettings();
-// Map edits made on this device (the Map page) change the sea before the game builds it.
+// The sea to play: the Original (shipped) map unless the player picked one of their own maps (made on the Map page).
+// The Original itself is never changed by the editor. Read once, before the game builds the sea.
 try {
-  applyMapEdits(BALANCE as unknown as MapBalance, localStorage);
+  applyPlayMap(BALANCE as unknown as MapBalance, localStorage);
 } catch {
   /* storage blocked: the shipped map */
 }

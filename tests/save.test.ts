@@ -147,6 +147,11 @@ describe('checkpoint checks', () => {
   it('keeps the Checkpoint Crab level, never above the run level (older saves have none)', () => {
     expect(sanitizeCheckpoint({ ...CP, level: 14, crabLevel: 10 }, LIM)!.crabLevel).toBe(10);
     expect(sanitizeCheckpoint({ ...CP, level: 14, crabLevel: 40 }, LIM)!.crabLevel).toBe(14);
+    // The map a run is played on (missing = the Original).
+    expect(sanitizeCheckpoint(CP, LIM)!.map).toBeUndefined();
+    expect(sanitizeCheckpoint({ ...CP, map: { id: 'm2', name: 'Big islands' } }, LIM)!.map).toEqual({ id: 'm2', name: 'Big islands' });
+    expect(sanitizeCheckpoint({ ...CP, map: { id: '<script>', name: 'x' } }, LIM)!.map).toBeUndefined();
+    expect(sanitizeCheckpoint({ ...CP, map: { id: 'original', name: 'x' } }, LIM)!.map).toBeUndefined();
     expect(sanitizeCheckpoint({ ...CP, level: 14 }, LIM)!.crabLevel).toBe(0);
     expect(sanitizeCheckpoint({ ...CP, level: 14, crabLevel: 'x' }, LIM)!.crabLevel).toBe(0);
   });

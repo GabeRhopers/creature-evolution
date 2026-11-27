@@ -14,6 +14,7 @@ import { perkIconUrl } from './perkIcons';
 import { ENEMY_FIELDS, ENEMY_GROUPS, enemiesChanged, enemyIds, resetEnemies, saveEnemy, shippedValue } from '../data/adminSettings';
 import { DEFAULT_PAD_MAP, buttonName, PAD, PAD_ACTIONS, PAD_ACTION_NAMES, assignButton, buttonsLabel, pads, type PadAction } from '../input/gamepad';
 import { backupFileName, backupKey, buildBackup, parseBackup } from '../save/backup';
+import { currentMap, ORIGINAL, readMaps, setPlayMap } from '../map/edits';
 import { applyUpdate } from '../offline';
 import { perfMeterShown, readPerfLog, showPerfMeter } from './perfMeter';
 import { coachProfile, setCoachProfile } from './coachStore';
@@ -247,7 +248,7 @@ export function initMenu(game: Phaser.Game): void {
     if (checkpoint) {
       const c = checkpoint.data;
       const name = SPECIES[c.species]?.displayName ?? 'Creature';
-      $('continueSub').textContent = `${slotName(saves.activeSlot)}: ${name} · level ${c.level} · ${clock(c.runTime)} · saved ${ago(checkpoint.savedAt)}`;
+      $('continueSub').textContent = `${slotName(saves.activeSlot)}: ${name} · level ${c.level} · ${clock(c.runTime)} · saved ${ago(checkpoint.savedAt)}${c.map ? ` · ${c.map.name}` : ''}`;
       $('btnPlay').textContent = 'NEW RUN';
     } else {
       $('btnPlay').textContent = 'PLAY';
@@ -514,7 +515,72 @@ export function initMenu(game: Phaser.Game): void {
   }
   $('btnPlayer').addEventListener('click', openPlayers);
   $('btnPlay').addEventListener('click', play);
-  $('btnContinue').addEventListener('click', () => checkpoint && void startRun(checkpoint.data));
+  $('btnContinue').addEventListener('click', () => checkpoint && continueRun(checkpoint.data));
+  $('btnMap').addEventListener('click', openMaps);
+  renderMapChip();
+
+  // ---------------------------------------------------------------- which map to play
+  // The Original (shipped) map is the default and is never changed; maps made on the Map page are extra choices. The sea is
+  // built once when the page opens, so switching maps saves the choice and reloads.
+  function renderMapChip(): void {
+    $('mapName').textContent = currentMap.name;
+    // Only worth showing once the player has a map of their own (or is playing one).
+    ($('btnMap') as HTMLButtonElement).hidden = currentMap.id === ORIGINAL && !readMaps(localStorageSafe()).length;
+  }
+  function localStorageSafe(): Storage | { getItem(): null; setItem(): void; removeItem(): void } {
+    try {
+      localStorage.getItem('x');
+      return localStorage;
+    } catch {
+      return { getItem: () => null, setItem: () => undefined, removeItem: () => undefined };
+    }
+  }
+  function switchMap(id: string): void {
+    setPlayMap(localStorageSafe(), id);
+    window.location.reload();
+  }
+  function openMaps(): void {
+    const maps = readMaps(localStorageSafe());
+    const row = (id: string, name: string, sub: string) =>
+      `<div class="toggle"><span>${esc(name)}<br><span style="color:var(--muted);font-size:13px">${sub}</span></span>${
+        id === currentMap.id ? '<button class="btn" disabled>Playing</button>' : `<button class="btn" data-map="${esc(id)}">Play</button>`
+      }</div>`;
+    openPanel(
+      `<h3>Which map?</h3>
+      <p>The Original is the game's own sea and the default. Maps you make on the Map page never change it.</p>
+      ${row(ORIGINAL, 'Original', 'The game as made')}
+      ${maps.map((m) => row(m.id, m.name, `Your map · changed ${ago(m.updated)}`)).join('')}
+      <div class="row"><button class="btn" id="mEdit">Make or edit maps</button><button class="btn" id="pClose">Close</button></div>`,
+      () => {
+        $('mEdit').onclick = () => (window.location.href = 'map.html');
+        document.querySelectorAll<HTMLButtonElement>('[data-map]').forEach((b) => (b.onclick = () => switchMap(b.dataset.map!)));
+        $('pClose').onclick = closePanel;
+      },
+    );
+  }
+  /** Continue a saved run on the map it was played on (switching the sea first if another map is open). */
+  function continueRun(c: Checkpoint): void {
+    const want = c.map?.id ?? ORIGINAL;
+    const exists = want === ORIGINAL || readMaps(localStorageSafe()).some((m) => m.id === want);
+    if (want === currentMap.id || !exists) {
+      if (!exists) notice(`The map “${c.map?.name}” is gone, so this run goes on in ${currentMap.name}.`);
+      return void startRun(c);
+    }
+    const wantName = c.map?.name ?? 'Original';
+    openPanel(
+      `<h3>Switch maps?</h3>
+      <p>This run was played on <b>${esc(wantName)}</b>. Right now the sea is <b>${esc(currentMap.name)}</b>.</p>
+      <div class="row"><button class="btn" id="mSwitch">Switch to ${esc(wantName)}</button><button class="btn" id="mHere">Continue on ${esc(currentMap.name)}</button><button class="btn" id="pClose">Cancel</button></div>`,
+      () => {
+        $('mSwitch').onclick = () => {
+          requestAutoContinue(); // after the reload, straight back into the run
+          switchMap(want);
+        };
+        $('mHere').onclick = () => void startRun(c);
+        $('pClose').onclick = closePanel;
+      },
+    );
+  }
 
   // First tap anywhere on the home screen starts the music (browsers need a gesture).
   home.addEventListener('pointerdown', () => hud()?.startMusic(), { once: true });

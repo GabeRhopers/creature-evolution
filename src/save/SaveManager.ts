@@ -107,6 +107,8 @@ export interface Checkpoint {
   worldW?: number;
   /** Bosses beaten in this run (ids); they don't come back. Missing = none. */
   bossesBeaten?: string[];
+  /** The map the run is played on (an id from the Map page, with its name); missing = the Original. */
+  map?: { id: string; name: string };
 }
 
 /** What is actually written: the payload plus a header. */
@@ -295,6 +297,9 @@ export function sanitizeCheckpoint(raw: unknown, lim: SaveLimits): Checkpoint | 
     ...(typeof r.dayTime === 'number' && Number.isFinite(r.dayTime) ? { dayTime: num(r.dayTime, 0, 1e6, 0) } : {}),
     ...(typeof r.worldW === 'number' && Number.isFinite(r.worldW) ? { worldW: num(r.worldW, 1000, 1e7, 0) } : {}),
     ...(Array.isArray(r.bossesBeaten) ? { bossesBeaten: r.bossesBeaten.filter((x): x is string => typeof x === 'string' && /^[a-z_]{2,32}$/.test(x)).slice(0, 20) } : {}),
+    ...(r.map && typeof obj(r.map).id === 'string' && /^[\w-]{1,20}$/.test(obj(r.map).id as string) && obj(r.map).id !== 'original'
+      ? { map: { id: obj(r.map).id as string, name: String(obj(r.map).name ?? 'A map').slice(0, 40) } }
+      : {}),
     perks: Array.isArray(r.perks) ? r.perks.filter((x): x is string => typeof x === 'string' && /^[a-z]{2,16}$/.test(x)).slice(0, 30) : [],
     stats: {
       plankton: int(st.plankton, 0, 1e7, 0),
