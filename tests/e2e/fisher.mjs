@@ -54,9 +54,9 @@ ok(rise.minY < rise.y0 - 10, `and pulled up toward the boat (${Math.round(rise.y
 // Hooked again, then EAT bites the line.
 await G(() => { const g = window.game.scene.getScene('Game'), f = g.fisher; f.state = 'wait'; f.timer = 5; f.hookY = 400; g.player.invulnTimer = 0; });
 await G(() => new Promise((res) => { const g = window.game.scene.getScene('Game'), f = g.fisher, pl = g.player; f['rehook'] = 0; const t = () => { if (f.hookedPlayer) return res(); pl.setPosition(f.hookX, f.hookY); pl.arcadeBody.setVelocity(0, 0); requestAnimationFrame(t); }; t(); }));
-await G(() => { window.game.scene.getScene('Game').controller.uiSwallow = true; });
+await p.keyboard.down('Space');
 ok(await waitFor(() => !window.game.scene.getScene('Game').fisher.hookedPlayer, 10000), 'EAT bites the line: free');
-await G(() => { window.game.scene.getScene('Game').controller.uiSwallow = false; });
+await p.keyboard.up('Space');
 
 // An adult is too heavy: the hook stings and the line snaps.
 await G(() => { const g = window.game.scene.getScene('Game'); g.player.setLevel(25); });
@@ -64,7 +64,7 @@ await waitFor(() => !document.querySelector('[data-perk]'), 20000);
 ok(await waitFor(() => ['drop', 'wait'].includes(window.game.scene.getScene('Game').fisher.state) || window.game.scene.getScene('Game').fisher.state === 'leave', 40000), 'he fishes again');
 const adult = await G(() => new Promise((res) => {
   const g = window.game.scene.getScene('Game'), f = g.fisher, pl = g.player;
-  if (!['drop', 'wait'].includes(f.state)) { f.state = 'wait'; f.timer = 5; f.hookX = f.rodTip().x; f.hookY = g.player.y; }
+  f.hookedPlayer = false; f.state = 'wait'; f.timer = 30; f.hookY = 450; f['rehook'] = 0;
   pl.hp = pl.maxHp; pl.invulnTimer = 0;
   const hp = pl.hp;
   let n = 0;

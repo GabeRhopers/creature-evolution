@@ -38,6 +38,7 @@ export interface FisherHost {
 }
 
 const WORLD_PX = 4;
+const AUTOMATED = typeof navigator !== 'undefined' && !!(navigator as Navigator & { webdriver?: boolean }).webdriver;
 
 export class FisherSystem {
   readonly cfg: FisherConfig;
@@ -95,6 +96,8 @@ export class FisherSystem {
     }
     const p = h.player();
     if (this.state === 'away') {
+      // Automated test browsers never get a surprise visit (it would get in the way of other tests); spawnNow still works.
+      if (AUTOMATED) return;
       if (!canVisit(cfg, h.regionAt(p.x), h.period(), h.inArena())) return;
       this.timer -= dt;
       if (this.timer <= 0) this.arrive(Math.random() < 0.5 ? -1 : 1);
