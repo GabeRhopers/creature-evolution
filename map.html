@@ -41,6 +41,7 @@
       #zoom button { min-width: 44px; justify-content: center; }
       #scaleNote { position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,.35); padding: 3px 6px; border-radius: 4px; pointer-events: none; }
       #btnEdit.changed { border-color: var(--sun); }
+      #mapPick { min-height: 40px; max-width: 180px; font: inherit; background: var(--panel, #262b44); color: inherit; border: 1px solid var(--line, #5a6988); border-radius: 6px; padding: 0 6px; }
       button:disabled { opacity: .45; cursor: default; }
       button.bad { border-color: rgba(255,107,107,.6); }
       #editBar { flex-basis: 100%; display: none; flex-wrap: wrap; gap: 6px; align-items: center; border-top: 1px solid var(--sun); padding-top: 6px; }
@@ -62,6 +63,8 @@
     <header id="head">
       <a class="btn" href="index.html" title="Back to the game">‹ Game</a>
       <h1>Map</h1>
+      <select id="mapPick" aria-label="Which map"></select>
+      <button id="btnPlayMap" title="Play this map in the game (the Original stays the default)">Play this map</button>
       <div id="regions" role="group" aria-label="Jump to a region"></div>
       <span class="grow"></span>
       <button id="btnEdit" aria-pressed="false" title="Move, resize, add and delete things">Edit</button>
@@ -73,7 +76,9 @@
         <button id="btnAdd">+ Add</button>
         <span id="editState"></span>
         <button id="btnExport" title="A file with the whole edited map, to make it permanent">Export file</button>
-        <button id="btnReset" class="bad">Reset all</button>
+        <button id="btnRename">Rename</button>
+        <button id="btnReset" class="bad" title="Make this map a copy of the Original again">Start over</button>
+        <button id="btnDeleteMap" class="bad">Delete map</button>
       </div>
     </header>
     <main>

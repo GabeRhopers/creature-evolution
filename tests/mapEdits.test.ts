@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { BALANCE } from '../src/data';
 import { buildMap, mapChecks, type MapBalance } from '../src/map/model';
 import {
-  addChoices, addThing, applyMapEdits, changedLists, diffLists, exportMap, fingerprint, listsOf, loadLists, moveThing,
-  readSaved, removeThing, resizeThing, saveLists, savedOnOldMap, STORE_KEY, withLists,
+  addChoices, addThing, applyPlayMap, changedLists, createMap, currentMap, deleteMap, diffLists, exportMap, fingerprint, listsOf, madeOnOldMap,
+  mapLists, MAPS_KEY, MAX_MAPS, moveThing, ORIGINAL, playMapId, readMaps, removeThing, renameMap, resizeThing, saveMap, setPlayMap, STORE_KEY,
+  withLists,
 } from '../src/map/edits';
 
 const B = BALANCE as unknown as MapBalance;
@@ -50,39 +51,73 @@ describe('map edits', () => {
     expect(removeThing(r.lists, r.id).islands.length).toBe(shipped.islands.length);
     expect(removeThing(shipped, 'cave:electric_eel')).toBe(shipped);
   });
-  it('saves only the lists that changed, and reads them back', () => {
+  it('the Original is never saved over: edits live in maps of their own, as changes only', () => {
     const s = memory();
-    saveLists(shipped, shipped, s);
-    expect(s.m.has(STORE_KEY)).toBe(false);
+    expect(saveMap(s, shipped, ORIGINAL, moveThing(shipped, 'ridge:2', 12345, W))).toBe(false);
+    expect(s.m.size).toBe(0);
+    const m = createMap(s, shipped)!;
+    expect(m.name).toBe('My map 1');
+    expect(m.lists).toEqual({});
     const L = moveThing(shipped, 'ridge:2', 12345, W);
     expect(Object.keys(diffLists(shipped, L))).toEqual(['ridges']);
-    saveLists(shipped, L, s);
-    expect(readSaved(s)?.base).toBe(fingerprint(shipped));
-    expect(loadLists(shipped, s).ridges[2].x).toBe(12345);
-    expect(changedLists(shipped, loadLists(shipped, s))).toBe(1);
-    expect(savedOnOldMap(shipped, s)).toBe(false);
-    // Back to shipped: the key is removed.
-    saveLists(shipped, shipped, s);
-    expect(s.m.has(STORE_KEY)).toBe(false);
+    expect(saveMap(s, shipped, m.id, L)).toBe(true);
+    const maps = readMaps(s);
+    expect(maps[0].base).toBe(fingerprint(shipped));
+    expect(mapLists(shipped, maps, m.id).ridges[2].x).toBe(12345);
+    expect(changedLists(shipped, mapLists(shipped, maps, m.id))).toBe(1);
+    // The Original is always the shipped map.
+    expect(mapLists(shipped, maps, ORIGINAL)).toEqual(shipped);
+    expect(madeOnOldMap(shipped, maps[0])).toBe(false);
+    // A second map gets the next name; names are kept unique and "Original" is taken.
+    expect(createMap(s, shipped)!.name).toBe('My map 2');
+    expect(renameMap(s, m.id, 'Original')).toBe('Original 1');
+    expect(renameMap(s, m.id, 'Big islands')).toBe('Big islands');
+    expect(renameMap(s, readMaps(s)[1].id, 'big islands')).toBe('big islands 1');
   });
-  it('ignores broken saves list by list', () => {
+  it('the game plays the Original unless the player picks a map, and falls back when it is deleted', () => {
     const s = memory();
-    s.setItem(STORE_KEY, JSON.stringify({ kind: 'creature-evolution-map', v: 1, base: 'x', lists: { islands: [{ x: 'nope' }], ridges: [{ x: 5, width: 400, height: 150 }] } }));
-    const L = loadLists(shipped, s);
+    expect(playMapId(s)).toBe(ORIGINAL);
+    const m = createMap(s, shipped, 'Eel cave moved', moveThing(shipped, 'cave:electric_eel', 2600, W))!;
+    // Making a map does not change what is played.
+    expect(playMapId(s)).toBe(ORIGINAL);
+    const b0 = clone();
+    expect(applyPlayMap(b0, s).id).toBe(ORIGINAL);
+    expect(b0.bosses.list.find((x) => x.id === 'electric_eel')?.entranceX).toBe(2400);
+    setPlayMap(s, m.id);
+    const b = clone();
+    expect(applyPlayMap(b, s)).toEqual({ id: m.id, name: 'Eel cave moved' });
+    expect(currentMap.name).toBe('Eel cave moved');
+    expect(b.bosses.list.find((x) => x.id === 'electric_eel')?.entranceX).toBe(2600);
+    deleteMap(s, m.id);
+    expect(playMapId(s)).toBe(ORIGINAL);
+    expect(s.m.has('ce.map.play')).toBe(false);
+    // An unknown pick is the Original too.
+    s.setItem('ce.map.play', 'nope');
+    expect(playMapId(s)).toBe(ORIGINAL);
+    currentMap.id = ORIGINAL; currentMap.name = 'Original';
+  });
+  it('moves the old single set of edits into "My map 1" (not played) and drops the old key', () => {
+    const s = memory();
+    s.setItem(STORE_KEY, JSON.stringify({ kind: 'creature-evolution-map', v: 1, base: 'old', lists: { islands: [{ x: 'nope' }], ridges: [{ x: 5, width: 400, height: 150 }] } }));
+    const maps = readMaps(s);
+    expect(maps).toHaveLength(1);
+    expect(maps[0].name).toBe('My map 1');
+    expect(s.m.has(STORE_KEY)).toBe(false);
+    expect(s.m.has(MAPS_KEY)).toBe(true);
+    // Broken lists are dropped list by list.
+    const L = mapLists(shipped, maps, maps[0].id);
     expect(L.islands).toEqual(shipped.islands);
     expect(L.ridges).toEqual([{ x: 5, width: 400, height: 150 }]);
-    expect(savedOnOldMap(shipped, s)).toBe(true);
-    s.setItem(STORE_KEY, '{not json');
-    expect(loadLists(shipped, s)).toEqual(shipped);
+    expect(madeOnOldMap(shipped, maps[0])).toBe(true);
+    expect(playMapId(s)).toBe(ORIGINAL);
+    expect(readMaps(s)).toHaveLength(1); // read again: no second copy
+    s.setItem(MAPS_KEY, '{not json');
+    expect(readMaps(s)).toEqual([]);
   });
-  it('the game applies the device edits at startup', () => {
+  it('keeps at most MAX_MAPS maps on a device', () => {
     const s = memory();
-    const b = clone();
-    expect(applyMapEdits(b, s)).toBe(0);
-    saveLists(shipped, addThing(moveThing(shipped, 'cave:electric_eel', 2600, W), { kind: 'scenery', label: 'anchor' }, 7000, W).lists, s);
-    expect(applyMapEdits(b, s)).toBe(2);
-    expect(b.bosses.list.find((x) => x.id === 'electric_eel')?.entranceX).toBe(2600);
-    expect(b.scenery.pieces.at(-1)).toEqual({ kind: 'anchor', x: 7000 });
+    for (let i = 0; i < MAX_MAPS; i++) expect(createMap(s, shipped)).not.toBeNull();
+    expect(createMap(s, shipped)).toBeNull();
   });
   it('the export carries everything the import tool needs', () => {
     const ex = JSON.parse(exportMap(shipped));

@@ -4,6 +4,7 @@ import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Bubbles } from '../systems/Bubbles';
+import { currentMap, ORIGINAL } from '../map/edits';
 import { C, makeGiantKelp, makeKelp, makeOutcrop, makeRay, makeRock, makeShelf, STRUCTURE_LOOKS, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
 import { Terrain, type TerrainConfig } from '../systems/terrain';
 import { SpatialGrid } from '../systems/spatialGrid';
@@ -1452,6 +1453,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       dayTime: this.dayTime,
       worldW: BALANCE.world.width,
       bossesBeaten: this.bossesBeaten.slice(),
+      ...(currentMap.id !== ORIGINAL ? { map: { ...currentMap } } : {}),
     });
     if (ok) {
       this.lastCheckpointAt = saves.lastSavedAt;

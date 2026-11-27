@@ -298,14 +298,22 @@ past is fine, the arch counts), gates within `gateSnap` of a border, each cave e
 at least `passage` px of water under every island, islands not overlapping (cave rocks overlap on purpose), big scenery (`FOOTPRINT`
 >= 250) not drawn over each other. Today's map has none. `window.ceMap` is for tests. E2E: `map.mjs`; unit: `tests/map.test.ts`.
 **Edit (Phase 2, `src/map/edits.ts`, pure; `tests/mapEdits.test.ts`)**: the Edit button (or `map.html?edit`) adds a second header row
-(Undo, Redo, + Add, Export file, Reset all). Editable lists (`MapLists`): islands, seamounts, ridges, scenery pieces, floats and each
+(Undo, Redo, + Add, Export file, Rename, Start over, Delete map). Editable lists (`MapLists`): islands, seamounts, ridges, scenery pieces, floats and each
 boss's cave entrance x (`LIST_OF`; gates and the start stay put until region editing, Phase 4). Drag a thing to move it (only things,
 the map does not pan then), the details panel has sliders (`LIMITS`: width; island depth, seamount top, ridge height; scenery scale),
 an island Look menu and Delete (not caves); Add puts the picked kind (`addChoices`: island styles, seamount, ridge, every scenery and
-float kind already shipped) in the middle of the screen. Every change is checked at once (Problems updates) and saved on the device as
-the lists that differ from shipped (`ce.admin.map`, with a `fingerprint` of the shipped lists: a later update shows a "the game was
-updated" warning). The game applies them at startup (`applyMapEdits` in `main.ts`, after the enemy settings), so they show the next
-time the game opens. Export file (`exportMap`) + `node tools/map/import_map.mjs <file>` writes them into balance.json for everyone.
+float kind already shipped) in the middle of the screen. Every change is checked at once (Problems updates).
+**The Original is never changed (v0.70)**: the shipped map is the "Original", read-only in the editor and always the default to play.
+The first change to it (any `commit`) makes a map of the player's, "My map 1", "My map 2"... (`createMap`), and the edit lands there.
+Maps live in `ce.maps` (`CustomMap`: id, name, `base` = `fingerprint` of the Original it was made from, `lists` = only the lists that
+differ, `updated`; at most `MAX_MAPS` = 12). The header has a map picker (Original, your maps, + New map, "(playing)" marks the one
+the game plays) and Play this map; the edit bar has Rename, Start over (copy of the Original again) and Delete map. `ce.map.play`
+holds the map the game plays; missing or unknown = the Original (`playMapId`); deleting the played map goes back to the Original.
+The old single save `ce.admin.map` is moved into "My map 1" on first read and is not played. The game applies the chosen map at
+startup (`applyPlayMap` in `main.ts`, after the enemy settings; `currentMap` holds its id and name). Home screen: a "Map: <name>
+Change" chip (shown once the player has a map) opens Which map? (Play reloads the page: the sea is built once). Saved runs remember
+their map (`Checkpoint.map`, missing = Original); Continue on another map asks "Switch maps?" (switch reloads and continues by
+itself via `requestAutoContinue`, or continue on the current sea). Export file (`exportMap`) + `node tools/map/import_map.mjs <file>` writes them into balance.json for everyone.
 `hitTest` also checks the height (scenery and caves on the seabed, floats at the surface), so grabbing an island never grabs a
 nearby wreck. E2E: `map_edit.mjs`.
 

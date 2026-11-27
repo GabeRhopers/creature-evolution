@@ -1,6 +1,7 @@
 // The Map page, Phase 2 (Edit): drag an island to move it, undo and redo, resize a seamount with its slider, change an
-// island's look, add a galleon and delete it, an island moved onto the start shows up in Problems, edits are saved on the
-// device, the game builds its sea from them, Reset all puts the shipped map back.
+// island's look, add a galleon and delete it, an island moved onto the start shows up in Problems. The Original map is never
+// changed: the first edit makes "My map 1" (saved on the device). The game keeps playing the Original until the player picks
+// the map on the home screen; Start over and Delete map work on the copy only.
 import { chromium } from 'playwright-core';
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--mute-audio'] });
 const ctx = await b.newContext({ viewport: { width: 1180, height: 820 } });
@@ -32,12 +33,12 @@ await p.mouse.move(box.x + sxy.x, box.y + sxy.y);
 await p.mouse.down();
 for (let k = 1; k <= 6; k++) { await p.mouse.move(box.x + sxy.x + k * 20, box.y + sxy.y); await p.waitForTimeout(30); }
 await p.mouse.up();
-const moved = await G(() => ({ x: window.ceMap.lists.islands[0].x, sel: window.ceMap.selected?.id, saved: !!localStorage.getItem('ce.admin.map'), model: window.ceMap.model.things.find((t) => t.id === 'island:0').x }));
-ok(Math.abs(moved.x - (x0 + 1200)) < 30 && moved.model === moved.x && moved.sel === 'island:0' && moved.saved, `dragging moves the island (${x0} -> ${moved.x}), selects it and saves on the device`);
+const moved = await G(() => ({ x: window.ceMap.lists.islands[0].x, sel: window.ceMap.selected?.id, saved: !!localStorage.getItem('ce.maps') && window.ceMap.mapId !== 'original', pick: document.querySelector('#mapPick option:checked')?.textContent, model: window.ceMap.model.things.find((t) => t.id === 'island:0').x }));
+ok(Math.abs(moved.x - (x0 + 1200)) < 30 && moved.model === moved.x && moved.sel === 'island:0' && moved.saved && moved.pick === 'My map 1', `dragging moves the island (${x0} -> ${moved.x}), selects it and saves it in a copy, "${moved.pick}" (the Original never changes)`);
 ok(await G(() => window.ceMap.view.cx) === x0, 'dragging a thing does not pan the map');
 
 await p.click('#btnUndo');
-ok(await G(() => window.ceMap.lists.islands[0].x) === x0 && await G(() => !localStorage.getItem('ce.admin.map')), 'Undo puts it back (and nothing is left to save)');
+ok(await G(() => window.ceMap.lists.islands[0].x) === x0 && await G(() => window.ceMap.mapId !== 'original'), 'Undo puts it back (still on the copy)');
 await p.click('#btnRedo');
 ok(await G(() => window.ceMap.lists.islands[0].x) === moved.x, 'Redo moves it again');
 
@@ -77,19 +78,31 @@ ok(prob.n > 0 && /Problems \(\d+\)/.test(prob.text) && /start/.test(prob.mine ??
 await p.click('#btnUndo');
 ok(await G(() => window.ceMap.issues.length) === 0 && await G(() => document.getElementById('btnProblems').textContent) === 'No problems', 'Undo clears the problem');
 
-// The game builds its sea from the device's edits.
+// The game still plays the Original; picking the map on the home screen plays it.
 const saved = await G(() => ({ x: window.ceMap.lists.islands[0].x, w: window.ceMap.lists.seamounts[+window.ceMap.model.things.find((t) => t.kind === 'seamount' && Math.abs(t.x - 2400) < 400).id.split(':')[1]].width }));
 await p.goto(base);
 await waitFor(() => !!window.game?.scene.getScene('Game')?.terrain);
-const game = await G(() => { const t = window.game.scene.getScene('Game').terrain.cfg; return { x: t.islands[0].x, style: t.islands[0].style, ws: t.seamounts.map((s) => s.width) }; });
-ok(game.x === saved.x && game.style === 'volcano' && game.ws.includes(saved.w), `the game uses the edited map (island at ${game.x}, ${game.style})`);
+const orig = await G(() => ({ x: window.game.scene.getScene('Game').terrain.cfg.islands[0].x, chip: document.getElementById('btnMap').hidden ? null : document.getElementById('mapName').textContent }));
+ok(orig.x === x0 && orig.chip === 'Original', `the game still plays the Original by default (island at ${orig.x}; home shows Map: ${orig.chip})`);
+await waitFor(() => document.getElementById('home')?.classList.contains('open'));
+await p.click('#btnMap');
+ok(await G(() => [...document.querySelectorAll('#panel .toggle')].map((r) => r.textContent).join('|').includes('My map 1')), 'the map choice lists the Original and My map 1');
+await Promise.all([p.waitForNavigation(), p.click('#panel [data-map]')]);
+await waitFor(() => !!window.game?.scene.getScene('Game')?.terrain);
+const game = await G(() => { const t = window.game.scene.getScene('Game').terrain.cfg; return { x: t.islands[0].x, style: t.islands[0].style, ws: t.seamounts.map((s) => s.width), chip: document.getElementById('mapName').textContent }; });
+ok(game.x === saved.x && game.style === 'volcano' && game.ws.includes(saved.w) && game.chip === 'My map 1', `after picking it, the game plays My map 1 (island at ${game.x}, ${game.style})`);
 
-// Reopening the map keeps the edits; Reset all puts the shipped map back.
+// The map page opens the map being played; Start over makes the copy the Original again; the Original never changed.
 await p.goto(base + 'map.html?edit');
 await waitFor(() => !!window.ceMap);
-ok(await G(() => window.ceMap.lists.islands[0].x) === saved.x && await G(() => document.getElementById('editBar').classList.contains('open')), 'edits are still there when the map opens again (?edit opens Edit)');
+ok(await G(() => window.ceMap.lists.islands[0].x) === saved.x && await G(() => document.getElementById('editBar').classList.contains('open')) && await G(() => document.querySelector('#mapPick option:checked').textContent) === 'My map 1 (playing)', 'the map opens on the map being played, edits still there (?edit opens Edit)');
+await G(() => window.ceMap.openMap('original'));
+ok(await G(() => window.ceMap.lists.islands[0].x) === x0 && await G(() => document.getElementById('btnReset').disabled && document.getElementById('btnDeleteMap').disabled), 'the Original is untouched and cannot be reset or deleted');
+await G(() => window.ceMap.openMap(JSON.parse(localStorage.getItem('ce.maps')).maps[0].id));
 await p.click('#btnReset');
-ok(await G(() => window.ceMap.lists.islands[0].x) === x0 && await G(() => !localStorage.getItem('ce.admin.map')) && await G(() => document.getElementById('btnReset').disabled), 'Reset all puts the shipped map back');
+ok(await G(() => window.ceMap.lists.islands[0].x) === x0 && await G(() => document.getElementById('btnReset').disabled), 'Start over makes My map 1 a copy of the Original again');
+await p.click('#btnDeleteMap');
+ok(await G(() => window.ceMap.mapId === 'original' && !localStorage.getItem('ce.maps') && !localStorage.getItem('ce.map.play')), 'Delete map removes it, and the game goes back to the Original');
 
 // Export gives a file the import tool takes.
 await G(() => window.ceMap.goTo(30000, 10));

@@ -33,6 +33,7 @@ export const LIMITS = {
   scenery: { scale: [0.4, 3] },
 } as const;
 export const ISLAND_STYLES = ['sand', 'mangrove', 'volcano', 'iceberg', 'cave'] as const;
+/** The pre-v0.70 key of the single set of device edits (read once and moved into "My map"). */
 export const STORE_KEY = 'ce.admin.map';
 
 const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -166,10 +167,24 @@ export function removeThing(L: MapLists, id: string): MapLists {
   return n;
 }
 
-// ---------------------------------------------------------------- saving on the device
+// ---------------------------------------------------------------- saving on the device: the Original and your maps
+//
+// The Original (the shipped map in balance.json) is never changed by the editor and is always the default to play.
+// Edits live in maps of their own ("My map 1", ...), each saved as the lists that differ from the Original. The game plays
+// the Original unless the player picked another map (PLAY_KEY), and it reads that choice once, at startup.
 
-export interface SavedMap { kind: 'creature-evolution-map'; v: 1; base: string; lists: Partial<MapLists> }
 interface Store { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void }
+
+export const ORIGINAL = 'original';
+export const MAPS_KEY = 'ce.maps';
+export const PLAY_KEY = 'ce.map.play';
+/** Most maps kept on one device. */
+export const MAX_MAPS = 12;
+
+/** One map of the player's: a name, and its changes from the Original it was made from (`base` = that Original's fingerprint). */
+export interface CustomMap { id: string; name: string; base: string; lists: Partial<MapLists>; updated: number }
+/** The pre-v0.70 single set of device edits (moved into "My map" on first read). */
+export interface SavedMap { kind: 'creature-evolution-map'; v: 1; base: string; lists: Partial<MapLists> }
 
 /** Only the lists that differ from shipped. */
 export function diffLists(shipped: MapLists, L: MapLists): Partial<MapLists> {
@@ -183,62 +198,171 @@ export const changedLists = (shipped: MapLists, L: MapLists) => Object.keys(diff
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const okX = (o: unknown) => !!o && typeof o === 'object' && isNum((o as { x?: unknown }).x);
-/** Read saved edits, checked item by item (anything broken falls back to shipped for that list). */
+/** Saved lists checked item by item (a broken list is dropped, so that list stays as the Original). */
+function checkLists(raw: unknown): Partial<MapLists> {
+  const lists: Partial<MapLists> = {};
+  if (!raw || typeof raw !== 'object') return lists;
+  const L = raw as Record<string, unknown>;
+  const arr = (k: ListKey, ok: (o: Record<string, unknown>) => boolean) => {
+    const a = L[k];
+    if (Array.isArray(a) && a.every((o) => okX(o) && ok(o))) (lists as Record<string, unknown>)[k] = a;
+  };
+  arr('islands', (o) => isNum(o.width) && isNum(o.depth));
+  arr('seamounts', (o) => isNum(o.width) && isNum(o.top));
+  arr('ridges', (o) => isNum(o.width) && isNum(o.height));
+  arr('pieces', (o) => typeof o.kind === 'string');
+  arr('floats', (o) => typeof o.kind === 'string');
+  if (L.caves && typeof L.caves === 'object' && Object.values(L.caves).every(isNum)) lists.caves = L.caves as Record<string, number>;
+  return lists;
+}
+
+/** The old single save (pre-v0.70), or null. */
 export function readSaved(store: Store): SavedMap | null {
   try {
     const v = JSON.parse(store.getItem(STORE_KEY) || 'null');
     if (!v || v.kind !== 'creature-evolution-map' || !v.lists || typeof v.lists !== 'object') return null;
-    const lists: Partial<MapLists> = {};
-    const L = v.lists as Record<string, unknown>;
-    const arr = (k: ListKey, ok: (o: Record<string, unknown>) => boolean) => {
-      const a = L[k];
-      if (Array.isArray(a) && a.every((o) => okX(o) && ok(o))) (lists as Record<string, unknown>)[k] = a;
-    };
-    arr('islands', (o) => isNum(o.width) && isNum(o.depth));
-    arr('seamounts', (o) => isNum(o.width) && isNum(o.top));
-    arr('ridges', (o) => isNum(o.width) && isNum(o.height));
-    arr('pieces', (o) => typeof o.kind === 'string');
-    arr('floats', (o) => typeof o.kind === 'string');
-    if (L.caves && typeof L.caves === 'object' && Object.values(L.caves).every(isNum)) lists.caves = L.caves as Record<string, number>;
-    return { kind: 'creature-evolution-map', v: 1, base: String(v.base ?? ''), lists };
+    return { kind: 'creature-evolution-map', v: 1, base: String(v.base ?? ''), lists: checkLists(v.lists) };
   } catch {
     return null;
   }
 }
 
-/** The lists to use: shipped, with the saved ones in their place. */
-export function loadLists(shipped: MapLists, store: Store): MapLists {
-  const s = readSaved(store);
+/** Every map of the player's on this device (moving the old single save into "My map" the first time). */
+export function readMaps(store: Store): CustomMap[] {
+  let maps: CustomMap[] = [];
+  try {
+    const v = JSON.parse(store.getItem(MAPS_KEY) || 'null');
+    if (v && Array.isArray(v.maps))
+      maps = v.maps
+        .filter((m: unknown) => !!m && typeof (m as CustomMap).id === 'string' && (m as CustomMap).id !== ORIGINAL && typeof (m as CustomMap).name === 'string')
+        .map((m: CustomMap) => ({ id: m.id, name: m.name.slice(0, 40), base: String(m.base ?? ''), lists: checkLists(m.lists), updated: isNum(m.updated) ? m.updated : 0 }));
+  } catch {
+    maps = [];
+  }
+  const old = readSaved(store);
+  if (old) {
+    if (Object.keys(old.lists).length) maps.push({ id: uniqueId(maps), name: uniqueName(maps, 'My map'), base: old.base, lists: old.lists, updated: Date.now() });
+    // Drop the old key only once the maps are safely written (a full or blocked store keeps both).
+    if (writeMaps(store, maps)) {
+      try {
+        store.removeItem(STORE_KEY);
+      } catch {
+        /* storage blocked */
+      }
+    }
+  }
+  return maps.slice(0, MAX_MAPS);
+}
+
+function writeMaps(store: Store, maps: CustomMap[]): boolean {
+  try {
+    if (!maps.length) store.removeItem(MAPS_KEY);
+    else store.setItem(MAPS_KEY, JSON.stringify({ kind: 'creature-evolution-maps', v: 1, maps }));
+    return true;
+  } catch {
+    return false; // storage blocked or full: the edit still shows until the page closes
+  }
+}
+
+function uniqueId(maps: CustomMap[]): string {
+  for (let n = maps.length + 1; ; n++) if (!maps.some((m) => m.id === `m${n}`)) return `m${n}`;
+}
+/** "My map 1", "My map 2", ... (or the wanted name, numbered if it is taken). */
+export function uniqueName(maps: CustomMap[], want = 'My map'): string {
+  const base = want.trim().slice(0, 40) || 'My map';
+  const taken = (n: string) => n.toLowerCase() === 'original' || maps.some((m) => m.name.toLowerCase() === n.toLowerCase());
+  if (want !== 'My map' && !taken(base)) return base;
+  for (let n = 1; ; n++) if (!taken(`${base} ${n}`)) return `${base} ${n}`;
+}
+
+/** The lists of a map: the Original's, with the map's own changes in place. Unknown id = the Original. */
+export function mapLists(shipped: MapLists, maps: CustomMap[], id: string): MapLists {
+  const m = maps.find((x) => x.id === id);
   const L = copy(shipped);
-  if (s) for (const k of LIST_KEYS) if (s.lists[k]) (L as unknown as Record<string, unknown>)[k] = copy(s.lists[k]);
+  if (m) for (const k of LIST_KEYS) if (m.lists[k]) (L as unknown as Record<string, unknown>)[k] = copy(m.lists[k]);
   // A cave entrance for a boss that no longer exists is dropped; a new boss keeps its shipped entrance.
   L.caves = { ...shipped.caves, ...Object.fromEntries(Object.entries(L.caves).filter(([k]) => k in shipped.caves)) };
   return L;
 }
 
-/** True when saved edits were made on a different shipped map (an update changed it since). */
-export function savedOnOldMap(shipped: MapLists, store: Store): boolean {
-  const s = readSaved(store);
-  return !!s && Object.keys(s.lists).length > 0 && s.base !== fingerprint(shipped);
+/** A new map of the player's, starting as a copy of `from` (the Original's lists by default). Null when the device is full. */
+export function createMap(store: Store, shipped: MapLists, name?: string, from: MapLists = shipped): CustomMap | null {
+  const maps = readMaps(store);
+  if (maps.length >= MAX_MAPS) return null;
+  const m: CustomMap = { id: uniqueId(maps), name: uniqueName(maps, name ?? 'My map'), base: fingerprint(shipped), lists: diffLists(shipped, from), updated: Date.now() };
+  writeMaps(store, [...maps, m]);
+  return m;
 }
 
-export function saveLists(shipped: MapLists, L: MapLists, store: Store): void {
-  const lists = diffLists(shipped, L);
+/** Save a map's lists (never the Original: that id is refused). */
+export function saveMap(store: Store, shipped: MapLists, id: string, L: MapLists): boolean {
+  if (id === ORIGINAL) return false;
+  const maps = readMaps(store);
+  const m = maps.find((x) => x.id === id);
+  if (!m) return false;
+  m.lists = diffLists(shipped, L);
+  m.base = fingerprint(shipped);
+  m.updated = Date.now();
+  writeMaps(store, maps);
+  return true;
+}
+
+export function renameMap(store: Store, id: string, name: string): string | null {
+  const maps = readMaps(store);
+  const m = maps.find((x) => x.id === id);
+  if (!m) return null;
+  m.name = uniqueName(maps.filter((x) => x !== m), name);
+  writeMaps(store, maps);
+  return m.name;
+}
+
+/** Delete one of the player's maps; if the game was set to play it, it goes back to the Original. */
+export function deleteMap(store: Store, id: string): void {
+  const playing = playMapId(store) === id;
+  writeMaps(store, readMaps(store).filter((m) => m.id !== id));
+  if (playing) setPlayMap(store, ORIGINAL);
+}
+
+/** True when a map was made on a different Original (an update changed the shipped map since). */
+export function madeOnOldMap(shipped: MapLists, m: CustomMap | undefined): boolean {
+  return !!m && Object.keys(m.lists).length > 0 && m.base !== fingerprint(shipped);
+}
+
+/** The map the game plays: the player's pick if it still exists, otherwise the Original. */
+export function playMapId(store: Store): string {
   try {
-    if (!Object.keys(lists).length) store.removeItem(STORE_KEY);
-    else store.setItem(STORE_KEY, JSON.stringify({ kind: 'creature-evolution-map', v: 1, base: fingerprint(shipped), lists } satisfies SavedMap));
+    const id = store.getItem(PLAY_KEY);
+    if (id && id !== ORIGINAL && readMaps(store).some((m) => m.id === id)) return id;
   } catch {
-    /* storage blocked: the edit still shows until the page closes */
+    /* storage blocked */
+  }
+  return ORIGINAL;
+}
+export function setPlayMap(store: Store, id: string): void {
+  try {
+    if (id === ORIGINAL) store.removeItem(PLAY_KEY);
+    else store.setItem(PLAY_KEY, id);
+  } catch {
+    /* storage blocked */
   }
 }
+/** The display name of a map id ("Original" for the shipped map or an unknown id). */
+export function mapName(store: Store, id: string): string {
+  return readMaps(store).find((m) => m.id === id)?.name ?? 'Original';
+}
 
-/** The game, at startup: apply this device's map edits to the balance. Returns how many lists changed. */
-export function applyMapEdits(b: MapBalance, store: Store): number {
-  const shipped = listsOf(b);
-  const L = loadLists(shipped, store);
-  const n = changedLists(shipped, L);
-  if (n) applyLists(b, L);
-  return n;
+/** The map this page is playing (set once at startup by applyPlayMap). */
+export const currentMap = { id: ORIGINAL, name: 'Original' };
+
+/** The game, at startup: play the chosen map (the Original unless the player picked one). Returns its id and name. */
+export function applyPlayMap(b: MapBalance, store: Store): { id: string; name: string } {
+  const id = playMapId(store);
+  if (id === ORIGINAL) return { ...currentMap };
+  const maps = readMaps(store);
+  applyLists(b, mapLists(listsOf(b), maps, id));
+  currentMap.id = id;
+  currentMap.name = maps.find((m) => m.id === id)!.name;
+  return { ...currentMap };
 }
 
 /** The whole edited map as a file, ready for tools/map/import_map.mjs. */
