@@ -17,7 +17,8 @@ import { BossSystem } from './BossSystem';
 import { keptShare, outgrownMul, regionDensities, regionFactors, trimCrowd, type CrowdConfig } from '../systems/crowd';
 import { Regions, migrateX, pickHomeX, type RegionDef, type RegionsConfig } from '../systems/regions';
 import { DayNight, type DayNightConfig, type Light, type Period } from '../systems/dayNight';
-import { caveRockRows, CORAL_KINDS, makeCaveRock, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow, makeVolcano, volcanoRows, VOLCANO_REACH } from '../systems/terrainArt';
+import { CORAL_KINDS, makeCaveRock, makeCoral, makeGround, makeIceberg, makeIsland, makeMangrove, makeShadow, makeVolcano } from '../systems/terrainArt';
+import { IslandLand } from '../systems/islandShape';
 import { Grid, SCENERY_SIZE, makeFarIslands, makeFarPeaks, makeFloat, makeScenery, type FloatKind, type SceneryKind } from '../systems/sceneryArt';
 
 /** World px per art px for the seabed, water and plants. */
@@ -124,6 +125,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   seabedTop = 0;
   /** Seabed dunes, ridges, seamounts and islands (solid ground and hiding places). */
   terrain!: Terrain;
+  /** The islands' land above the water (one profile per island, shared with their drawings). */
+  islandLand!: IslandLand;
   /** Coral Sea, Mangrove Swamp, Frozen Sea (looks per region; the sea loops around). */
   regions!: Regions;
   /** The region the player is in (for the banner). */
@@ -309,6 +312,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.physics.world.setBounds(-W, 0, W * 3, H + A.gapBelowWorld + A.height + 40);
     this.swimArea = new Phaser.Geom.Rectangle(-W, swimTop + 30, W * 3, this.seabedTop - swimTop - 40);
     this.terrain = new Terrain(BALANCE.terrain as TerrainConfig, W, swimTop, this.seabedTop);
+    this.islandLand = new IslandLand(this.terrain.cfg.islands, W, swimTop, WORLD_PX, Math.floor((swimTop - 4) / WORLD_PX));
     this.regions = new Regions(BALANCE.regions as unknown as RegionsConfig, W);
     const staticsFrom = this.children.list.length;
     this.drawWater(W, H);
@@ -448,6 +452,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         this.player.swim(intent, dt);
         this.checkLeap();
       } else this.updateOutOfWater(intent, dt);
+      // Out of the water the hero is moved by updateOutOfWater alone (in small steps against the islands), not by Arcade.
+      this.player.arcadeBody.moves = this.landState === 'water';
       this.updateDrying(dt);
       this.updateAbility(dt);
       this.updateAreas(dt);
@@ -2493,32 +2499,9 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   /** Seconds out of the water (drying out after `land.drySafeSeconds`). */
   dryTime = 0;
 
-  /**
-   * Where you can stand on an island at x (the top of the sand hump, the mangrove mud or the
-   * iceberg), or null where there is none. Matches the island art in terrainArt.
-   */
+  /** Where you can stand on an island at x (the top of its land, exactly as drawn), or null over water. */
   landTopAt(x: number): number | null {
-    const t = this.terrain;
-    const surfaceY = t.surfaceY;
-    const P = WORLD_PX;
-    const aboveRows = Math.floor((BALANCE.world.surfaceY - 4) / P);
-    let best: number | null = null;
-    for (const isl of t.cfg.islands) {
-      let d = Math.abs(t.wrap(x) - isl.x) % BALANCE.world.width;
-      d = Math.min(d, BALANCE.world.width - d);
-      const half = (isl.width / 2 + 2 * P) * (isl.style === 'iceberg' ? 0.85 : isl.style === 'volcano' ? VOLCANO_REACH : 0.8);
-      if (d >= half) continue;
-      const u = d / half;
-      let h: number;
-      if (isl.style === 'iceberg') h = (aboveRows - 3) * P * Math.pow(1 - u, 1.1);
-      else if (isl.style === 'volcano') h = Math.max(0, volcanoRows(u, aboveRows) - 1) * P;
-      else if (isl.style === 'mangrove') h = 2 * P;
-      else if (isl.style === 'cave') h = Math.max(0, caveRockRows(u, aboveRows) - 1) * P;
-      else h = Math.min(8, aboveRows - 2) * P * Math.pow(1 - u * u, 0.6);
-      const top = surfaceY - h;
-      if (h > P * 0.5 && (best === null || top < best)) best = top;
-    }
-    return best;
+    return this.islandLand.topAt(x);
   }
 
   /** Seconds in the air since the last leap or hop (a long fall means something went wrong). */
@@ -2560,44 +2543,82 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.burst(p.x, BALANCE.world.surfaceY, p.size * 0.5);
   }
 
-  /** Out of the water: fall with gravity, land on islands, crawl, hop, and splash back in. */
+  /**
+   * Out of the water: fall with gravity, land on islands, crawl, hop, and splash back in. Islands are solid from every side
+   * (`IslandLand`, the same land the drawings show): a leap that meets an island's side stops against it (no flying through a
+   * peak), you land only on its top, and crawling climbs gentle slopes but not steep walls. Moves are taken in small steps so
+   * a fast leap never skips past a thin edge.
+   */
   private updateOutOfWater(intent: { dirX: number; dirY: number; strength: number; sprint: boolean }, dt: number): void {
     const p = this.player;
     const body = p.arcadeBody;
     const L = BALANCE.land;
     const surfaceY = BALANCE.world.surfaceY;
     const foot = body.halfHeight * 0.85;
+    const half = Math.max(4, body.halfWidth * 0.6);
+    const land = this.islandLand;
+    /** The highest land under the body at x (its feet's width), or null over water. */
+    const under = (x: number) => land.highestTop(x - half, x + half);
     if (this.landState === 'air') {
       body.setVelocity(body.velocity.x * Math.pow(0.99, dt * 60), body.velocity.y + L.gravity * dt);
       p.heading = Math.atan2(body.velocity.y, body.velocity.x || 0.001);
-      const top = this.landTopAt(p.x);
-      if (top !== null && body.velocity.y > 0 && p.y + foot >= top) {
-        // Landed on an island.
+      // We move the body ourselves (Arcade would move it too: stop it), in steps of at most one art pixel.
+      const vx = body.velocity.x, vy = body.velocity.y;
+      const steps = Math.max(1, Math.min(16, Math.ceil((Math.max(Math.abs(vx), Math.abs(vy)) * dt) / WORLD_PX)));
+      const h = dt / steps;
+      let x = p.x, y = p.y, wvx = vx;
+      let landed: number | null = null;
+      for (let k = 0; k < steps && landed === null; k++) {
+        // Sideways: land higher than the feet (more than a small step) is a wall.
+        const nx = x + wvx * h;
+        const front = land.highestTop(nx - half, nx + half);
+        if (front !== null && front < y + foot - WORLD_PX * 1.5) wvx = 0;
+        else x = nx;
+        // Down onto the top: only when falling and the feet were above it.
+        const ny = y + vy * h;
+        const top = under(x);
+        if (top !== null && vy > 0 && y + foot <= top + 1 && ny + foot >= top) landed = top;
+        else y = ny;
+      }
+      // The steps above moved us; the physics body must not add the same move again.
+      body.reset(x, landed !== null ? landed - foot : y);
+      body.setVelocity(landed !== null ? 0 : wvx, landed !== null ? 0 : vy);
+      if (landed !== null) {
         this.landState = 'land';
-        p.y = top - foot;
-        body.setVelocity(0, 0);
-        this.burst(p.x, top, p.size * 0.3);
-      } else if (body.velocity.y > 0 && p.y > surfaceY + 6) {
+        this.burst(p.x, landed, p.size * 0.3);
+      } else if (vy > 0 && p.y > surfaceY + 6) {
         // Back in the water.
         this.landState = 'water';
-        body.setVelocity(body.velocity.x * 0.6, body.velocity.y * 0.35);
+        body.setVelocity(wvx * 0.6, vy * 0.35);
         this.sfx.splash();
         this.burst(p.x, surfaceY, p.size * 0.5);
       }
     } else {
-      // On an island: crawl left and right; push up and sprint to hop; walk off the edge to fall.
+      // On an island: crawl left and right over its top; gentle slopes are climbed, steep walls stop you; walk off the edge
+      // to fall; push up and sprint to hop.
       const dx = intent.strength > 0 ? intent.dirX * intent.strength : 0;
-      body.setVelocity(dx * L.crawlSpeed * (p.size > 40 ? 1.4 : 1), 0);
-      if (Math.abs(dx) > 0.1) p.heading = dx > 0 ? 0 : Math.PI;
-      const top = this.landTopAt(p.x + body.velocity.x * dt);
-      if (top === null) {
+      const speed = dx * L.crawlSpeed * (p.size > 40 ? 1.4 : 1);
+      // Standing level on the ground (a straight-down landing would otherwise leave the hero pointing at the sky).
+      p.heading = Math.abs(dx) > 0.1 ? (dx > 0 ? 0 : Math.PI) : Math.cos(p.heading) < 0 ? Math.PI : 0;
+      const nx = p.x + speed * dt;
+      const here = under(p.x) ?? p.y + foot;
+      const next = under(nx);
+      let x = p.x;
+      if (next === null) {
+        x = nx;
         this.landState = 'air';
-        body.setVelocity(body.velocity.x, 40);
+        body.reset(x, p.y);
+        body.setVelocity(speed, 40);
       } else {
-        p.y = top - foot;
+        // Climb at most a step a bit taller than one art pixel per art pixel walked.
+        const rise = here - next;
+        if (rise <= Math.abs(nx - p.x) * 1.5 + WORLD_PX * 1.25) x = nx;
+        const top = under(x) ?? here;
+        body.reset(x, top - foot);
+        body.setVelocity(0, 0);
         if (intent.sprint && intent.dirY < -0.4) {
           this.landState = 'air';
-          body.setVelocity(body.velocity.x * 1.5, -L.hopSpeed);
+          body.setVelocity(speed * 1.5, -L.hopSpeed);
         }
       }
     }

@@ -166,7 +166,7 @@ moved +16000, the Frozen Sea +42000). Saves from the 72000 px sea are moved to t
 where they were; `populationScale` grew with the sea; crowd control caps the density (below). Each region has water colors (`regionStops`), ground colors (`makeGround`, chunked to 1024 art px for iPads),
 kelp (reeds, tube worms, brown kelp), rock tint, island style (`sand`, `mangrove`, `volcano`, `iceberg`) and music
 mood. Volcano islands (`makeVolcano`, cone shape `volcanoRows`/`VOLCANO_REACH`, shared with `landTopAt`) have a
-glowing crater, lava streams and cracks, no roots; LightScene makes every vent glow orange; borders blend over `regions.blend` (dithered). Terrain shapes use loop distance and
+glowing crater, lava streams and cracks, no roots (cone shape in `islandShape.ts`); LightScene makes every vent glow orange; borders blend over `regions.blend` (dithered). Terrain shapes use loop distance and
 `wrap(x)`, so the ground repeats. Scenery within `loopOverlap` of an edge is copied past the other edge
 (`mirrorEdges`, incl. rock circles, hide zones, vents, swaying kelp). The player wraps at the edges (`loopWorld`
 -> `loopShift` moves player, camera, food and bubbles by W in one frame); every fish is kept within W/2 of the
@@ -204,7 +204,19 @@ Giant Octopus at 21, when their regions open. E2E: `tests/e2e/gates.mjs`; unit: 
 
 ## Leaping and land (`GameScene` "Land" section, `balance.json` "land")
 - Sprint upward through the surface to leap (`checkLeap`: sprinting, near the surface, rising faster than `jumpSpeed`). No extra button.
-- `landState` is 'water', 'air' or 'land'. `updateOutOfWater` applies gravity, lands on islands via `landTopAt(x)` (follows the sand, mangrove and iceberg art), crawls and hops. `collideTerrain` skips the player out of the water.
+- `landState` is 'water', 'air' or 'land'. `updateOutOfWater` applies gravity, lands on islands, crawls and hops. `collideTerrain` skips the player out of the water.
+- **Islands rebuilt (Nov 27, `src/systems/islandShape.ts`, pure; `tests/islands.test.ts`)**: one profile per island (`islandProfile`:
+  solid art rows above the water per art column, for sand, mangrove, iceberg, volcano and cave rock) feeds BOTH the drawing
+  (`terrainArt` paints the land body from it, `landRows`) and the game (`IslandLand`: one lookup of the land's top over the whole
+  looping sea; `GameScene.islandLand`, `landTopAt` = `islandLand.topAt`). Before, the drawing, the underwater underside and a
+  hand-written standing guess disagreed (an invisible ledge over mangroves, iceberg jags missing, one row off on volcanoes and
+  cave rocks) and islands had no sides in the air. Now: mangroves have a drawn 2-row mud bank to stand on; iceberg jags are a
+  fixed hash (`jag`); the sand hump's top row is exactly the top you stand on. Out of the water the hero is moved by
+  `updateOutOfWater` alone (`arcadeBody.moves` off) in steps of at most one art pixel: land higher than the feet is a wall from
+  the side (`highestTop` over the feet's width), landing only happens falling onto the top, crawling climbs gentle slopes (about
+  1.5 rows per column) and stops at walls, and standing still keeps the hero level. The underwater part is still the Terrain
+  ceiling line (the drawings follow it exactly). E2E: `islands.mjs` (every land column's top row is drawn, for every style; a
+  mangrove landing; a leap into an iceberg stops against it).
 - `updateDrying`: safe for `drySafeSeconds`, then `dryDamagePerSecond` of max HP. Death cause 'dried'. The HUD shows the countdown and a warning.
 - E2E: `tests/e2e/land.mjs`.
 
