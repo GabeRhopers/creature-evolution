@@ -21,12 +21,12 @@ await waitFor(()=>{const g=window.game.scene.getScene('Game'); return !g.menuMod
 await G(()=>{const g=window.game.scene.getScene('Game'); g.gates.openAll(); window.__ban=[]; const h=window.game.scene.getScene('Hud'); const f=h.bigBanner.bind(h); h.bigBanner=(t,l)=>{window.__ban.push(t+' | '+(l??'')); f(t,l);};});
 
 const E = await G(()=>{const g=window.game.scene.getScene('Game'); const d=g.bosses.defs[0]; return {e:g.entranceSpot(d), L:g.arenaLayout(d), H:window.game.scene.getScene('Game').scale && 0};});
-const WH = await G(()=>window.game.scene.getScene('Game').terrain ? 3200 : 3200);
+const WH = 6020; // balance world.height
 const prompt = ()=>G(()=>!!document.getElementById('cYes')?.offsetParent);
 const title = ()=>p.textContent('#panel h3');
 /** Swim onto the cave entrance (from a little way off). */
 const onEntrance = async ()=>{ await place(E.e.x - 900, E.e.y - 200); await p.waitForTimeout(500); await place(E.e.x, E.e.y); };
-const inArena = ()=>G(()=>{const g=window.game.scene.getScene('Game'); return !!g.arena && g.player.y > 3200;});
+const inArena = ()=>G(()=>{const g=window.game.scene.getScene('Game'); return !!g.arena && g.player.y > 6020;});
 
 // The entrance: small, on the seabed, in the background.
 ok(await G((E)=>{const g=window.game.scene.getScene('Game'); const img=g.children.list.find(o=>o.texture?.key==='w_cave_entrance'); return !!img && img.depth < 0 && Math.abs(img.x-E.e.x)<5 && img.displayWidth < 400;}, E), 'a small cave entrance sits on the seabed, behind the fish');

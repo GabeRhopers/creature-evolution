@@ -105,7 +105,7 @@ await waitFor(() => window.game.scene.getScene('Game').textures.exists('look_cra
 ok((await magenta('look_crab-checkpoint')) === 1, 'the checkpoint crab uses the studio drawing');
 
 // 5. Sprite Studio card lists every design
-await G(() => window.game.scene.getScene('Game').scene.restart());
+await G(() => { window.game.scene.getScene('Game').scene.restart(); });
 await p.goto(base);
 await waitFor(() => document.getElementById('home').classList.contains('open'));
 await p.click('#cardStudio');
