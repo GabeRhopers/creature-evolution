@@ -26,7 +26,7 @@ const LOD_DISTANCE = 5000;
 /** Rocks take the color of their region: muddy in the Swamp, icy in the Frozen Sea. */
 const ROCK_TINT: Record<string, number> = { coral: 0xffffff, swamp: 0x9a8a70, volcano: 0x7a6f80, ice: 0xdff4ff };
 import { ATLAS } from '../assets';
-import { FoodField } from '../entities/Food';
+import { FoodField, type FoodItem } from '../entities/Food';
 import { Brain, type AIWorld, type Creature } from '../ai/Brain';
 import type { HudScene } from './HudScene';
 import { Stomach } from '../systems/Stomach';
@@ -99,6 +99,19 @@ function readDifficultyFromUrl(): DifficultyName {
  *  Sprint 5: stomach + digestion (rest to digest, starvation), procedural SFX,
  *            music, heartbeat when hunted.
  */
+/** A bite under way (the bite timeline). `target` null = the player's open jaws, aimed at whatever is in reach on the snap. */
+interface PendingBite {
+  target: Creature | null;
+  mul: number;
+  phase: 'windup' | 'hold' | 'recover';
+  /** Seconds left in the wind-up or the recovery. */
+  t: number;
+  /** The player still holds EAT. */
+  held: boolean;
+  /** Seconds since the bite started. */
+  holdT: number;
+}
+
 export class GameScene extends Phaser.Scene implements AIWorld {
   player!: Fish;
   playerCreature!: Creature;
@@ -146,8 +159,10 @@ export class GameScene extends Phaser.Scene implements AIWorld {
   playerHunted = false;
   /** The player's bites this run (the first-minutes coach watches it). */
   playerBites = 0;
-  /** Bites under way: the jaws open, and the damage lands `combat.biteDelaySeconds` later if the target is still in reach. */
-  pendingBites = new Map<Creature, { target: Creature; mul: number; t: number }>();
+  /** Bites under way (the bite timeline, `combat.bite`): wind-up (jaws opening), hold (player only), recover (after the snap). */
+  pendingBites = new Map<Creature, PendingBite>();
+  /** EAT was held last frame (to tell a new press from a hold). */
+  private eatWasHeld = false;
   playerHidden = false;
   /** Day and night: the cycle, seconds into it, and the light right now (read by brains, food, overlay, HUD). */
   readonly dayNight = new DayNight(BALANCE.dayNight as DayNightConfig);
@@ -244,6 +259,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.playerHunted = false;
     this.playerBites = 0;
     this.pendingBites = new Map();
+    this.eatWasHeld = false;
     this.playerHidden = false;
     this.mouthState = 'idle';
     this.swallowCooldown = 0;
@@ -1437,6 +1453,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     for (const c of this.creatures) if (c.brain) c.fish.swim(c.brain.think(dt), dt);
     this.food.update(dt, this.cameras.main.worldView, time);
     this.updateAiEating();
+    this.updatePendingBites(dt);
     this.cullStatics();
     const cam = this.cameras.main;
     cam.scrollX += 28 * this.attractDir * dt;
@@ -1498,6 +1515,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     }
     this.mouthState = swallowTarget ? (full ? 'full' : 'canSwallow') : biteTarget ? 'canBite' : full ? 'full' : 'idle';
 
+    let swallowed = false;
     if (acting && !p.stunned) {
       if (swallowTarget && full && !biteTarget) {
         this.sfx.full();
@@ -1514,68 +1532,205 @@ export class GameScene extends Phaser.Scene implements AIWorld {
           this.gainXp(xp, t.x, t.y, true);
           if (t.species.venom) this.sting(swallowTarget);
           this.respawnAmbient(swallowTarget);
+          swallowed = true;
         }
-      } else if (biteTarget && p.biteCooldown <= 0) {
-        this.startBite(this.playerCreature, biteTarget);
       }
+    }
+
+    // The bite timeline: pressing EAT opens the jaws, holding keeps them open, letting go snaps them shut.
+    const pressed = acting && !this.eatWasHeld;
+    this.eatWasHeld = acting;
+    const jb = this.pendingBites.get(this.playerCreature);
+    if (!jb && pressed && !swallowed && !p.stunned && p.biteCooldown <= 0 && !(swallowTarget && !full)) {
+      this.openPlayerJaw();
+    } else if (jb && jb.phase !== 'recover') {
+      jb.held = acting;
     }
 
     this.drawMouth(mouth, reach, acting);
   }
 
+  /** Start the player's bite: the jaws open over the wind-up; holding EAT keeps them open. */
+  private openPlayerJaw(target: Creature | null = null, held = true): void {
+    const cfg = BALANCE.combat.bite;
+    this.pendingBites.set(this.playerCreature, { target, mul: 1, phase: 'windup', t: cfg.windup, held, holdT: 0 });
+    this.player.openJaw(cfg.windup);
+    // The cooldown runs from the start of the bite, so the pace of bites stays as before (the wind-up is part of it).
+    this.player.biteCooldown = BALANCE.combat.biteCooldown;
+  }
+
+  /** What the player's jaws close on right now: the nearest creature in reach that is too big to swallow (or guards). */
+  private playerBiteTargetNow(): Creature | null {
+    const p = this.player;
+    const mouth = p.mouthPoint();
+    const r = p.mouthRadius(true);
+    let best: Creature | null = null;
+    let bd = Infinity;
+    for (const c of this.creatures) {
+      if (c.isPlayer || c.asleep || c.fish.species.friendly || !c.fish.active) continue;
+      if (p.canSwallow(c.fish.size) && !c.guardian) continue;
+      const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, c.fish.x, c.fish.y);
+      if (d <= r + c.fish.size * BALANCE.combat.biteReachMul && d < bd) { bd = d; best = c; }
+    }
+    return best;
+  }
+
+  /**
+   * A chunk of meat too big to swallow, at the player's mouth, is bitten into smaller pieces (each one the player can
+   * swallow when possible, always smaller than the chunk), so any carcass can be eaten bit by bit. Returns true if it bit one.
+   */
+  breakMeatAtMouth(closerThan = Infinity): boolean {
+    const p = this.player;
+    const cfg = BALANCE.combat.bite;
+    const mouth = p.mouthPoint();
+    const r = p.mouthRadius(true);
+    let chunk: FoodItem | null = null;
+    let bd = Infinity;
+    for (const f of this.food.items) {
+      if (f.kind !== 'meat' || p.canSwallow(f.size)) continue;
+      const d = Phaser.Math.Distance.Between(mouth.x, mouth.y, f.img.x, f.img.y);
+      if (d <= r + f.size && d < bd && d < closerThan) { bd = d; chunk = f; }
+    }
+    if (!chunk) return false;
+    const piece = Phaser.Math.Clamp(p.devourSize * cfg.meatBreakPieceMul, 3, chunk.size * 0.7);
+    const n = Phaser.Math.Clamp(Math.round((chunk.size / piece) ** 2), 2, cfg.meatBreakMaxPieces);
+    const { x, y } = chunk.img;
+    this.food.remove(chunk);
+    for (let i = 0; i < n; i++) {
+      const f = this.food.spawnMeat(x + Phaser.Math.Between(-8, 8), y + Phaser.Math.Between(-8, 8), piece, chunk.xp / n, chunk.scrap);
+      f.driftX = Phaser.Math.FloatBetween(-40, 40);
+    }
+    this.burst(x, y, chunk.size * 0.6);
+    this.sfx.bite();
+    return true;
+  }
+
   // ---------------------------------------------------------------- combat
 
   /**
-   * A bite starts: the jaws open (the bite animation runs for `combat.biteDelaySeconds`) and the damage lands when they
-   * snap shut, in `updatePendingBites`, only if the target is still in reach (`biteLandReachMul` x the usual reach) and the
-   * biter was not stunned meanwhile. So a bite can be dodged, and the hit matches the animation (Rhopers, Nov 26).
-   * Dash bites and the grab abilities (Crushing Bite, Death Roll) still hit at once: they are the impact itself.
+   * The bite timeline (Rhopers, Nov 27; `combat.bite`): wind-up (the jaws open) -> the hit (they snap shut: damage, hurt
+   * frame, hit-stop) -> recovery. A creature's wind-up grows with its size tier, so a big biter's bite can be seen coming
+   * and dodged: it lands only if the target is still within `landReachMul` x the reach. Being hit or stunned during the
+   * wind-up cancels it. The player's bites start in `updatePlayerEating` (press to open, hold, release to snap); dash bites
+   * and the grab abilities hit at once.
    */
   startBite(attacker: Creature, target: Creature, damageMul = 1): void {
-    const cb = BALANCE.combat;
-    const delay = cb.biteDelaySeconds ?? 0;
-    if (delay <= 0) return this.bite(attacker, target, damageMul);
     if (this.pendingBites.has(attacker)) return;
-    const a = attacker.fish;
-    // The next bite can start once this one lands.
-    a.biteCooldown = Math.max(attacker.isPlayer ? cb.biteCooldown : cb.aiBiteCooldown, delay);
-    a.playBite(delay);
-    if (attacker.isPlayer) this.playerBites++;
-    this.pendingBites.set(attacker, { target, mul: damageMul, t: delay });
+    const cfg = BALANCE.combat.bite;
+    if (attacker.isPlayer) {
+      this.openPlayerJaw(target, false);
+      return;
+    }
+    const tier = (attacker.fish.species as { tier?: number }).tier ?? 1;
+    const w = Math.min(cfg.aiWindupMax, cfg.aiWindup + cfg.aiWindupPerTier * Math.max(0, tier - 1));
+    this.pendingBites.set(attacker, { target, mul: damageMul, phase: 'windup', t: w, held: false, holdT: 0 });
+    attacker.fish.openJaw(w);
+    attacker.fish.biteCooldown = BALANCE.combat.aiBiteCooldown;
   }
 
   private updatePendingBites(dt: number): void {
-    const cb = BALANCE.combat;
+    const cfg = BALANCE.combat.bite;
     for (const [attacker, b] of this.pendingBites) {
-      b.t -= dt;
-      if (b.t > 0) continue;
-      this.pendingBites.delete(attacker);
-      const a = attacker.fish, t = b.target.fish;
-      if (!a.active || a.hp <= 0 || a.stunned || !t.active || t.hp <= 0 || b.target.asleep) continue;
-      if (b.target.isPlayer && this.dead) continue;
-      const mouth = a.mouthPoint();
-      const reach = (a.mouthRadius(true) + t.size * cb.biteReachMul) * (cb.biteLandReachMul ?? 1.5);
-      if (Phaser.Math.Distance.Between(mouth.x, mouth.y, t.x, t.y) > reach) {
-        if (attacker.isPlayer) this.hud.popup('Miss', t.x, t.y - t.size, false, '#cfe8ff');
-        else if (b.target.isPlayer) this.hud.popup('Dodged!', a.x, a.y - a.size, false, '#cfe8ff');
+      const f = attacker.fish;
+      if (!f.active || f.hp <= 0) {
+        this.pendingBites.delete(attacker);
+        f.cancelJaw();
         continue;
       }
-      this.bite(attacker, b.target, b.mul, true);
+      // Hit-stop pauses the timeline too.
+      if (f.frozen) continue;
+      if (b.phase === 'recover') {
+        b.t -= dt;
+        if (b.t <= 0) this.pendingBites.delete(attacker);
+        continue;
+      }
+      if (f.stunned) {
+        // Interrupted: a stunned biter loses its bite.
+        this.pendingBites.delete(attacker);
+        f.cancelJaw();
+        continue;
+      }
+      b.holdT += dt;
+      if (b.phase === 'windup') {
+        b.t -= dt;
+        if (b.t > 0) continue;
+        if (b.held) {
+          b.phase = 'hold';
+          f.holdJaw();
+          f.jawSpeed = cfg.holdSpeedMul;
+          continue;
+        }
+        this.snapBite(attacker, b);
+        continue;
+      }
+      // Holding (player): snap on release, or when the jaws can't stay open any longer.
+      if (!b.held || b.holdT >= cfg.holdMaxSeconds) this.snapBite(attacker, b);
+    }
+  }
+
+  /** The jaws snap shut: the hit lands (or misses), then the recovery plays. */
+  private snapBite(attacker: Creature, b: PendingBite): void {
+    const cfg = BALANCE.combat.bite;
+    const cb = BALANCE.combat;
+    const a = attacker.fish;
+    const isP = attacker.isPlayer;
+    b.phase = 'recover';
+    b.t = isP ? cfg.recovery : cfg.aiRecovery;
+    a.snapJaw(b.t);
+    a.jawSpeed = 1;
+    // Held past the wind-up: up to chargeDamageBonus more damage.
+    const charge = isP ? Phaser.Math.Clamp((b.holdT - cfg.windup) / cfg.chargeSeconds, 0, 1) : 0;
+    const mul = b.mul * (1 + cfg.chargeDamageBonus * charge);
+    let target = b.target;
+    if (target) {
+      const t = target.fish;
+      const mouth = a.mouthPoint();
+      const reach = (a.mouthRadius(true) + t.size * cb.biteReachMul) * cfg.landReachMul;
+      const gone = !t.active || t.hp <= 0 || target.asleep || (target.isPlayer && this.dead);
+      if (gone || Phaser.Math.Distance.Between(mouth.x, mouth.y, t.x, t.y) > reach) {
+        if (isP) this.hud.popup('Miss', t.x, t.y - t.size, false, '#cfe8ff');
+        else if (target.isPlayer && !gone) this.hud.popup('Dodged!', a.x, a.y - a.size, false, '#cfe8ff');
+        if (!isP) return;
+        target = null;
+      }
+    }
+    if (isP && !target) {
+      target = this.playerBiteTargetNow();
+      // The jaws close on whatever is nearest: a creature, or a chunk of meat too big to swallow.
+      if (target) {
+        const m = a.mouthPoint();
+        if (this.breakMeatAtMouth(Phaser.Math.Distance.Between(m.x, m.y, target.fish.x, target.fish.y))) return;
+      }
+    }
+    if (target) {
+      if (isP) this.playerBites++;
+      this.bite(attacker, target, mul, true, charge >= 1);
+    } else if (isP && !this.breakMeatAtMouth()) {
+      this.sfx.dash();
     }
   }
 
   /** `attacker` bites `target`: damage, meat chunks, reactions, maybe a kill. Lands at once (see `startBite`). */
-  private bite(attacker: Creature, target: Creature, damageMul = 1, started = false): void {
+  private bite(attacker: Creature, target: Creature, damageMul = 1, started = false, big = false): void {
     const cb = BALANCE.combat;
     const a = attacker.fish;
     const t = target.fish;
+    // Getting bitten cancels your own bite if it has not landed yet.
+    const theirs = this.pendingBites.get(target);
+    if (theirs && theirs.phase !== 'recover') {
+      this.pendingBites.delete(target);
+      t.cancelJaw();
+    }
     if (!started) {
       a.biteCooldown = attacker.isPlayer ? cb.biteCooldown : cb.aiBiteCooldown;
       a.playBite();
       if (attacker.isPlayer) this.playerBites++;
     }
+    const stop = BALANCE.combat.bite;
     if (target.isPlayer) {
       this.attackPlayer(attacker, damageMul);
+      // Hit-stop after the knockback is set, so both pick up from there.
+      if (!this.dead) { a.freeze(stop.hitstop); t.freeze(stop.hitstop); }
       return;
     }
     // A boss gulping air takes extra damage from your bites.
@@ -1588,10 +1743,16 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     const wy = Phaser.Math.Linear(t.y, a.y, 0.35);
     this.spawnChunks(wx, wy, a, dmg * cb.meatXpPerDamage, Phaser.Math.Between(1, 2), true);
     if (attacker.isPlayer) {
-      this.hud.popup(`-${Math.round(dmg)}`, t.x, t.y - t.size, false, '#ff9a8a');
+      this.hud.popup(big ? `-${Math.round(dmg)}!` : `-${Math.round(dmg)}`, t.x, t.y - t.size, big, big ? '#ffb36b' : '#ff9a8a');
       this.sfx.bite();
       if (t.species.venom) this.sting(target);
     }
+    // Hit-stop: the biter and the target freeze for a moment at the impact (longer for a charged bite or a kill).
+    // Only the two of them: the rest of the sea, the HUD and the sound keep going.
+    const h = big || killed ? stop.hitstopBig : stop.hitstop;
+    if (!killed) t.freeze(h);
+    a.freeze(h);
+    if ((big || killed) && attacker.isPlayer) this.cameras.main.shake(120, 0.004);
     target.brain?.onHurt(attacker);
     if (killed) this.kill(target, attacker);
   }

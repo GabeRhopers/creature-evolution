@@ -16,6 +16,8 @@ export interface StudioPose {
   name: string;
   fps?: number;
   frames: string[];
+  /** Bite pose only: the frame where the jaws are widest open (the bite lands as they snap shut after it). */
+  open?: number;
 }
 export interface StudioProject {
   name: string;
@@ -64,6 +66,8 @@ export interface PoseMap {
   bite?: [string, number];
   /** Every attack frame, played in order as one quick bite. */
   biteSeq: Array<[string, number]>;
+  /** Index in biteSeq of the frame marked "jaws open" in the studio (the bite lands right after it). */
+  biteOpen?: number;
   rest?: [string, number];
   damage?: [string, number];
   celebrate: Array<[string, number]>;
@@ -112,11 +116,15 @@ export function poseMap(p: StudioProject): PoseMap {
   };
   const idle = frames('idle');
   const move = frames('move');
+  const attack = frames('attack');
+  const openMark = p.poses.find((x) => x.name.toLowerCase() === 'attack')?.open;
+  const biteOpen = typeof openMark === 'number' ? attack.findIndex(([, i]) => i === openMark) : -1;
   return {
     swim: move.length ? move : idle,
     idle: idle.length ? idle : move.slice(0, 1),
     bite: frames('attack')[0],
-    biteSeq: frames('attack'),
+    biteSeq: attack,
+    biteOpen: biteOpen >= 0 ? biteOpen : undefined,
     rest: frames('rest')[0],
     damage: frames('damage')[0],
     celebrate: frames('celebrate'),
@@ -130,6 +138,8 @@ export interface SkinFrames {
   idle?: string[];
   bite?: string;
   biteSeq?: string[];
+  /** Index in biteSeq of the widest-open frame. */
+  biteOpen?: number;
   rest?: string;
   damage?: string;
   celebrate?: string[];
@@ -168,6 +178,7 @@ export function buildSkinTexture(host: TextureHost, key: string, p: StudioProjec
     idle: map.idle.map((f) => want(f)!),
     bite: want(map.bite),
     biteSeq: map.biteSeq.map((f) => want(f)!),
+    biteOpen: map.biteOpen,
     rest: want(map.rest),
     damage: want(map.damage),
     celebrate: map.celebrate.map((f) => want(f)!),

@@ -9,7 +9,7 @@ describe('first minutes coach', () => {
     expect(stepCoach(s, F(), 0.25).text).toBe('Use the joystick on the left to swim');
     expect(stepCoach(s, F({ moved: 500 }), 0.25).text).toMatch(/glowing dots/);
     expect(stepCoach(s, F({ moved: 500, plankton: 5 }), 0.25).text).toMatch(/GREEN ring.*tap EAT/);
-    expect(stepCoach(s, F({ moved: 500, plankton: 5, fish: 1 }), 0.25).text).toMatch(/ORANGE ring.*tap EAT/);
+    expect(stepCoach(s, F({ moved: 500, plankton: 5, fish: 1 }), 0.25).text).toMatch(/ORANGE ring.*hold EAT.*let go/);
     expect(stepCoach(s, F({ moved: 500, plankton: 5, fish: 1, bites: 1 }), 0.25).text).toMatch(/level up/);
     const end = stepCoach(s, F({ moved: 500, plankton: 5, fish: 1, bites: 1, level: 2 }), 0.25);
     expect(end).toEqual({ text: COACH_DONE_TEXT, finished: true, tipSeen: null });

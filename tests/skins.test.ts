@@ -17,6 +17,20 @@ describe('studio to game', () => {
     expect(m.damage).toBeUndefined(); // not drawn yet
     expect(m.celebrate).toEqual([]);
   });
+  it('the bite pose can mark the frame where the jaws are widest open', () => {
+    const p = structuredClone(P);
+    const atk = p.poses.find((x) => x.name === 'attack')!;
+    const frame = atk.frames.find((f) => /[^.]/.test(f))!;
+    atk.frames = [frame, frame, frame];
+    expect(poseMap(p).biteOpen).toBeUndefined(); // default: the last frame
+    atk.open = 1;
+    expect(poseMap(p).biteOpen).toBe(1);
+    // An empty frame is skipped, so the mark follows its frame.
+    atk.frames = ['.'.repeat(frame.length), frame, frame];
+    expect(poseMap(p).biteOpen).toBe(0);
+    atk.open = 0; // marks the empty frame: ignored
+    expect(poseMap(p).biteOpen).toBeUndefined();
+  });
   it('swimming falls back to idle when move is empty', () => {
     const p = structuredClone(P);
     p.poses.find((x) => x.name === 'move')!.frames = [];

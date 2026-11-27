@@ -82,6 +82,13 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
   /** Seconds left showing the bite / open-jaw frame. */
   private biteAnim = 0;
   private biteSeconds = BITE_SEQ_SECONDS;
+  /** The bite timeline's look (GameScene drives it): jaws opening (wind-up), held open, snapping shut (recovery). */
+  private jaw: { phase: 'open' | 'hold' | 'snap'; t: number; dur: number } | null = null;
+  /** Hit-stop: seconds left frozen at the moment of impact, and the velocity to resume with. */
+  private freezeT = 0;
+  private frozenV: { x: number; y: number } | null = null;
+  /** Speed multiplier while the jaws are held open (set by GameScene). */
+  jawSpeed = 1;
   /** Body, rank and strength for the current level. */
   form!: Form;
   /** Perk effects (player only; AI fish keep 1.0 everywhere). */
@@ -155,13 +162,50 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     this.biteAnim = this.biteSeconds;
   }
 
+  /** Bite timeline look: open the jaws over `seconds` (the wind-up). */
+  openJaw(seconds: number): void {
+    this.jaw = { phase: 'open', t: 0, dur: Math.max(0.01, seconds) };
+  }
+  /** Keep the jaws wide open (holding the bite). */
+  holdJaw(): void {
+    this.jaw = { phase: 'hold', t: 0, dur: 1 };
+  }
+  /** Snap the jaws shut and recover over `seconds`. */
+  snapJaw(seconds: number): void {
+    this.jaw = { phase: 'snap', t: 0, dur: Math.max(0.01, seconds) };
+  }
+  /** Stop the bite look (interrupted). */
+  cancelJaw(): void {
+    this.jaw = null;
+    this.jawSpeed = 1;
+  }
+  get jawPhase(): 'open' | 'hold' | 'snap' | null {
+    return this.jaw?.phase ?? null;
+  }
+
+  /** Hit-stop: freeze this creature (movement and animation) for a moment, then carry on with its velocity (knockback included). */
+  freeze(seconds: number): void {
+    if (seconds <= 0 || !this.arcadeBody) return;
+    if (this.freezeT <= 0) this.frozenV = { x: this.arcadeBody.velocity.x, y: this.arcadeBody.velocity.y };
+    this.freezeT = Math.max(this.freezeT, seconds);
+    this.arcadeBody.setVelocity(0, 0);
+  }
+  get frozen(): boolean {
+    return this.freezeT > 0;
+  }
+  /** Change the velocity a frozen creature resumes with (knockback applied during hit-stop). */
+  setResumeVelocity(x: number, y: number): void {
+    if (this.freezeT > 0) this.frozenV = { x, y };
+    else this.arcadeBody.setVelocity(x, y);
+  }
+
   /** Play the celebrate animation (level-up), if the art has one. */
   playCelebrate(): void {
     this.celebrateAnim = 1.1;
   }
 
   /** Use frames from another texture (a Sprite Studio drawing). Same frame size as the original art. */
-  applySkin(texture: string, frames: { swim: string[]; idle?: string[]; bite?: string; biteSeq?: string[]; rest?: string; damage?: string; celebrate?: string[]; dead?: string; fps?: { idle?: number; swim?: number; celebrate?: number } }): void {
+  applySkin(texture: string, frames: { swim: string[]; idle?: string[]; bite?: string; biteSeq?: string[]; biteOpen?: number; rest?: string; damage?: string; celebrate?: string[]; dead?: string; fps?: { idle?: number; swim?: number; celebrate?: number } }): void {
     if (!frames.swim.length) return;
     this.skinFrames = { ...frames, celebrate: frames.celebrate?.length ? frames.celebrate : undefined };
     this.setTexture(texture, frames.swim[0]);
@@ -327,6 +371,16 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     const sp = this.species;
     const st = BALANCE.stamina;
     const body = this.arcadeBody;
+    // Hit-stop: hold still (no physics, no animation) until it ends, then resume with the saved velocity.
+    if (this.freezeT > 0) {
+      this.freezeT -= dt;
+      if (this.freezeT > 0) {
+        body.setVelocity(0, 0);
+        return;
+      }
+      if (this.frozenV) body.setVelocity(this.frozenV.x, this.frozenV.y);
+      this.frozenV = null;
+    }
 
     const c = BALANCE.combat;
     this.stunTimer = Math.max(0, this.stunTimer - dt);
@@ -373,7 +427,7 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     const woundMul = this.wounded ? c.woundedSpeedMul : 1;
     // While dashing, the cap is the dash speed so the lunge is not clipped.
     const dashMul = this.dashing ? c.dash.speedMul : 1;
-    const maxSpeed = sp.maxSpeed * this.speedFactor * Math.max(sprintMul * woundMul, dashMul) * this.speedMul * this.envSpeed;
+    const maxSpeed = sp.maxSpeed * this.speedFactor * Math.max(sprintMul * woundMul, dashMul) * this.speedMul * this.envSpeed * this.jawSpeed;
     const accel = sp.accel * this.speedFactor * (this.isSprinting ? 1.6 : 1) * this.speedMul;
 
     let vx = body.velocity.x;
@@ -445,6 +499,21 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     this.animate(dt);
   }
 
+  /**
+   * The bite frame for the jaw timeline. `open` = the widest-open frame (Sprite Studio's "jaws open" marker on the bite
+   * pose; the last bite frame by default). Wind-up plays the frames up to it, holding shows it, the snap plays the frames
+   * after it (none: the closed swim frame).
+   */
+  private jawFrame(seq: string[], openAt?: number): string | null {
+    const j = this.jaw!;
+    const open = Math.min(seq.length - 1, Math.max(0, openAt ?? seq.length - 1));
+    if (j.phase === 'hold') return seq[open];
+    const p = Math.min(0.999, j.t / j.dur);
+    if (j.phase === 'open') return seq[Math.min(open, Math.floor(p * (open + 1)))];
+    const after = seq.length - 1 - open;
+    return after > 0 ? seq[open + 1 + Math.floor(p * after)] : null;
+  }
+
   /** Frame animation for species that have it: swim, bite, idle, rest. */
   private animate(dt: number): void {
     const frames = this.skinFrames ?? this.species.art?.frames;
@@ -455,7 +524,22 @@ export class Fish extends Phaser.Physics.Arcade.Sprite {
     let frame: string;
     const speed = this.arcadeBody.velocity.length();
     const still = speed < this.cruiseSpeed * 0.12 && !this.stunned;
-    if (this.biteAnim > 0 && frames.biteSeq && frames.biteSeq.length > 1) {
+    const seq = frames.biteSeq && frames.biteSeq.length ? frames.biteSeq : frames.bite ? [frames.bite] : null;
+    if (this.jaw) {
+      this.jaw.t += dt;
+      if (this.jaw.phase !== 'hold' && this.jaw.t >= this.jaw.dur) {
+        // Opening ends held open (GameScene decides when to snap); snapping ends the bite.
+        if (this.jaw.phase === 'open') this.jaw = { phase: 'hold', t: 0, dur: 1 };
+        else this.jaw = null;
+      }
+    }
+    const jawFrame = this.jaw && seq ? this.jawFrame(seq, (frames as { biteOpen?: number }).biteOpen) : null;
+    if (jawFrame) {
+      frame = jawFrame;
+    } else if (this.jaw?.phase === 'snap') {
+      // Jaws shut: the plain swim frame (closed mouth) for the rest of the recovery.
+      frame = frames.swim[0];
+    } else if (this.biteAnim > 0 && frames.biteSeq && frames.biteSeq.length > 1) {
       const k = Math.min(frames.biteSeq.length - 1, Math.floor((1 - this.biteAnim / this.biteSeconds) * frames.biteSeq.length));
       frame = frames.biteSeq[Math.max(0, k)];
     } else if (this.biteAnim > 0 && frames.bite) {
