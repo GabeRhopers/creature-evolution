@@ -55,7 +55,9 @@ ok(rise.minY < rise.y0 - 10, `and pulled up toward the boat (${Math.round(rise.y
 await G(() => { const g = window.game.scene.getScene('Game'), f = g.fisher; f.state = 'wait'; f.timer = 5; f.hookY = 400; g.player.invulnTimer = 0; });
 await G(() => new Promise((res) => { const g = window.game.scene.getScene('Game'), f = g.fisher, pl = g.player; f['rehook'] = 0; const t = () => { if (f.hookedPlayer) return res(); pl.setPosition(f.hookX, f.hookY); pl.arcadeBody.setVelocity(0, 0); requestAnimationFrame(t); }; t(); }));
 await p.keyboard.down('Space');
-ok(await waitFor(() => !window.game.scene.getScene('Game').fisher.hookedPlayer, 10000), 'EAT bites the line: free');
+const freed = await waitFor(() => !window.game.scene.getScene('Game').fisher.hookedPlayer, 10000);
+const why = freed ? '' : JSON.stringify(await G(() => { const g = window.game.scene.getScene('Game'), f = g.fisher, pl = g.player; return { state: f.state, space: g.controller?.keys?.SPACE?.isDown, eat: g.controller?.wantsSwallow?.(), paused: g.scene.isPaused(), perk: !!document.querySelector('[data-perk]'), focus: document.activeElement?.tagName + '#' + (document.activeElement?.id ?? ''), y: Math.round(pl.y), hookY: Math.round(f.hookY), stunned: pl.stunned }; }));
+ok(freed, 'EAT bites the line: free ' + why);
 await p.keyboard.up('Space');
 
 // An adult is too heavy: the hook stings and the line snaps.
