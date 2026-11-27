@@ -33,6 +33,31 @@ export interface TerrainConfig {
   islands: IslandDef[];
   /** Mangrove roots hang this far below an island's sandbank (a hiding place, not solid). */
   rootsDepth: number;
+  /** Mid-water structures: rock outcrops (solid all round) and shelves (one-way, solid from above). */
+  structures?: StructureDef[];
+}
+
+/**
+ * A mid-water structure. x is world px, y is the share of the water (0 surface, 1 seabed) of its
+ * center (rock) or top (shelf). A rock is an oval `width` x `height`; a shelf is a ledge `width`
+ * long that you can swim up through from below and rest on from above.
+ */
+export interface StructureDef {
+  kind: 'rock' | 'shelf';
+  x: number;
+  y: number;
+  width: number;
+  height?: number;
+}
+
+/** A structure in world px. */
+export interface Structure {
+  kind: 'rock' | 'shelf';
+  x: number;
+  y: number;
+  /** Half width; for a rock also the half height (ry). */
+  rx: number;
+  ry: number;
 }
 
 /** What makes the ground at one spot (drives the art). */
@@ -58,6 +83,8 @@ export class Terrain {
   private kinds: Uint8Array;
   /** Highest point of the ground line (smallest y). */
   readonly highestGround: number;
+  /** Mid-water rocks and shelves in world px. */
+  readonly structures: Structure[];
 
   constructor(readonly cfg: TerrainConfig, width: number, surfaceY: number, seabedTop: number) {
     this.width = width;
@@ -113,6 +140,55 @@ export class Terrain {
       this.ceil[i] = c > 0 ? surfaceY + c : -Infinity;
     }
     this.highestGround = highest;
+    this.structures = (cfg.structures ?? []).map((d) => ({
+      kind: d.kind,
+      x: d.x,
+      y: surfaceY + waterH * d.y,
+      rx: d.width / 2,
+      ry: d.kind === 'rock' ? (d.height ?? d.width * 0.6) / 2 : 0,
+    }));
+  }
+
+  /** Shortest signed x distance from a to b around the loop. */
+  private dx(a: number, b: number): number {
+    const w = this.width;
+    return ((((b - a) % w) + w * 1.5) % w) - w / 2;
+  }
+
+  /**
+   * The rock a circle of radius r at (x, y) overlaps, as a push-out to the rock's (inflated)
+   * outline plus its outward normal; null when it touches none.
+   */
+  private rockHit(x: number, y: number, r: number): { x: number; y: number; nx: number; ny: number } | null {
+    for (const s of this.structures) {
+      if (s.kind !== 'rock') continue;
+      const dx = this.dx(s.x, x), dy = y - s.y;
+      const ax = s.rx + r, ay = s.ry + r;
+      if (Math.abs(dx) >= ax || Math.abs(dy) >= ay) continue;
+      const q = Math.hypot(dx / ax, dy / ay);
+      if (q >= 1) continue;
+      // Dead center: lift it off the top.
+      if (q < 1e-3) return { x, y: s.y - ay, nx: 0, ny: -1 };
+      const nxr = dx / (ax * ax), nyr = dy / (ay * ay);
+      const len = Math.hypot(nxr, nyr);
+      return { x: x + (dx / q - dx), y: s.y + dy / q, nx: nxr / len, ny: nyr / len };
+    }
+    return null;
+  }
+
+  /**
+   * One-way shelves: when a circle of radius r moves from prevY down to y and its bottom crosses
+   * a shelf top (having been entirely above it), returns the shelf's y; otherwise null.
+   * From below and from the sides a shelf is open water.
+   */
+  shelfUnder(x: number, prevY: number, y: number, r: number): number | null {
+    let best: number | null = null;
+    for (const s of this.structures) {
+      if (s.kind !== 'shelf') continue;
+      if (Math.abs(this.dx(s.x, x)) > s.rx) continue;
+      if (prevY + r <= s.y + 1 && y + r > s.y && (best === null || s.y < best)) best = s.y;
+    }
+    return best;
   }
 
   /** Any x folded into the loop [0, width). */
@@ -147,7 +223,7 @@ export class Terrain {
 
   /** True if a circle of radius r at (x, y) overlaps the ground or an island. */
   isSolid(x: number, y: number, r = 0): boolean {
-    return y + r > this.groundAt(x) || y - r < this.ceilAt(x);
+    return y + r > this.groundAt(x) || y - r < this.ceilAt(x) || this.rockHit(x, y, r) !== null;
   }
 
   /**
@@ -174,7 +250,7 @@ export class Terrain {
       if (under / len > r * 3) return { x, y: c + r, nx: 0, ny: 1 };
       return { x: x + nx * (under / len), y: y + ny * (under / len), nx, ny };
     }
-    return null;
+    return this.rockHit(x, y, r);
   }
 
   /** A gentle steer away from nearby terrain (for AI), within `margin` px. */
@@ -194,6 +270,19 @@ export class Terrain {
     }
     const c = this.ceilAt(x);
     if (isFinite(c) && y - c < margin) ay += 1 - Math.max(0, y - c) / margin;
+    // Rocks push away all round; shelves only from just above (so AI swims around, not into them).
+    for (const s of this.structures) {
+      const dx = this.dx(s.x, x), dy = y - s.y;
+      if (s.kind === 'rock') {
+        const q = Math.hypot(dx / (s.rx + margin), dy / (s.ry + margin));
+        if (q >= 1) continue;
+        const len = Math.hypot(dx, dy) || 1;
+        ax += (dx / len) * (1 - q) * 1.5;
+        ay += (dy / len) * (1 - q) * 1.5;
+      } else if (Math.abs(dx) < s.rx + margin * 0.3 && dy < 0 && -dy < margin) {
+        ay -= 1 + dy / margin;
+      }
+    }
     return [ax, ay];
   }
 

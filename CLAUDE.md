@@ -202,6 +202,19 @@ SWIM AGAIN (`nextGatesOpen`); saves from before gates keep the whole sea open (`
 get a copy past the edge. Tests that are not about gates call `gates.openAll()`. Leopard Seal unlocks at 31 and the
 Giant Octopus at 21, when their regions open. E2E: `tests/e2e/gates.mjs`; unit: `tests/gates.test.ts`.
 
+## Mid-water structures (Nov 27, `balance.json` terrain `structures`, `Terrain.structures`; `tests/structures.test.ts`, `tests/e2e/structures.mjs`)
+- Two kinds, placed 3 per region by `tools/structures/place.mts` (clear of the ground, islands and the start; rerun it after big
+  terrain changes and paste its output). `y` is the share of the water (center of a rock, top of a shelf).
+- **rock** (outcrop): an oval `width` x `height`, solid all round. `Terrain.isSolid`, `resolve` (push-out to the inflated oval,
+  after ground and ceiling) and `avoid` (AI steers around) include it, so spawning, wandering and `collideTerrain` need nothing
+  else. Round sides: swimming into one you slide over or under it.
+- **shelf** (semi-solid): a ledge `width` long, one-way. `Terrain.shelfUnder(x, prevY, y, r)` returns its top only when the
+  swimmer was entirely above it before the move; `GameScene.collideTerrain` keeps each creature's last y (`shelfPrevY`, jumps
+  over 300 px count as teleports) and sets it on top. From below or the side it is open water (`isSolid` ignores shelves).
+  No drop-through button yet: swim off the end.
+- Art: `makeOutcrop` / `makeShelf` (worldTextures), drawn by `placeStructures` at depth -14 (named 'structure'). The map shows
+  them (grey ovals, coral ledges; ThingKind 'structure', not editable yet).
+
 ## Leaping and land (`GameScene` "Land" section, `balance.json` "land")
 - Sprint upward through the surface to leap (`checkLeap`: sprinting, near the surface, rising faster than `jumpSpeed`). No extra button.
 - `landState` is 'water', 'air' or 'land'. `updateOutOfWater` applies gravity, lands on islands, crawls and hops. `collideTerrain` skips the player out of the water.
