@@ -52,7 +52,8 @@ const rise = await G(() => new Promise((res) => {
 }));
 ok(rise.minY < rise.y0 - 10, `and pulled up toward the boat (${Math.round(rise.y0)} -> ${Math.round(rise.minY)})`);
 // Hooked again, then EAT bites the line.
-await G(() => { const g = window.game.scene.getScene('Game'), f = g.fisher; f.state = 'wait'; f.timer = 5; f.hookY = 400; g.player.invulnTimer = 0; });
+// (Let go of the first hook first: on a slow machine it can still be reeling, and a hooked hero in 'wait' is never pulled.)
+await G(() => { const g = window.game.scene.getScene('Game'), f = g.fisher; f.hookedPlayer = false; f.state = 'wait'; f.timer = 5; f.hookY = 400; g.player.invulnTimer = 0; });
 await G(() => new Promise((res) => { const g = window.game.scene.getScene('Game'), f = g.fisher, pl = g.player; f['rehook'] = 0; const t = () => { if (f.hookedPlayer) return res(); pl.setPosition(f.hookX, f.hookY); pl.arcadeBody.setVelocity(0, 0); requestAnimationFrame(t); }; t(); }));
 await p.keyboard.down('Space');
 const freed = await waitFor(() => !window.game.scene.getScene('Game').fisher.hookedPlayer, 10000);
