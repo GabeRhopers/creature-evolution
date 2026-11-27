@@ -42,6 +42,8 @@ export interface SpeciesArt {
     damage?: string;
     /** Several bite frames played in order. */
     biteSeq?: string[];
+    /** Index in biteSeq of the widest-open frame (the jaws snap shut after it). Default: the last one. */
+    biteOpen?: number;
     /** Left behind when it dies (a skeleton). */
     dead?: string;
     /** Played on level-up. */

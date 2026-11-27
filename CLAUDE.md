@@ -425,13 +425,26 @@ Ramming a fish stuns it and knocks it aside; it halves your speed only if it is 
 (`combat.ramSlowRankRatio`, 1.25x your rank). A rock stuns you only on a head-on hit. (Before Nov 23, brushing past
 a same-size tang at normal speed halved your speed: the "small breaks" in swimming.)
 
-## Delayed bites (`GameScene.startBite` / `updatePendingBites`, `balance.json` combat `biteDelaySeconds`, `biteLandReachMul`)
-Rhopers, Nov 26: a bite's damage lands when the bite animation ends, `biteDelaySeconds` (1) after it starts, for the player and
-every creature. `startBite` plays the bite over the delay (`Fish.playBite(seconds)`: the bite frames stretch so the jaws snap shut at
-the hit), sets the cooldown to at least the delay and queues it in `pendingBites` (one per biter). At the end it lands through `bite`
-only if the biter is not stunned or dead and the target is still within `biteLandReachMul` x the usual reach; otherwise "Miss" (your
-bite) or "Dodged!" (a bite at you). Dash bites and the grab abilities (Crushing Bite, Death Roll) still hit at once. `bite()` itself
-stays instant (tests call it). 0 = the old instant bites. E2E: `bite_delay.mjs`.
+## The bite timeline (`GameScene.startBite` / `updatePendingBites` / `snapBite`, `balance.json` combat `bite`)
+Rhopers, Nov 27 (replaced the Nov 26 one-second delay). Every bite is wind-up (jaws opening) -> the hit (jaws snap shut) ->
+recovery, like startup / active / recovery in fighting games; one entry per biter in `pendingBites` (`PendingBite`).
+- **Player:** pressing EAT (Space, A, right mouse) opens the jaws (`windup`); holding keeps them open (`hold` phase,
+  `Fish.jawSpeed` = `holdSpeedMul`, swallowable fish that swim in are still swallowed) up to `holdMaxSeconds`; letting go snaps
+  them shut (a quick tap snaps right after the wind-up). The hit picks the nearest creature in reach that is too big to swallow
+  (`playerBiteTargetNow`); held past the wind-up adds up to `chargeDamageBonus` (full at `chargeSeconds`, shown as `-N!`). A press
+  with a swallowable fish in reach swallows instead. No creature in reach: a chunk of meat too big to swallow is bitten into 2 to
+  `meatBreakMaxPieces` smaller pieces (`breakMeatAtMouth`, each `meatBreakPieceMul` x devour size, always under 70% of the chunk),
+  so any carcass can be eaten bit by bit; otherwise a whoosh.
+- **Creatures:** `startBite` winds up `aiWindup` + `aiWindupPerTier` per size tier (max `aiWindupMax`), a readable telegraph; the
+  bite lands only if the target is still within `landReachMul` x the reach ("Dodged!" otherwise).
+- **The hit** (`bite(.., started, big)`): damage, hurt frame and red flash, chunks, sound, popup, and **hit-stop**: the biter and
+  the target freeze for `hitstop` (`hitstopBig` for a full charge or a kill; `Fish.freeze`, which keeps the velocity, knockback
+  included, and pauses the timeline). Only those two freeze, never the game. Getting bitten or stunned before your bite lands
+  cancels it (`cancelJaw`). Dash bites and the grab abilities hit at once; `bite()` itself stays instant (tests call it).
+- **Look** (`Fish.openJaw/holdJaw/snapJaw`, `jawFrame`): the wind-up plays the bite frames up to the widest-open one, holding
+  shows it, the snap plays the frames after it (none: the closed swim frame). Sprite Studio's bite pose has a **Jaws open on this
+  frame** button (`open` on the attack pose, kept by serialize; `poseMap().biteOpen`); default the last bite frame.
+- The coach says "hold EAT to open wide, let go to bite". E2E: `bite_timeline.mjs`; unit: `skins.test.ts` (the marker).
 
 ## Player damage rules (`GameScene.attackPlayer`)
 AI never swallows the player. Predators that could swallow you "chomp" (x1.5 damage);

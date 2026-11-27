@@ -27,11 +27,13 @@ export interface CoachStep {
 }
 
 const eat = (f: CoachFacts) => (f.pad ? 'press A' : f.touch ? 'tap EAT' : 'press Space');
+const hold = (f: CoachFacts) => (f.pad ? 'hold A' : f.touch ? 'hold EAT' : 'hold Space');
 export const COACH_STEPS: CoachStep[] = [
   { id: 'swim', text: (f) => (f.pad ? 'Swim with the left stick' : f.touch ? 'Use the joystick on the left to swim' : 'Swim with the arrow keys or WASD'), done: (f) => f.moved >= 400 },
   { id: 'plankton', text: () => 'Swim through the glowing dots to eat plankton', done: (f) => f.plankton >= 5 },
   { id: 'swallow', text: (f) => `A GREEN ring means you can swallow it: swim close and ${eat(f)}`, done: (f) => f.fish >= 1 },
-  { id: 'bite', text: (f) => `An ORANGE ring means too big to swallow: ${eat(f)} to bite it`, done: (f) => f.bites >= 1 },
+  // Bites (Nov 27): pressing opens the jaws, letting go snaps them shut; holding longer bites harder.
+  { id: 'bite', text: (f) => `An ORANGE ring means too big to swallow: ${hold(f)} to open wide, let go to bite`, done: (f) => f.bites >= 1 },
   { id: 'grow', text: () => 'Keep eating to fill the star bar and level up', done: (f) => f.level >= 2 },
 ];
 /** Shown for a moment when the steps are done. */

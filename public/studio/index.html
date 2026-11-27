@@ -188,6 +188,10 @@ footer { border-top: 1px solid var(--line); padding: 8px 16px 10px; display: gri
         <input id="fps" type="range" min="1" max="16" value="6" style="flex:1">
         <span id="fpsVal" class="label">6 fps</span>
       </div>
+      <div class="row" id="openRow" style="margin-top:6px" hidden>
+        <button id="btnOpen" title="In the game the bite opens the jaws up to this frame, holds it while the bite button is held, and snaps shut after it: the damage lands at that moment">Jaws open on this frame</button>
+        <span id="openVal" class="label"></span>
+      </div>
       <div class="row" style="margin-top:6px">
         <label class="label" for="bgSel">Background</label>
         <select id="bgSel">
@@ -372,7 +376,7 @@ function decodeFrame(s, n) {
 const FW_FIELDS = ['framework', 'bodyRadius', 'mouth', 'pixelScale', 'mouthRadius', 'seedVersion'];
 function serialize(p) {
   const out = { name: p.name, w: p.w, h: p.h, palette: p.palette.slice(),
-    poses: p.poses.map((po) => ({ name: po.name, fps: po.fps, frames: po.frames.map(encodeFrame) })) };
+    poses: p.poses.map((po) => ({ name: po.name, fps: po.fps, frames: po.frames.map(encodeFrame), ...(po.open !== undefined ? { open: po.open } : {}) })) };
   for (const k of FW_FIELDS) if (p[k] !== undefined && p[k] !== null) out[k] = Array.isArray(p[k]) ? p[k].slice() : p[k];
   if (p.skinOf) out.skinOf = { ...p.skinOf };
   return out;
@@ -381,7 +385,8 @@ function deserialize(d) {
   const w = d.w | 0, h = d.h | 0;
   const p = { name: String(d.name || 'Untitled'), w, h, palette: (d.palette || []).slice(0, MAX_COLORS),
     poses: (d.poses || []).map((po) => ({ name: String(po.name), fps: po.fps || 6,
-      frames: (po.frames || []).slice(0, SLOTS).map((s) => decodeFrame(String(s), w * h)) })) };
+      frames: (po.frames || []).slice(0, SLOTS).map((s) => decodeFrame(String(s), w * h)),
+      ...(Number.isInteger(po.open) && po.open >= 0 ? { open: po.open } : {}) })) };
   if (typeof d.framework === 'string') p.framework = d.framework;
   if (d.bodyRadius > 0) p.bodyRadius = +d.bodyRadius;
   if (Array.isArray(d.mouth) && d.mouth.length === 2) p.mouth = [d.mouth[0] | 0, d.mouth[1] | 0];
@@ -617,6 +622,14 @@ function renderButtons() {
   $('applyBtn').disabled = !S.float; $('pasteBtn').disabled = !S.clip;
   $('rot').disabled = !(S.float || S.sel || P().w === P().h);
   $('fps').value = curPose().fps; $('fpsVal').textContent = curPose().fps + ' fps';
+  // Bite pose: which frame the jaws are widest open (the game snaps shut after it). Default: the last frame.
+  const bitePose = curPose().name.toLowerCase() === 'attack' && curPose().frames.length > 1;
+  $('openRow').hidden = !bitePose;
+  if (bitePose) {
+    const mark = curPose().open ?? curPose().frames.length - 1;
+    $('btnOpen').classList.toggle('on', mark === S.frame);
+    $('openVal').textContent = `Frame ${mark + 1}${curPose().open === undefined ? ' (the last)' : ''}`;
+  }
 }
 
 /** Call after any change. `edit` marks the project as modified (autosave). */
@@ -1435,6 +1448,12 @@ $('delColor').onclick = () => { if (S.color < 0) return; const c = S.color;
 $('presets').onchange = () => { const k = $('presets').value; $('presets').value = ''; if (!k) return; pushUndo(); let n = 0;
   for (const h of PRESETS[k]) if (!P().palette.includes(h) && P().palette.length < MAX_COLORS) { P().palette.push(h); n++; }
   changed(true); toast(n ? `Added ${n} colors` : 'Those colors are already in the palette'); };
+$('btnOpen').onclick = () => {
+  pushUndo();
+  const po = curPose();
+  if (po.open === S.frame || (po.open === undefined && S.frame === po.frames.length - 1)) delete po.open; else po.open = S.frame;
+  changed(true);
+};
 $('fps').oninput = () => { curPose().fps = +$('fps').value; $('fpsVal').textContent = curPose().fps + ' fps'; S.dirty = true; scheduleSave(); };
 $('playBtn').onclick = () => { playing = !playing; $('playBtn').textContent = playing ? 'Pause' : 'Play'; };
 
