@@ -5,6 +5,14 @@ import type Phaser from 'phaser';
 import { add, bayer, C, canvas, px, rng } from './worldTextures';
 import type { Terrain } from './terrain';
 import type { RegionId, Regions } from './regions';
+import { islandProfile, VOLCANO_REACH, type IslandStyle } from './islandShape';
+export { caveRockRows, volcanoRows } from './islandShape';
+export { VOLCANO_REACH };
+
+/** The solid land above the water of the island drawn here (art rows per column): the same profile the game walks on. */
+function landRows(style: IslandStyle, cx: number, width: number, depth: number, P: number, aboveRows: number, seed: number): Int16Array {
+  return islandProfile({ x: cx, width, depth, style }, 0, P, aboveRows, seed).land;
+}
 
 const hex = (h: string): [number, number, number] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 
@@ -160,17 +168,13 @@ export function makeIsland(scene: Phaser.Scene, key: string, t: Terrain, cx: num
     }
   }
   // Above water: a sand hump with palm trees.
-  const humpH = Math.min(8, aboveRows - 2);
-  const hump = (x: number) => {
-    const u = Math.abs(x - half) / (half * 0.8);
-    return u >= 1 ? 0 : Math.round(humpH * Math.pow(1 - u * u, 0.6));
-  };
+  const land = landRows('sand', cx, width, depth, P, aboveRows, seed);
+  const hump = (x: number) => (x >= 0 && x < cols ? land[x] : 0);
   for (let x = 0; x < cols; x++) {
     const h = hump(x);
-    for (let k = 0; k < h; k++) px(g, x, aboveRows - 1 - k, k === h - 1 ? C.bone : k > h - 4 ? C.sand : C.sandDark);
-    if (h > 0) px(g, x, aboveRows - h - 1, C.clay);
+    // Exactly the solid rows (the game stands on the top one): an outline row, a bright crest, then sand.
+    for (let k = 0; k < h; k++) px(g, x, aboveRows - 1 - k, k === h - 1 ? C.sandDark : k === h - 2 ? C.bone : k > h - 5 ? C.sand : C.sandDark);
   }
-  for (let x = 0; x < cols; x++) if (hump(x) > 0) px(g, x, aboveRows - hump(x) - 1, C.sandDark);
   // Water line across the island's base.
   for (let x = 0; x < cols; x++) if (bottom(x) >= 0 && bayer(x, 0) < 0.5) px(g, x, aboveRows, C.cyan);
   const palms = width > 560 ? 2 : 1;
@@ -280,9 +284,6 @@ function undersideOf(t: Terrain, left: number, P: number) {
 }
 
 /** The rows a cave rock rises above the water at u (0 center, 1 edge). Shared with GameScene.landTopAt. */
-export function caveRockRows(u: number, aboveRows: number): number {
-  return u >= 1 ? 0 : Math.min(7, aboveRows - 2) * Math.pow(1 - u * u, 0.6);
-}
 
 /**
  * A cave rock (the Coral Cave's roof, the Trench's roof): a low mossy hump with a few ferns above the water, and below it a thick
@@ -308,8 +309,8 @@ export function makeCaveRock(scene: Phaser.Scene, key: string, t: Terrain, cx: n
   const r = rng(seed);
   const left = cx - (cols * P) / 2;
   const bottom = undersideOf(t, left, P);
-  const half = cols / 2;
-  const hump = (x: number) => Math.round(caveRockRows(Math.abs(x - half) / (half * 0.8), aboveRows));
+  const land = landRows('cave', cx, width, depth, P, aboveRows, seed);
+  const hump = (x: number) => (x >= 0 && x < cols ? land[x] : 0);
   for (let x = 0; x < cols; x++) {
     const h = hump(x);
     for (let k = 0; k < h; k++) {
@@ -352,18 +353,14 @@ export function makeIceberg(scene: Phaser.Scene, key: string, t: Terrain, cx: nu
   const aboveRows = Math.floor(above / P);
   const rows = aboveRows + Math.ceil(depth / P) + 2;
   const [c, g] = canvas(cols, rows);
-  const r = rng(seed);
   const left = cx - (cols * P) / 2;
   const bottom = undersideOf(t, left, P);
   const half = cols / 2;
   // Above water: a jagged peak, highest a little off center.
   // Centered, so the game can tell where you can stand on it (GameScene.landTopAt).
   const peakX = half;
-  const jag = Array.from({ length: cols }, () => r());
-  const peak = (x: number) => {
-    const u = Math.abs(x - peakX) / (half * 0.85);
-    return u >= 1 ? 0 : Math.round((aboveRows - 3) * Math.pow(1 - u, 1.1) + jag[x] * 2);
-  };
+  const land = landRows('iceberg', cx, width, depth, P, aboveRows, seed);
+  const peak = (x: number) => (x >= 0 && x < cols ? land[x] : 0);
   for (let x = 0; x < cols; x++) {
     const h = peak(x);
     for (let k = 0; k < h; k++) {
@@ -389,17 +386,6 @@ export function makeIceberg(scene: Phaser.Scene, key: string, t: Terrain, cx: nu
   add(scene, key, c);
 }
 
-/** How far the cone reaches across the island (share of its half width); the rest is a low basalt shore. */
-export const VOLCANO_REACH = 0.6;
-
-/** The height (art rows) of a volcano island's cone at column x (0 at the edge). Shared with GameScene.landTopAt. */
-export function volcanoRows(u: number, aboveRows: number): number {
-  if (u >= 1) return 0;
-  const top = aboveRows - 3;
-  // A steep cone with a small crater at the top.
-  const cone = top * Math.pow(1 - u, 0.9);
-  return u < 0.1 ? cone - 2 * (1 - u / 0.1) : cone;
-}
 
 /** A volcanic island: a dark cone with a glowing crater, lava streaks and smoke; basalt with lava cracks below. */
 export function makeVolcano(scene: Phaser.Scene, key: string, t: Terrain, cx: number, width: number, depth: number, above: number, P: number, seed: number): void {
@@ -413,7 +399,8 @@ export function makeVolcano(scene: Phaser.Scene, key: string, t: Terrain, cx: nu
   const bottom = undersideOf(t, left, P);
   const half = cols / 2;
   const reach = half * VOLCANO_REACH;
-  const cone = (x: number) => Math.round(volcanoRows(Math.abs(x - half) / reach, aboveRows));
+  const land = landRows('volcano', cx, width, depth, P, aboveRows, seed);
+  const cone = (x: number) => (x >= 0 && x < cols ? land[x] : 0);
   // Two lava streams running down from the crater.
   const streams = [half - 1 - Math.floor(r() * 2), half + 1 + Math.floor(r() * 2)];
   for (let x = 0; x < cols; x++) {
@@ -500,7 +487,13 @@ export function makeMangrove(scene: Phaser.Scene, key: string, t: Terrain, cx: n
       dot(x + 1, aboveRows + b + k, C.bark);
     }
   }
-  // Above water: roots arching out of the water, thin trunks and round bushy crowns.
+  // Above water: a low mud bank between the roots (where you can stand: the same rows the game walks on).
+  const bank = landRows('mangrove', cx, width, depth, P, aboveRows, seed);
+  for (let x = 0; x < cols; x++) {
+    const h = bank[x];
+    for (let k = 0; k < h; k++) px(g, x, aboveRows - 1 - k, k === h - 1 ? (bayer(x, k) < 0.5 ? C.leafDark : C.bark) : bayer(x, k) < 0.4 ? C.clay : C.brown);
+  }
+  // Roots arching out of the water, thin trunks and round bushy crowns.
   const trees = Math.max(2, Math.round(width / 180));
   for (let i = 0; i < trees; i++) {
     const bx = Math.round(half * 0.35 + ((i + 0.5) / trees) * half * 1.3);
