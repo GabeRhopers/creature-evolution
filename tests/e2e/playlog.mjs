@@ -23,7 +23,7 @@ const play = async () => {
 await p.goto(base);
 await G(() => localStorage.clear());
 await p.reload();
-await waitFor(() => window.game?.scene.getScene('Game')?.player);
+await waitFor(() => !!window.game?.scene.getScene('Game')?.player);
 
 // 1. going home
 await play();
@@ -44,7 +44,7 @@ await G(() => window.game.scene.getScene('Game').goHome());
 await play();
 await p.goto('about:blank');
 await p.goto(base);
-await waitFor(() => window.game?.scene.getScene('Game')?.player);
+await waitFor(() => !!window.game?.scene.getScene('Game')?.player);
 l = await log();
 ok(l.length === 3 && l[2].end === 'closed', 'closing the game mid-run is logged: ' + JSON.stringify(l[2]));
 

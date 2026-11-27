@@ -12,7 +12,7 @@ const waitFor = async (f, a, ms = 30000) => { const t = Date.now(); while (Date.
 await p.goto('http://localhost:4173/');
 await G(() => localStorage.clear());
 await p.reload();
-await waitFor(() => window.game?.scene.getScene('Game')?.player);
+await waitFor(() => !!window.game?.scene.getScene('Game')?.player);
 await p.click('#btnPlay');
 await waitFor(() => { const g = window.game.scene.getScene('Game'); return g.player && !g.menuMode; });
 await G(() => { const g = window.game.scene.getScene('Game'); g.creatures.forEach((c) => { if (c.brain) c.fish.setPosition(c.fish.x > 3000 ? c.fish.x : 3500, 2000); }); });

@@ -202,9 +202,21 @@ SWIM AGAIN (`nextGatesOpen`); saves from before gates keep the whole sea open (`
 get a copy past the edge. Tests that are not about gates call `gates.openAll()`. Leopard Seal unlocks at 31 and the
 Giant Octopus at 21, when their regions open. E2E: `tests/e2e/gates.mjs`; unit: `tests/gates.test.ts`.
 
+## The deeper sea (v0.69, Nov 27)
+- `world.height` 3200 -> 6020: the water (surfaceY to height - seabedDepth) is 5640 px, twice the old 2820. Everything given as a
+  share of the water follows on its own (depth bands, species depths, seamount tops, structures, player start). Things in px
+  were scaled where they should reach across the water: giant kelp heights (shares 0.6-0.94), the far peaks backdrop (43% of
+  the water), the Fisher Ape's hook (hookDepthMin/Max halved to keep the same px). `crowd.regionMaxDensity` 11 -> 14 so the
+  taller bands are not half empty (`nearMax` still caps the awake fish). Islands, ridges and dunes stay in px.
+- e2e tip: never return a game object from `page.evaluate`/`waitFor` (`!!g.player`, not `g.player`): serializing the scene
+  graph went past Node's string limit (ERR_STRING_TOO_LONG) once the world grew.
+
 ## Mid-water structures (Nov 27, `balance.json` terrain `structures`, `Terrain.structures`; `tests/structures.test.ts`, `tests/e2e/structures.mjs`)
-- Two kinds, placed 3 per region by `tools/structures/place.mts` (clear of the ground, islands and the start; rerun it after big
-  terrain changes and paste its output). `y` is the share of the water (center of a rock, top of a shelf).
+- Each region has its own mix (`PLANS` in `tools/structures/place.mts`, 30 in all) and its own material (`STRUCTURE_LOOKS` in
+  worldTextures): Coral Sea coral ledges and stone, Swamp sunken logs and a mud lump, Sargasso floating weed mats only (open
+  ocean, no rock), Volcanic Rift basalt outcrops with glowing specks, Twilight Trench ledges stepping into the dark, Kelp Forest
+  mossy stones, Frozen Sea ice shelves and ice chunks. The script keeps them clear of the ground, islands and the start; rerun
+  it after big terrain changes and paste its output. `y` is the share of the water (center of a rock, top of a shelf).
 - **rock** (outcrop): an oval `width` x `height`, solid all round. `Terrain.isSolid`, `resolve` (push-out to the inflated oval,
   after ground and ceiling) and `avoid` (AI steers around) include it, so spawning, wandering and `collideTerrain` need nothing
   else. Round sides: swimming into one you slide over or under it.
@@ -212,7 +224,7 @@ Giant Octopus at 21, when their regions open. E2E: `tests/e2e/gates.mjs`; unit: 
   swimmer was entirely above it before the move; `GameScene.collideTerrain` keeps each creature's last y (`shelfPrevY`, jumps
   over 300 px count as teleports) and sets it on top. From below or the side it is open water (`isSolid` ignores shelves).
   No drop-through button yet: swim off the end.
-- Art: `makeOutcrop` / `makeShelf` (worldTextures), drawn by `placeStructures` at depth -14 (named 'structure'). The map shows
+- Art: `makeOutcrop` / `makeShelf` (worldTextures) with the region's look, drawn by `placeStructures` at depth -14 (named 'structure'). The map shows
   them (grey ovals, coral ledges; ThingKind 'structure', not editable yet).
 
 ## Leaping and land (`GameScene` "Land" section, `balance.json` "land")

@@ -13,7 +13,7 @@ const mood = () => G(() => window.game.scene.getScene('Hud').wantMood);
 await p.goto('http://localhost:4173/');
 await G(() => localStorage.clear());
 await p.reload();
-await waitFor(() => window.game?.scene.getScene('Game')?.player);
+await waitFor(() => !!window.game?.scene.getScene('Game')?.player);
 await p.click('#btnPlay');
 await waitFor(() => { const g = window.game.scene.getScene('Game'); return g.player && !g.menuMode; });
 ok(await waitFor(() => window.game.scene.getScene('Hud').wantMood === 'sunny'), 'Coral Sea by day: Sunny Reef (the recorded track)');

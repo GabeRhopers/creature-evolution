@@ -45,7 +45,7 @@ describe('map checks catch broken layouts', () => {
     expect(mapChecks(buildMap(b)).some((i) => i.level === 'error' && /too deep/.test(i.text))).toBe(true);
   });
   it('an island that closes the water', () => {
-    const b = clone(); b.terrain.islands[0].depth = 5000;
+    const b = clone(); b.terrain.islands[0].depth = 9000;
     expect(mapChecks(buildMap(b)).some((i) => /water is left/.test(i.text))).toBe(true);
   });
   it('something on the start, and crowded scenery', () => {

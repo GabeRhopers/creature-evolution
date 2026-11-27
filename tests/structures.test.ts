@@ -10,12 +10,17 @@ const rocks = t.structures.filter((s) => s.kind === 'rock');
 const shelves = t.structures.filter((s) => s.kind === 'shelf');
 
 describe('mid-water structures', () => {
-  it('every region has a rock and a shelf, and all float clear of the ground and islands', () => {
+  it('every region has its own mix of structures, all floating clear of the ground and islands', () => {
+    const mixes = new Set<string>();
     for (const reg of balance.regions.list) {
       const inside = t.structures.filter((s) => s.x >= reg.from && s.x < reg.to);
-      expect(inside.some((s) => s.kind === 'rock'), reg.id).toBe(true);
-      expect(inside.some((s) => s.kind === 'shelf'), reg.id).toBe(true);
+      expect(inside.length, reg.id).toBeGreaterThanOrEqual(3);
+      mixes.add(inside.map((s) => `${s.kind}@${Math.round(((s.y - surfaceY) / (seabedTop - surfaceY)) * 10)}`).sort().join());
     }
+    expect(mixes.size).toBe(balance.regions.list.length);
+    // The Sargasso is open ocean (weed mats only); the Volcanic Rift is mostly rock.
+    expect(t.structures.filter((s) => s.x >= 38000 && s.x < 54000 && s.kind === 'rock')).toHaveLength(0);
+    expect(t.structures.filter((s) => s.x >= 54000 && s.x < 72000 && s.kind === 'rock').length).toBeGreaterThanOrEqual(3);
     for (const s of t.structures) {
       for (let x = s.x - s.rx; x <= s.x + s.rx; x += 20) {
         expect(t.groundAt(x) - (s.y + s.ry)).toBeGreaterThan(150);
