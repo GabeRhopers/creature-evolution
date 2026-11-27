@@ -38,7 +38,8 @@ ok(await G(() => window.game.scene.getScene('Game').fisher.state === 'catch'), '
 
 // The hero (a hatchling) on the hook: a hit, then pulled up; EAT bites the line.
 ok(await waitFor(() => ['drop', 'wait'].includes(window.game.scene.getScene('Game').fisher.state), 30000), 'he casts again');
-const hp0 = await G(() => { const g = window.game.scene.getScene('Game'), pl = g.player; pl.hp = pl.maxHp; pl.invulnTimer = 0; return pl.hp; });
+// The hook well under the surface, so the pull can be seen (slow machines run few frames).
+const hp0 = await G(() => { const g = window.game.scene.getScene('Game'), pl = g.player, f = g.fisher; f.state = 'wait'; f.timer = 30; f.hookY = 450; pl.hp = pl.maxHp; pl.invulnTimer = 0; return pl.hp; });
 ok(await waitFor(() => { const g = window.game.scene.getScene('Game'), f = g.fisher, pl = g.player; if (!f.hookedPlayer) { pl.setPosition(f.hookX, f.hookY); pl.arcadeBody.setVelocity(0, 0); } return f.hookedPlayer; }, 20000), 'touching the hook hooks a hatchling');
 const hooked = await G(() => { const g = window.game.scene.getScene('Game'); return { hp: g.player.hp, y: g.player.y }; });
 ok(hooked.hp < hp0 && hooked.hp > 0, `a hit (${Math.round(hp0)} -> ${Math.round(hooked.hp)})`);
