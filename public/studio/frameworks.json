@@ -188,5 +188,19 @@
     ],
     "pixelScale": 2,
     "notes": "The sixth playable hero: Mike's brown spinosaurus with a tall sail, one sheet per stage (the hatchling inside its egg, the adult with yellow stripes), each with idle, swim, swim attack and hurt facing left, converted by tools/spino/convert_spino.py with the Sprite Studio skin engine (skinmaker.js). Long and low with room for the sail; the snout stays put in the swim and bite frames."
+  },
+  "fisher_ape": {
+    "extends": "default",
+    "name": "Fisher Ape",
+    "canvas": [
+      48,
+      48
+    ],
+    "bodyRadius": 12,
+    "mouth": [
+      38,
+      10
+    ],
+    "notes": "The Fisher Ape (an enemy in a rowboat, Nov 27): a standing monkey with a fishing rod, from Rhopers' sheet, converted by tools/fisher/convert_fisher.py. Feet on the bottom line, face in column 21, rod up on the right. Poses: idle, move (walk), attack (cast, hook), damage (hook), celebrate (catch, celebration)."
   }
 }

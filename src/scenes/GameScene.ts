@@ -10,6 +10,7 @@ import { SpatialGrid } from '../systems/spatialGrid';
 import { countInTide, factorsFor, groupSizes, outShare, rollLevel, type PeriodId, type SpawnFactors } from '../systems/spawnFactors';
 import { openedFromSave, type GatesConfig } from '../systems/gates';
 import { GateSystem } from './GateSystem';
+import { FisherSystem } from './FisherSystem';
 import { arenaLayout, beatenFromSave, bossPerks, clampToBox, inBox, shockMul, type ArenaConfig, type ArenaLayout, type BossDef } from '../systems/bosses';
 import { makeArena, makeCaveEntrance } from '../systems/arenaArt';
 import { BossSystem } from './BossSystem';
@@ -369,6 +370,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.sfx = new Sfx(this.sound);
     this.buildGates();
     this.buildBosses();
+    this.buildFisher();
     if (BOT_MODE) {
       this.bot = new PlayerBot(this);
       playtestLog().run++;
@@ -515,6 +517,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.collideTerrain();
     this.loopWorld();
     if (!this.dead && !this.menuMode) this.gates.update(dt);
+    this.fisher.update(dt);
     this.playerHidden = this.inKelp(this.player);
     this.updateVents(dt);
 
@@ -1263,6 +1266,45 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       },
       opened,
     );
+  }
+
+  // ---------------------------------------------------------------- the Fisher Ape
+
+  fisher!: FisherSystem;
+
+  private buildFisher(): void {
+    const sc = this;
+    this.fisher = new FisherSystem({
+      scene: this,
+      player: () => this.player,
+      playerCreature: () => this.playerCreature,
+      creatures: () => this.creatures,
+      regionAt: (x) => this.regions.at(x).id,
+      period: () => this.period,
+      inArena: () => !!this.arena,
+      playing: () => !this.menuMode && !this.dead,
+      inWater: () => this.landState === 'water',
+      eatHeld: () => (this.bot ? this.bot.wantsSwallow() : this.controller.wantsSwallow()),
+      stageId: () => this.player.stage?.id,
+      surfaceY: BALANCE.world.surfaceY,
+      seabedTop: this.seabedTop,
+      look: () => {
+        const l = this.speciesLook('beast-fisher_ape');
+        return l ? { key: l.key, frames: l.frames } : null;
+      },
+      popup: (t, x, y, big, color) => this.hud.popup(t, x, y, big, color),
+      hurt: (amount) => {
+        this.player.takeDamage(amount, false);
+        this.hud.hurt();
+        this.sfx.hurt();
+      },
+      caught: (c) => this.respawnAmbient(c),
+      reward: (share) => this.grantXp(Math.max(1, Math.round(this.player.xpNeeded * share))),
+      newCreature: (name, intro) => this.hud.newCreature(name, intro),
+      get sfx() {
+        return sc.sfx;
+      },
+    });
   }
 
   // ---------------------------------------------------------------- perks
