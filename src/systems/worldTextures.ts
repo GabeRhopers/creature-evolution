@@ -246,6 +246,60 @@ export function makeRock(scene: Phaser.Scene, key: string, seed: number, w: numb
   add(scene, key, c);
 }
 
+/**
+ * A mid-water rock outcrop: a lumpy oval w x h art px (navy outline, lit top, shaded underside)
+ * with a few weed tufts on top. The solid part is the oval the terrain uses.
+ */
+export function makeOutcrop(scene: Phaser.Scene, key: string, seed: number, w: number, h: number): void {
+  const r = rng(seed);
+  const top = 3; // room for weed tufts above the oval
+  const [c, g] = canvas(w, h + top);
+  const lumps = Array.from({ length: 6 }, () => 0.9 + r() * 0.1);
+  const inside = (x: number, y: number) => {
+    const dx = (x + 0.5 - w / 2) / (w / 2), dy = (y + 0.5 - h / 2) / (h / 2);
+    const a = Math.atan2(dy, dx);
+    const k = lumps[Math.floor(((a + Math.PI) / (Math.PI * 2)) * 6) % 6];
+    return x >= 0 && x < w && y >= 0 && y < h && dx * dx + dy * dy <= k * k;
+  };
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (!inside(x, y)) continue;
+      const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+      const lit = !inside(x, y - 2);
+      const under = y > h * 0.62 && bayer(x, y) < (y / h - 0.62) * 3;
+      px(g, x, y + top, edge ? C.navy : lit ? C.stone : under ? C.slate : C.grey);
+      if (!edge && !lit && r() < 0.05) px(g, x, y + top, C.slate);
+    }
+  for (let x = 2; x < w - 2; x++) {
+    if (r() > 0.18) continue;
+    let y = 0;
+    while (y < h && !inside(x, y)) y++;
+    if (y >= h * 0.4) continue;
+    const tall = 1 + Math.floor(r() * 3);
+    for (let k = 1; k <= tall; k++) px(g, x, y + top - k, k === tall ? C.leafLight : C.leaf);
+  }
+  add(scene, key, c);
+}
+
+/** A one-way shelf: a thin coral-stone ledge w art px long, its top flat, its underside ragged. */
+export function makeShelf(scene: Phaser.Scene, key: string, seed: number, w: number): void {
+  const r = rng(seed);
+  const h = 7;
+  const [c, g] = canvas(w, h);
+  for (let x = 0; x < w; x++) {
+    const end = Math.min(x, w - 1 - x);
+    const depth = Math.max(2, Math.min(h, 3 + Math.floor(r() * 3) + Math.min(2, end)));
+    const start = end < 2 ? 2 - end : 0; // rounded ends
+    for (let y = start; y < depth; y++) {
+      const edge = y === start || y === depth - 1 || end === 0;
+      px(g, x, y, edge ? C.navy : y === start + 1 ? C.coralLight : bayer(x, y) < 0.4 ? C.clay : C.coral);
+    }
+  }
+  // Small polyps on top.
+  for (let x = 3; x < w - 3; x += 4 + Math.floor(r() * 5)) px(g, x, 1, r() < 0.5 ? C.pinkLight : C.yellow);
+  add(scene, key, c);
+}
+
 /** A stepped light ray: a leaning band that fades with depth, in white (tinted/alpha'd by the caller). */
 export function makeRay(scene: Phaser.Scene, key: string, w: number, h: number, lean: number): void {
   const [c, g] = canvas(w + lean, h);

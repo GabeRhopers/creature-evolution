@@ -141,6 +141,18 @@ function paint(): void {
     g.fillStyle = 'rgba(255,255,255,0.75)';
     for (const a of B.areas.list) g.fillText(a.name, 6, sy(M.surfaceY + (M.seabedTop - M.surfaceY) * a.from) + 14);
   }
+  // Mid-water structures: rock outcrops as grey ovals, one-way shelves as coral ledges.
+  for (const st of M.terrain.structures) {
+    const x = sx(st.x), rx = st.rx / view.s;
+    if (x + rx < 0 || x - rx > w) continue;
+    if (st.kind === 'rock') {
+      g.fillStyle = '#5a6988';
+      g.beginPath(); g.ellipse(x, sy(st.y), Math.max(2, rx), Math.max(2, sy(st.y + st.ry) - sy(st.y)), 0, 0, Math.PI * 2); g.fill();
+    } else {
+      g.fillStyle = '#d77643';
+      g.fillRect(x - rx, sy(st.y), Math.max(3, rx * 2), 3);
+    }
+  }
   // Region names along the top.
   g.font = '700 12px "Pixelify Sans", monospace';
   g.textBaseline = 'top';
@@ -254,7 +266,7 @@ function hitTest(px: number, py: number): Thing | null {
   // drawn: scenery and caves on the seabed, floats at the surface; a gate is the whole water column).
   const surf = sy(M.surfaceY);
   const anchorY = (t: Thing) =>
-    t.kind === 'float' ? surf : t.kind === 'start' ? sy(M.surfaceY + (M.seabedTop - M.surfaceY) * 0.25) - 10 : t.kind === 'gate' ? py : sy(M.terrain.groundAt(t.x)) - 6;
+    t.kind === 'float' ? surf : t.kind === 'structure' ? sy(M.surfaceY + (M.seabedTop - M.surfaceY) * (t.size ?? 0.5)) : t.kind === 'start' ? sy(M.surfaceY + (M.seabedTop - M.surfaceY) * 0.25) - 10 : t.kind === 'gate' ? py : sy(M.terrain.groundAt(t.x)) - 6;
   for (const t of M.things) {
     if (t.kind === 'island' || t.kind === 'seamount' || t.kind === 'ridge') continue;
     if ((t.kind === 'scenery' && !layers.scenery) || (t.kind === 'float' && !layers.floats)) continue;
@@ -444,7 +456,7 @@ function showRegion(x: number): void {
   const depth = depthShare(M, M.terrain.groundAt(x));
   $('info').innerHTML = `<h2>${esc(r.name)}</h2>
     <div class="row">${(r.to - r.from).toLocaleString()} px wide (x ${r.from.toLocaleString()} to ${r.to.toLocaleString()})</div>
-    <div class="row">${n.island} islands · ${n.seamount} seamounts · ${n.ridge} ridges · ${n.scenery} scenery pieces · ${n.float} floating things${n.cave ? ` · ${n.cave} cave` : ''}</div>
+    <div class="row">${n.island} islands · ${n.seamount} seamounts · ${n.ridge} ridges · ${n.structure} mid-water structures · ${n.scenery} scenery pieces · ${n.float} floating things${n.cave ? ` · ${n.cave} cave` : ''}</div>
     <div class="row">Here (x ${Math.round(wrap(x)).toLocaleString()}): the seabed is ${pct(depth)} of the way down</div>`;
   $('info').classList.add('open');
   draw();

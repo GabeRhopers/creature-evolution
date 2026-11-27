@@ -15,7 +15,7 @@
     "kelpPatches": 215
   },
   "terrain": {
-    "_comment": "Shape of the sea. Ground: sand dunes everywhere, rocky ridges, and seamounts whose flat tops (top = share of the water, 0 surface, 1 seabed) reach into the Reef with coral gardens. Islands break the surface; their sandbank (depth, px) is solid and their mangrove roots (rootsDepth) are a hiding place. Keep the player start (world center) clear.",
+    "_comment": "Shape of the sea. Ground: sand dunes everywhere, rocky ridges, and seamounts whose flat tops (top = share of the water, 0 surface, 1 seabed) reach into the Reef with coral gardens. Islands break the surface; their sandbank (depth, px) is solid and their mangrove roots (rootsDepth) are a hiding place. Structures float mid-water (y = share of the water): a rock is solid all round, a shelf is one-way (swim up through it, rest on top). Placed by tools/structures/place.mts. Keep the player start (world center) clear.",
     "dunes": {
       "amplitude": 70,
       "wavelength": 900
@@ -597,6 +597,29 @@
       }
     ],
     "rootsDepth": 120,
+    "structures": [
+      { "kind": "shelf", "x": 7010, "y": 0.5, "width": 520 },
+      { "kind": "rock", "x": 12000, "y": 0.58, "width": 360, "height": 200 },
+      { "kind": "rock", "x": 19010, "y": 0.8, "width": 420, "height": 230 },
+      { "kind": "shelf", "x": 27080, "y": 0.5, "width": 520 },
+      { "kind": "rock", "x": 31000, "y": 0.58, "width": 360, "height": 200 },
+      { "kind": "rock", "x": 34920, "y": 0.8, "width": 420, "height": 230 },
+      { "kind": "shelf", "x": 41520, "y": 0.5, "width": 520 },
+      { "kind": "rock", "x": 46000, "y": 0.58, "width": 360, "height": 200 },
+      { "kind": "rock", "x": 50480, "y": 0.8, "width": 420, "height": 230 },
+      { "kind": "shelf", "x": 57960, "y": 0.5, "width": 520 },
+      { "kind": "rock", "x": 63000, "y": 0.58, "width": 360, "height": 200 },
+      { "kind": "rock", "x": 67820, "y": 0.8, "width": 420, "height": 230 },
+      { "kind": "shelf", "x": 75070, "y": 0.5, "width": 520 },
+      { "kind": "rock", "x": 78000, "y": 0.58, "width": 360, "height": 200 },
+      { "kind": "rock", "x": 80640, "y": 0.8, "width": 420, "height": 230 },
+      { "kind": "shelf", "x": 87080, "y": 0.5, "width": 520 },
+      { "kind": "rock", "x": 91000, "y": 0.58, "width": 360, "height": 200 },
+      { "kind": "rock", "x": 94250, "y": 0.8, "width": 420, "height": 230 },
+      { "kind": "shelf", "x": 101520, "y": 0.5, "width": 520 },
+      { "kind": "rock", "x": 106000, "y": 0.58, "width": 360, "height": 200 },
+      { "kind": "rock", "x": 110290, "y": 0.8, "width": 420, "height": 230 }
+    ],
     "corals": 40
   },
   "regions": {

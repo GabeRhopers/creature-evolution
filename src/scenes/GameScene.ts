@@ -4,7 +4,7 @@ import { Fish } from '../entities/Fish';
 import { PlayerController } from '../entities/PlayerController';
 import { toggleTuningPanel } from '../ui/tuning';
 import { Bubbles } from '../systems/Bubbles';
-import { C, makeGiantKelp, makeKelp, makeRay, makeRock, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
+import { C, makeGiantKelp, makeKelp, makeOutcrop, makeRay, makeRock, makeShelf, makeSilhouette, makeWater, makeWaterBlend, regionStops } from '../systems/worldTextures';
 import { Terrain, type TerrainConfig } from '../systems/terrain';
 import { SpatialGrid } from '../systems/spatialGrid';
 import { countInTide, factorsFor, groupSizes, outShare, rollLevel, type PeriodId, type SpawnFactors } from '../systems/spawnFactors';
@@ -323,6 +323,7 @@ export class GameScene extends Phaser.Scene implements AIWorld {
     this.placeScenery();
     this.placeFloats();
     this.placeRocks(W);
+    this.placeStructures();
     this.placeKelp(W);
     this.mirrorEdges(staticsFrom);
     this.collectStatics(staticsFrom);
@@ -2945,6 +2946,8 @@ export class GameScene extends Phaser.Scene implements AIWorld {
    * the ground's normal and drop the part of its speed that points into the rock.
    * Ramming the terrain fast stuns you, like a rock.
    */
+  private shelfPrevY = new WeakMap<Creature, number>();
+
   private collideTerrain(): void {
     for (const c of this.creatures) {
       const f = c.fish;
@@ -2953,6 +2956,15 @@ export class GameScene extends Phaser.Scene implements AIWorld {
       if (c.isPlayer && this.landState !== 'water') continue; // in the air or on an island
       if (this.collideArena(c)) continue; // in a boss arena: its walls, not the seabed
       const r = body.halfWidth;
+      // One-way shelves: solid only for a swimmer that was entirely above the shelf last frame.
+      let prevY = this.shelfPrevY.get(c) ?? f.y;
+      if (Math.abs(f.y - prevY) > 300) prevY = f.y; // spawned or teleported, not a real move
+      const shelf = this.terrain.shelfUnder(f.x, prevY, f.y, r);
+      if (shelf !== null) {
+        f.setPosition(f.x, shelf - r);
+        if (body.velocity.y > 0) body.velocity.y = 0;
+      }
+      this.shelfPrevY.set(c, f.y);
       const hit = this.terrain.resolve(f.x, f.y, r);
       if (!hit) continue;
       f.setPosition(hit.x, hit.y);
@@ -2965,6 +2977,24 @@ export class GameScene extends Phaser.Scene implements AIWorld {
         this.burst(f.x, f.y, f.size * 0.6);
       }
     }
+  }
+
+  /** Mid-water rock outcrops and one-way shelves (their shape and solidity live in Terrain). */
+  private placeStructures(): void {
+    this.terrain.structures.forEach((s, i) => {
+      const tint = ROCK_TINT[this.regions.at(s.x).id] ?? 0xffffff;
+      if (s.kind === 'rock') {
+        const key = `w_outcrop_${i}`;
+        makeOutcrop(this, key, 300 + i, Math.round((s.rx * 2) / WORLD_PX), Math.round((s.ry * 2) / WORLD_PX));
+        // The texture has 3 art px of weed above the oval: anchor the oval's center on (x, y).
+        const img = this.add.image(s.x, s.y + (3 * WORLD_PX) / 2, key).setScale(WORLD_PX).setDepth(-14).setTint(tint);
+        img.setName('structure');
+      } else {
+        const key = `w_shelf_${i}`;
+        makeShelf(this, key, 400 + i, Math.round((s.rx * 2) / WORLD_PX));
+        this.add.image(s.x, s.y, key).setOrigin(0.5, 0).setScale(WORLD_PX).setDepth(-14).setName('structure');
+      }
+    });
   }
 
   private placeRocks(W: number): void {
